@@ -1,0 +1,48 @@
+# System Architecture
+
+> **This doc owns:** the system shape — processes, surfaces, data flow, and concurrency. **For code layout see** [app-architecture](app-architecture.md); **for storage formats see** [data-model](data-model.md); **for library choices see** [tech-stack](tech-stack.md).
+
+**Status: planned** — traces to [PRD §3.3–§3.5](../product/prd.md); nothing is built yet.
+
+## Shape
+
+Everything is a shell over one core library; the vault directory on disk is the single source of truth, and the search index is derived from it.
+
+```mermaid
+graph TD
+    subgraph Surfaces
+        APP["Desktop app (Electron)<br/>React + BlockNote renderer<br/>core runs in main process, UI via IPC"]
+        CLI["brain CLI<br/>headless, scriptable"]
+        MCP["MCP server (stdio)<br/>tools for agents"]
+    end
+    CORE["packages/core<br/>vault ops · note envelope · tree ·<br/>Markdown import/export · watcher ·<br/>index & hybrid search"]
+    subgraph "Vault directory (source of truth)"
+        NOTES["BlockNote JSON notes<br/>in owner-chosen folders"]
+        RULES["Rules (Markdown, in-vault)"]
+        INDEX["SQLite index (FTS5 + vectors)<br/>derived, rebuildable"]
+    end
+    OWNER((Owner)) --> APP
+    AGENT((AI agent)) --> MCP
+    AGENT --> CLI
+    APP --> CORE
+    CLI --> CORE
+    MCP --> CORE
+    CORE --> NOTES
+    CORE --> RULES
+    CORE --> INDEX
+```
+
+## Key properties
+
+- **One core, three shells.** All vault logic lives in `packages/core`; the app (via IPC from the renderer to the Electron main process), the CLI, and the MCP server are thin adapters. Identical behaviour across surfaces is a PRD requirement (§3.5), not an aspiration.
+- **Files first, index derived.** Any process may be the writer; the index updates incrementally from file changes and can always be rebuilt from scratch ([PRD §3.4](../product/prd.md)). Nothing is stored only in the index.
+- **Headless-capable.** CLI and MCP server run without the desktop app; agents work on the vault while the app is closed.
+- **Local-first.** No network calls in the default configuration ([PRD §4.1](../product/prd.md)); remote embedding providers are opt-in at the core seam.
+
+## Concurrency
+
+Multiple processes (app + agent via CLI/MCP) can touch the vault at once. The mechanism is an **open decision — [PRD §7.3](../product/prd.md#7-open-questions)**, to be made in E0 and recorded here. Candidates: atomic write-then-rename with watcher-driven refresh (likely default — simple, fits files-first), advisory locking, or a single-writer daemon. Whatever is chosen must satisfy: no corrupted notes, no silent loss of either version of a concurrent edit (E3's conflict guard), and safe concurrent SQLite access (WAL).
+
+## What doesn't exist here
+
+No server, no cloud, no deployment target — this is a desktop app plus local processes, which is why there is no `docs/operations/` tree. Packaging/distribution of the app is deferred until after E6 (see [epics](../product/epics/index.md)).
