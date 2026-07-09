@@ -34,6 +34,7 @@ Make diagrams first-class citizens of a note: a code block tagged `mermaid` — 
 
 ## Notes
 
+- **Authoring:** a `/mermaid` slash-menu command inserts a diagram (a `codeBlock` tagged `mermaid` with a starter graph) so owners create diagrams from the editor, not just render existing ones. Covered by an E2E.
 - **Storage is unchanged:** diagrams stay `codeBlock` blocks with a `language` prop. E7 overrides only how BlockNote *renders* that block; the on-disk format, Markdown import/export, and E2's fidelity guarantees all carry over untouched (data-model.md § Diagrams).
 - The renderer registry (`src/renderer/src/diagrams/registry.ts`) is the app-layer seam; `mermaid.ts` is the v1 entry. Adding a language (PRD §7.4) is a new registry entry only.
 - Non-text diagram types (e.g. Excalidraw sketches) are explicitly *not* in this epic — each needs a data-model decision first (PRD §7.4).

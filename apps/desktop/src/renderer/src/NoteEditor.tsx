@@ -7,14 +7,20 @@
  */
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/mantine/style.css';
-import type { PartialBlock } from '@blocknote/core';
+import { filterSuggestionItems, type PartialBlock } from '@blocknote/core';
 import { BlockNoteView } from '@blocknote/mantine';
-import { useCreateBlockNote } from '@blocknote/react';
+import {
+  getDefaultReactSlashMenuItems,
+  SuggestionMenuController,
+  useCreateBlockNote,
+} from '@blocknote/react';
 import type { NoteEnvelope } from '@brain/core';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Workflow } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { editorSchema } from './editorSchema';
 import { TagEditor } from './TagEditor';
+
+const STARTER_DIAGRAM = 'graph TD\n  A[Start] --> B[End]';
 
 const AUTOSAVE_MS = 600;
 const NOTE_EXTENSION = '.note.json';
@@ -140,7 +146,40 @@ export function NoteEditor({ path, note, initialHash, onReload }: NoteEditorProp
           editor={editor}
           theme={prefersDark ? 'dark' : 'light'}
           onChange={scheduleSave}
-        />
+          slashMenu={false}
+        >
+          <SuggestionMenuController
+            triggerCharacter="/"
+            getItems={async (query) =>
+              filterSuggestionItems(
+                [
+                  ...getDefaultReactSlashMenuItems(editor),
+                  {
+                    title: 'Mermaid diagram',
+                    subtext: 'Flowchart, sequence, and more',
+                    aliases: ['mermaid', 'diagram', 'chart', 'graph', 'flowchart'],
+                    group: 'Other',
+                    icon: <Workflow size={18} />,
+                    onItemClick: () => {
+                      editor.insertBlocks(
+                        [
+                          {
+                            type: 'codeBlock',
+                            props: { language: 'mermaid' },
+                            content: STARTER_DIAGRAM,
+                          },
+                        ],
+                        editor.getTextCursorPosition().block,
+                        'after',
+                      );
+                    },
+                  },
+                ],
+                query,
+              )
+            }
+          />
+        </BlockNoteView>
       </div>
     </article>
   );

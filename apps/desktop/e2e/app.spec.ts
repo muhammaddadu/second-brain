@@ -188,6 +188,21 @@ test('creates and renames a note via the context menu, and reflects external cha
   await expect(window.getByRole('button', { name: 'external' })).toBeVisible({ timeout: 8000 });
 });
 
+test('inserts a Mermaid diagram from the slash menu', async () => {
+  await openNote('Code', 'snippet');
+  const editable = window.locator('[contenteditable="true"]').first();
+  await editable.click();
+  await window.keyboard.press('End');
+  await window.keyboard.press('Enter'); // a fresh block
+  await window.keyboard.type('/mermaid');
+  await window.getByText('Mermaid diagram').click();
+
+  // A diagram is inserted and renders.
+  await expect(window.getByTestId('diagram-preview').locator('svg').first()).toBeVisible({
+    timeout: 8000,
+  });
+});
+
 test('settings: switching theme applies live', async () => {
   await window.getByRole('button', { name: 'Settings' }).click();
   await expect(window.getByTestId('settings-dialog')).toBeVisible();
