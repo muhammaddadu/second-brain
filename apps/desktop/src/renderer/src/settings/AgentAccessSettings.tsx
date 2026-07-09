@@ -1,20 +1,23 @@
 /**
- * Agent access settings (ADR 0009). Explains that agents can work with the vault directly through
- * its files (every vault carries a maintained AGENTS.md guide), and lets the owner install a global
- * Claude Code skill so any agent knows how to work with a Second Brain vault anywhere.
+ * Agent access settings (ADR 0009). The owner's RULES.md editor; per-runtime installs of the vault
+ * contract (Claude Code, Codex CLI, Gemini CLI — a data-driven list, one row per runtime); and a
+ * global `brain` CLI install with status. All installs are explicit, reversible, and show exactly
+ * where they write.
  */
-import { Bot, Check } from 'lucide-react';
+import { Bot, Check, TerminalSquare } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import type { AgentSkillStatus } from '../../../shared/ipc';
+import type { AgentSkillStatus, CliStatus } from '../../../shared/ipc';
 
 export function AgentAccessSettings() {
-  const [status, setStatus] = useState<AgentSkillStatus | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [targets, setTargets] = useState<AgentSkillStatus[]>([]);
+  const [cli, setCli] = useState<CliStatus | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   const [rules, setRules] = useState('');
   const [savedRules, setSavedRules] = useState('');
 
   const refresh = useCallback(() => {
-    window.vault.agentSkillStatus().then(setStatus).catch(console.error);
+    window.vault.agentSkillStatus().then(setTargets).catch(console.error);
+    window.vault.cliStatus().then(setCli).catch(console.error);
   }, []);
 
   useEffect(refresh, [refresh]);
@@ -37,13 +40,13 @@ export function AgentAccessSettings() {
       .catch(console.error);
   }
 
-  async function run(action: () => Promise<void>) {
-    setBusy(true);
+  async function run(key: string, action: () => Promise<void>) {
+    setBusy(key);
     try {
       await action();
       refresh();
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -84,51 +87,112 @@ export function AgentAccessSettings() {
         </span>
       </div>
 
-      <div className="border-edge flex flex-col gap-3 rounded-xl border p-4">
+      <div className="border-edge mb-3 flex flex-col gap-3 rounded-xl border p-4">
         <div className="flex items-center gap-2">
           <Bot size={15} className="text-faint" />
-          <span className="text-ink text-sm font-medium">Global agent skill (Claude Code)</span>
-          {status?.installed && (
-            <span className="text-faint ml-auto flex items-center gap-1 text-xs">
-              <Check size={13} className="text-green-700 dark:text-green-400" />
-              {status.outdated ? 'Update available' : 'Installed'}
-            </span>
-          )}
+          <span className="text-ink text-sm font-medium">Teach your agents about vaults</span>
         </div>
         <p className="text-muted text-xs leading-relaxed">
-          Install a skill so any Claude Code agent — in any folder — knows how to work with a Second
-          Brain vault, not just one that already has the guide file. It's written to your global
-          skills directory.
+          Install the vault contract into each agent runtime you use, so any agent — in any folder —
+          knows how to work with a Second Brain vault. Each install is a single file you can remove
+          any time.
         </p>
-        {status && (
-          <code className="text-faint truncate text-[11px]" title={status.path}>
-            {status.path}
-          </code>
-        )}
-        <div className="flex flex-wrap gap-2">
-          {!status?.installed || status.outdated ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void run(() => window.vault.installAgentSkill())}
-              className="bg-accent text-accent-ink rounded-lg px-3 py-1.5 text-sm disabled:opacity-60"
-              data-testid="install-agent-skill"
+        <div className="flex flex-col gap-2">
+          {targets.map((t) => (
+            <div
+              key={t.id}
+              className="flex flex-wrap items-center gap-2"
+              data-testid={`skill-${t.id}`}
             >
-              {busy ? 'Working…' : status?.outdated ? 'Update skill' : 'Install agent skill'}
-            </button>
-          ) : null}
-          {status?.installed && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void run(() => window.vault.removeAgentSkill())}
-              className="border-edge text-muted hover:text-ink rounded-lg border px-3 py-1.5 text-sm disabled:opacity-60"
-            >
-              Remove
-            </button>
-          )}
+              <span className="text-ink w-28 shrink-0 text-sm">{t.name}</span>
+              <code className="text-faint min-w-0 flex-1 truncate text-[11px]" title={t.path}>
+                {t.path}
+              </code>
+              {t.installed && !t.outdated && (
+                <span className="text-faint flex items-center gap-1 text-xs">
+                  <Check size={13} className="text-green-700 dark:text-green-400" /> Installed
+                </span>
+              )}
+              {(!t.installed || t.outdated) && (
+                <button
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() => void run(t.id, () => window.vault.installAgentSkill(t.id))}
+                  className="bg-accent text-accent-ink rounded-lg px-2.5 py-1 text-xs disabled:opacity-60"
+                >
+                  {busy === t.id ? 'Working…' : t.outdated ? 'Update' : 'Install'}
+                </button>
+              )}
+              {t.installed && (
+                <button
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() => void run(t.id, () => window.vault.removeAgentSkill(t.id))}
+                  className="border-edge text-muted hover:text-ink rounded-lg border px-2.5 py-1 text-xs disabled:opacity-60"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       </div>
+
+      {cli && (
+        <div
+          className="border-edge flex flex-col gap-3 rounded-xl border p-4"
+          data-testid="cli-install"
+        >
+          <div className="flex items-center gap-2">
+            <TerminalSquare size={15} className="text-faint" />
+            <span className="text-ink text-sm font-medium">
+              <code>brain</code> command line
+            </span>
+            {cli.installed && !cli.outdated && (
+              <span className="text-faint ml-auto flex items-center gap-1 text-xs">
+                <Check size={13} className="text-green-700 dark:text-green-400" /> Installed
+              </span>
+            )}
+          </div>
+          <p className="text-muted text-xs leading-relaxed">
+            Install the <code className="text-ink">brain</code> command globally so you (and
+            scripts/agents) can list, search, and edit vaults from any terminal — the app doesn’t
+            need to be open.
+          </p>
+          <code className="text-faint truncate text-[11px]" title={cli.path}>
+            {cli.path}
+          </code>
+          {cli.installed && !cli.onPath && (
+            <p className="text-accent text-[11px]">
+              That folder isn’t on your PATH yet — add it in your shell profile, e.g.{' '}
+              <code>export PATH="$HOME/.local/bin:$PATH"</code>.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {(!cli.installed || cli.outdated) && (
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={() => void run('cli', () => window.vault.installCli())}
+                data-testid="install-cli"
+                className="bg-accent text-accent-ink rounded-lg px-3 py-1.5 text-sm disabled:opacity-60"
+              >
+                {busy === 'cli' ? 'Working…' : cli.outdated ? 'Update command' : 'Install command'}
+              </button>
+            )}
+            {cli.installed && (
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={() => void run('cli', () => window.vault.removeCli())}
+                className="border-edge text-muted hover:text-ink rounded-lg border px-3 py-1.5 text-sm disabled:opacity-60"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

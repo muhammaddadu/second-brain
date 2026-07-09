@@ -9,6 +9,7 @@ import type { TreeNode } from '@brain/core';
 import { NOTE_EXTENSION } from '@brain/core/paths';
 import { ChevronDown, ChevronRight, Database, FileText, FolderPlus } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { ConfirmDialog } from '../shell/ConfirmDialog';
 import { ContextMenu, type MenuItem } from './ContextMenu';
 import {
   canDropInto,
@@ -17,6 +18,7 @@ import {
   type DropHint,
   dropIntentFor,
   findNode,
+  flattenVisible,
   remapPath,
   reorderedNames,
 } from './folder-tree-logic';
@@ -49,6 +51,9 @@ export function FolderTree({
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [moving, setMoving] = useState<TreeNode | null>(null);
+  const [confirmTrash, setConfirmTrash] = useState<TreeNode | null>(null);
+  // Keyboard focus (roving): the row arrow keys move between; Enter opens, Delete asks to trash.
+  const [focusedPath, setFocusedPath] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const draggingRef = useRef<TreeNode | null>(null);
   // Where a drop would land: `into` a folder (or the root, path ''), or `before`/`after` a sibling
@@ -204,6 +209,63 @@ export function FolderTree({
     });
   }
 
+  /** Arrow/Enter/Delete keyboard navigation over the visible rows (scoped to the tree container). */
+  function onTreeKeyDown(e: React.KeyboardEvent) {
+    // Never hijack typing in an inline-rename input (events bubble up to this container).
+    if ((e.target as HTMLElement).closest('input, [contenteditable="true"]')) return;
+    const visible = flattenVisible(nodes, expanded);
+    if (visible.length === 0) return;
+    const idx = visible.findIndex((n) => n.path === focusedPath);
+    const focusNode = idx >= 0 ? (visible[idx] ?? null) : null;
+    const move = (next: number) => {
+      const target = visible[Math.max(0, Math.min(visible.length - 1, next))];
+      if (target) setFocusedPath(target.path);
+    };
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        move(idx < 0 ? 0 : idx + 1);
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        move(idx < 0 ? 0 : idx - 1);
+        break;
+      case 'ArrowRight':
+        if (focusNode?.type === 'folder') {
+          e.preventDefault();
+          setExpandedFor(focusNode.path, true);
+        }
+        break;
+      case 'ArrowLeft':
+        if (focusNode?.type === 'folder' && expanded.has(focusNode.path)) {
+          e.preventDefault();
+          setExpandedFor(focusNode.path, false);
+        } else if (focusNode && currentParent(focusNode.path)) {
+          e.preventDefault();
+          setFocusedPath(currentParent(focusNode.path));
+        }
+        break;
+      case 'Enter':
+        if (!focusNode) break;
+        e.preventDefault();
+        if (focusNode.type === 'note') onSelect(focusNode.path);
+        else if (databases.has(focusNode.path)) {
+          onOpenDatabase(focusNode.path);
+          setExpandedFor(focusNode.path, true);
+        } else setExpandedFor(focusNode.path, !expanded.has(focusNode.path));
+        break;
+      case 'Delete':
+      case 'Backspace':
+        if (focusNode) {
+          e.preventDefault();
+          setConfirmTrash(focusNode);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
   function menuItems(node: TreeNode | null): MenuItem[] {
     if (node === null) {
       return [
@@ -222,21 +284,25 @@ export function FolderTree({
           : []),
         { label: 'Rename', onClick: () => setRenamingPath(node.path) },
         { label: 'Move to…', onClick: () => setMoving(node) },
-        { label: 'Delete', danger: true, onClick: () => void trash(node) },
+        { label: 'Delete', danger: true, onClick: () => setConfirmTrash(node) },
       ];
     }
     return [
       { label: 'Rename', onClick: () => setRenamingPath(node.path) },
       { label: 'Move to…', onClick: () => setMoving(node) },
       { label: 'Edit tags', onClick: () => onSelect(node.path) },
-      { label: 'Delete', danger: true, onClick: () => void trash(node) },
+      { label: 'Delete', danger: true, onClick: () => setConfirmTrash(node) },
     ];
   }
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: right-click + drop surface for root actions
     <div
-      className={`min-h-full ${dropHint?.path === '' ? 'bg-accent/5' : ''}`}
+      className={`min-h-full outline-none ${dropHint?.path === '' ? 'bg-accent/5' : ''}`}
+      data-testid="folder-tree"
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: the tree is a keyboard-navigable widget (roving focus)
+      tabIndex={0}
+      onKeyDown={onTreeKeyDown}
       onContextMenu={(e) => {
         e.preventDefault();
         setMenu({ node: null, x: e.clientX, y: e.clientY });
@@ -276,6 +342,8 @@ export function FolderTree({
               expanded={expanded}
               dropHint={dropHint}
               databases={databases}
+              focusedPath={focusedPath}
+              onFocusNode={setFocusedPath}
               onOpenDatabase={onOpenDatabase}
               onToggleExpand={setExpandedFor}
               onSelect={onSelect}
@@ -304,6 +372,19 @@ export function FolderTree({
           onClose={() => setMenu(null)}
         />
       )}
+      {confirmTrash && (
+        <ConfirmDialog
+          title={confirmTrash.type === 'folder' ? 'Delete folder?' : 'Delete note?'}
+          body={`"${confirmTrash.name}" ${confirmTrash.type === 'folder' ? 'and everything inside it ' : ''}will move to the vault trash. You can restore it from .brain/trash.`}
+          confirmLabel="Move to trash"
+          onConfirm={() => {
+            const node = confirmTrash;
+            setConfirmTrash(null);
+            void trash(node);
+          }}
+          onCancel={() => setConfirmTrash(null)}
+        />
+      )}
       {moving && (
         <MoveDialog
           noteName={moving.name}
@@ -324,6 +405,8 @@ interface TreeItemProps {
   expanded: ReadonlySet<string>;
   dropHint: DropHint | null;
   databases: ReadonlySet<string>;
+  focusedPath: string | null;
+  onFocusNode: (path: string) => void;
   onOpenDatabase: (path: string) => void;
   onToggleExpand: (path: string, open: boolean) => void;
   onSelect: (path: string | null) => void;
@@ -349,6 +432,7 @@ function TreeItem(props: TreeItemProps) {
   const isOpen = expanded.has(node.path);
   const indent = { paddingLeft: `${depth * 14 + 8}px` };
   const hint = dropHint?.path === node.path ? dropHint.pos : null;
+  const focusRing = props.focusedPath === node.path ? 'ring-accent/50 ring-1' : '';
   const dragProps = {
     draggable: true,
     onDragStart: (e: React.DragEvent) => {
@@ -417,6 +501,7 @@ function TreeItem(props: TreeItemProps) {
           style={indent}
           {...dragProps}
           onClick={() => {
+            props.onFocusNode(node.path);
             // A database folder opens its table view; a plain folder just expands/collapses.
             if (isDatabase) {
               props.onOpenDatabase(node.path);
@@ -427,7 +512,7 @@ function TreeItem(props: TreeItemProps) {
           }}
           onContextMenu={openMenu}
           aria-expanded={isOpen}
-          className={`${rowClass} text-ink ${hint === 'into' ? 'bg-accent/15 ring-accent/40 ring-1' : 'hover:bg-edge/50'}`}
+          className={`${rowClass} text-ink ${hint === 'into' ? 'bg-accent/15 ring-accent/40 ring-1' : `hover:bg-edge/50 ${focusRing}`}`}
         >
           {isOpen ? (
             <ChevronDown size={14} className="text-faint shrink-0" aria-hidden />
@@ -456,10 +541,13 @@ function TreeItem(props: TreeItemProps) {
         type="button"
         style={indent}
         {...dragProps}
-        onClick={() => onSelect(node.path)}
+        onClick={() => {
+          props.onFocusNode(node.path);
+          onSelect(node.path);
+        }}
         onContextMenu={openMenu}
         aria-current={selected}
-        className={`${rowClass} ${
+        className={`${rowClass} ${focusRing} ${
           selected ? 'bg-accent/15 text-accent' : 'text-ink hover:bg-edge/50'
         }`}
       >

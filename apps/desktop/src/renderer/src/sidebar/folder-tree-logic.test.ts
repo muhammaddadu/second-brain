@@ -6,6 +6,7 @@ import {
   currentParent,
   dropIntentFor,
   findNode,
+  flattenVisible,
   remapPath,
   reorderedNames,
 } from './folder-tree-logic';
@@ -49,6 +50,30 @@ describe('tree lookups', () => {
   it('currentParent handles root and nested paths', () => {
     expect(currentParent('root.note.json')).toBe('');
     expect(currentParent('Journal/a.note.json')).toBe('Journal');
+  });
+});
+
+describe('flattenVisible (keyboard traversal order)', () => {
+  it('skips children of collapsed folders and follows display order', () => {
+    expect(flattenVisible(tree, new Set()).map((n) => n.path)).toEqual([
+      'Journal',
+      'Projects',
+      'root.note.json',
+    ]);
+    expect(flattenVisible(tree, new Set(['Journal'])).map((n) => n.path)).toEqual([
+      'Journal',
+      'Journal/a.note.json',
+      'Journal/b.note.json',
+      'Projects',
+      'root.note.json',
+    ]);
+    // Nested: expanding Projects but not alpha shows alpha itself, not its children.
+    expect(flattenVisible(tree, new Set(['Projects'])).map((n) => n.path)).toContain(
+      'Projects/alpha',
+    );
+    expect(flattenVisible(tree, new Set(['Projects'])).map((n) => n.path)).not.toContain(
+      'Projects/alpha/idx.note.json',
+    );
   });
 });
 

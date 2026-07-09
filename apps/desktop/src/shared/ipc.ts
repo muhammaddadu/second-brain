@@ -72,6 +72,9 @@ export const IPC = {
   agentSkillStatus: 'agent:skill-status',
   installAgentSkill: 'agent:skill-install',
   removeAgentSkill: 'agent:skill-remove',
+  cliStatus: 'agent:cli-status',
+  installCli: 'agent:cli-install',
+  removeCli: 'agent:cli-remove',
   getRules: 'agent:get-rules',
   setRules: 'agent:set-rules',
   /** Main → renderer push: a file changed in the vault (watcher). */
@@ -129,12 +132,25 @@ export interface IndexStatus {
   total: number;
 }
 
-/** Whether the global agent skill (Claude Code) is installed and current. */
+/** Install state of the vault contract for one agent runtime (Claude Code, Codex CLI, …). */
 export interface AgentSkillStatus {
+  id: string;
+  name: string;
   installed: boolean;
   outdated: boolean;
-  /** Absolute install directory (shown so the owner knows where it lives). */
+  /** Absolute path of the installed file (shown so the owner knows where it lives). */
   path: string;
+}
+
+/** Install state of the global `brain` command. */
+export interface CliStatus {
+  installed: boolean;
+  /** True when the installed wrapper doesn't match the current app/CLI paths. */
+  outdated: boolean;
+  /** Where the command is (or would be) installed. */
+  path: string;
+  /** Whether that directory is on the user's PATH. */
+  onPath: boolean;
 }
 
 /** Snapshot of the index for the settings screen. */
@@ -290,12 +306,18 @@ export interface VaultApi {
   downloadBuiltinModel(): Promise<void>;
 
   // --- Global agent skill (ADR 0009) ---
-  /** Whether the global Claude Code agent skill is installed / needs updating. */
-  agentSkillStatus(): Promise<AgentSkillStatus>;
-  /** Install (or update) the global agent skill so any Claude Code agent can work with a vault. */
-  installAgentSkill(): Promise<void>;
-  /** Remove the global agent skill. */
-  removeAgentSkill(): Promise<void>;
+  /** Install state of the vault contract per agent runtime (Claude Code, Codex, Gemini, …). */
+  agentSkillStatus(): Promise<AgentSkillStatus[]>;
+  /** Install (or update) the vault contract for one runtime by target id. */
+  installAgentSkill(id: string): Promise<void>;
+  /** Remove the vault contract for one runtime by target id. */
+  removeAgentSkill(id: string): Promise<void>;
+  /** Install state of the global `brain` command. */
+  cliStatus(): Promise<CliStatus>;
+  /** Install (or update) the global `brain` command into the user's bin directory. */
+  installCli(): Promise<void>;
+  /** Remove the global `brain` command. */
+  removeCli(): Promise<void>;
   /** The owner's agent rules (RULES.md), or '' if none. */
   getRules(): Promise<string>;
   /** Save the owner's agent rules (RULES.md); a blank value removes the file. */

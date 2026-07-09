@@ -43,6 +43,24 @@ export function remapPath(value: string, oldPath: string, newPath: string | null
   return value;
 }
 
+/**
+ * The tree flattened to its currently *visible* rows, top-to-bottom — the traversal order for
+ * keyboard navigation (children of collapsed folders are skipped).
+ */
+export function flattenVisible(nodes: TreeNode[], expanded: ReadonlySet<string>): TreeNode[] {
+  const out: TreeNode[] = [];
+  const walk = (list: TreeNode[]) => {
+    for (const node of list) {
+      out.push(node);
+      if (node.type === 'folder' && expanded.has(node.path) && node.children) {
+        walk(node.children);
+      }
+    }
+  };
+  walk(nodes);
+  return out;
+}
+
 /** The parent folder of a vault-relative path ('' at the root). */
 export function currentParent(path: string): string {
   return path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';

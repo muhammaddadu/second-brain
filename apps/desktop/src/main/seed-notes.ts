@@ -4,7 +4,15 @@
  * opening an existing folder. Authored as native block JSON directly so main never imports the
  * Markdown converter (jsdom can't be bundled into the Electron main process).
  */
-import { createNote, readRules, type Vault, writeRules } from '@brain/core';
+import {
+  addProperty,
+  createDatabase,
+  createNote,
+  readRules,
+  setRowProperty,
+  type Vault,
+  writeRules,
+} from '@brain/core';
 
 const h = (level: 1 | 2 | 3, text: string): unknown => ({
   type: 'heading',
@@ -166,6 +174,56 @@ Conventions for anyone — human or AI agent — writing to this vault. Edit fre
 - Tag notes with what they are about; keep tags short and lowercase.
 `;
 
+/** An example database so the first vault demonstrates tables/boards working (E8). */
+async function seedExampleDatabase(vault: Vault): Promise<void> {
+  const folder = 'Projects';
+  await createDatabase(vault, folder);
+  const status = await addProperty(vault, folder, {
+    name: 'Status',
+    type: 'select',
+    options: ['Planned', 'In progress', 'Done'],
+  });
+  const priority = await addProperty(vault, folder, { name: 'Priority', type: 'number' });
+  const rows: Array<{
+    file: string;
+    title: string;
+    text: string;
+    status: string;
+    priority: number;
+  }> = [
+    {
+      file: 'Set up my vault.note.json',
+      title: 'Set up my vault',
+      text: 'Created the vault and read the guide. Rows are ordinary notes — open one and write.',
+      status: 'Done',
+      priority: 1,
+    },
+    {
+      file: 'Try the board view.note.json',
+      title: 'Try the board view',
+      text: 'Switch this database to Board and drag this card to Done.',
+      status: 'In progress',
+      priority: 2,
+    },
+    {
+      file: 'Plan something new.note.json',
+      title: 'Plan something new',
+      text: 'Add your own rows with New row, or let an agent file them for you.',
+      status: 'Planned',
+      priority: 3,
+    },
+  ];
+  for (const row of rows) {
+    await createNote(vault, `${folder}/${row.file}`, {
+      title: row.title,
+      tags: ['project'],
+      blocks: [p(row.text)],
+    });
+    await setRowProperty(vault, folder, `${folder}/${row.file}`, status.id, row.status);
+    await setRowProperty(vault, folder, `${folder}/${row.file}`, priority.id, row.priority);
+  }
+}
+
 export async function seedStarterVault(vault: Vault): Promise<void> {
   for (const note of SEED_NOTES) {
     try {
@@ -182,5 +240,10 @@ export async function seedStarterVault(vault: Vault): Promise<void> {
     if (!(await readRules(vault))) await writeRules(vault, SEED_RULES);
   } catch {
     // Non-fatal, same as note seeding.
+  }
+  try {
+    await seedExampleDatabase(vault);
+  } catch {
+    // Non-fatal: the database example must not block opening the vault.
   }
 }

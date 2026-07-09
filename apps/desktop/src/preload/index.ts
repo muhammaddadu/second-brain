@@ -79,8 +79,11 @@ const vault: VaultApi = {
   builtinModelReady: () => ipcRenderer.invoke(IPC.builtinModelReady),
   downloadBuiltinModel: () => ipcRenderer.invoke(IPC.downloadBuiltinModel),
   agentSkillStatus: () => ipcRenderer.invoke(IPC.agentSkillStatus),
-  installAgentSkill: () => ipcRenderer.invoke(IPC.installAgentSkill),
-  removeAgentSkill: () => ipcRenderer.invoke(IPC.removeAgentSkill),
+  installAgentSkill: (id) => ipcRenderer.invoke(IPC.installAgentSkill, id),
+  removeAgentSkill: (id) => ipcRenderer.invoke(IPC.removeAgentSkill, id),
+  cliStatus: () => ipcRenderer.invoke(IPC.cliStatus),
+  installCli: () => ipcRenderer.invoke(IPC.installCli),
+  removeCli: () => ipcRenderer.invoke(IPC.removeCli),
   getRules: () => ipcRenderer.invoke(IPC.getRules),
   setRules: (text) => ipcRenderer.invoke(IPC.setRules, text),
 };

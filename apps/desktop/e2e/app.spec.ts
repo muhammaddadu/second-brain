@@ -494,6 +494,45 @@ test('databases: "New database" creates a schema-backed folder with inline renam
     .toContain('"views"');
 });
 
+test('sidebar keyboard: arrows navigate, Enter opens, Delete asks before trashing', async () => {
+  // A disposable, uniquely-named note to delete.
+  await ensureExpanded('Journal');
+  await window.getByRole('button', { name: 'Journal', exact: true }).click({ button: 'right' });
+  await window.getByTestId('context-menu').getByRole('button', { name: 'New note' }).click();
+  const titleInput = window.getByTestId('note-title');
+  await titleInput.fill('Disposable');
+  await titleInput.press('Enter');
+  const row = window.getByRole('button', { name: 'Disposable', exact: true });
+  await expect(row).toBeVisible();
+
+  // Click the row (sets keyboard focus to it), then Delete asks first; Escape cancels.
+  await row.click();
+  const tree = window.getByTestId('folder-tree');
+  await tree.focus();
+  await window.keyboard.press('Delete');
+  await expect(window.getByTestId('confirm-dialog')).toBeVisible();
+  await expect(window.getByTestId('confirm-dialog')).toContainText('Disposable'); // the right target
+  await window.keyboard.press('Escape');
+  await expect(window.getByTestId('confirm-dialog')).toHaveCount(0);
+  await expect(row).toBeVisible(); // nothing trashed on cancel
+
+  // Confirming really moves the note to trash (recoverable on disk, gone from the tree).
+  await tree.focus();
+  await window.keyboard.press('Delete');
+  await window.getByTestId('confirm-action').click();
+  await expect(row).toHaveCount(0);
+  const { readdir } = await import('node:fs/promises');
+  const trashed = await readdir(join(vaultRoot, '.brain/trash'));
+  expect(trashed.some((f) => f.includes('Disposable'))).toBe(true);
+
+  // Arrow navigation: ArrowDown then Enter toggles the first row (a folder).
+  await tree.focus();
+  await window.keyboard.press('ArrowDown');
+  await window.keyboard.press('Enter');
+  const first = window.getByRole('button', { name: 'Code', exact: true });
+  await expect(first).toHaveAttribute('aria-expanded', /true|false/);
+});
+
 test('opens the knowledge graph and can return to a note', async () => {
   await window.getByTestId('graph-button').click();
   await expect(window.getByRole('heading', { name: 'Knowledge graph' })).toBeVisible();

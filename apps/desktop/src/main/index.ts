@@ -65,6 +65,7 @@ import {
 } from '../shared/ipc.js';
 import { APP_SCHEME } from '../shared/route.js';
 import { agentSkillStatus, installAgentSkill, removeAgentSkill } from './agent-skill.js';
+import { cliStatus, installCli, removeCli } from './cli-install.js';
 import {
   readConfig,
   readSecret,
@@ -375,8 +376,11 @@ function registerHandlers(): void {
 
   // Global agent skill (ADR 0009).
   ipcMain.handle(IPC.agentSkillStatus, () => agentSkillStatus());
-  ipcMain.handle(IPC.installAgentSkill, () => installAgentSkill());
-  ipcMain.handle(IPC.removeAgentSkill, () => removeAgentSkill());
+  ipcMain.handle(IPC.installAgentSkill, (_event, id: string) => installAgentSkill(id));
+  ipcMain.handle(IPC.removeAgentSkill, (_event, id: string) => removeAgentSkill(id));
+  ipcMain.handle(IPC.cliStatus, () => cliStatus());
+  ipcMain.handle(IPC.installCli, () => installCli());
+  ipcMain.handle(IPC.removeCli, () => removeCli());
   ipcMain.handle(IPC.getRules, () => readRules(requireVault()));
   ipcMain.handle(IPC.setRules, (_event, text: string) => writeRules(requireVault(), text));
 }
