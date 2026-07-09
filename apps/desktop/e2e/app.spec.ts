@@ -32,9 +32,11 @@ const CODE_PATH = 'Code/snippet.note.json';
 let app: ElectronApplication;
 let window: Page;
 let vaultRoot: string;
+let userData: string;
 
 test.beforeAll(async () => {
   vaultRoot = await mkdtemp(join(tmpdir(), 'brain-e2e-'));
+  userData = await mkdtemp(join(tmpdir(), 'brain-e2e-ud-'));
   const vault = openVault(vaultRoot);
   await createNote(vault, NOTE_PATH, { title: 'Daily log', tags: ['journal'] });
   const note = await readNote(vault, NOTE_PATH);
@@ -61,7 +63,7 @@ test.beforeAll(async () => {
   });
 
   app = await electron.launch({
-    args: [mainEntry],
+    args: [mainEntry, `--user-data-dir=${userData}`],
     env: { ...process.env, BRAIN_VAULT: vaultRoot },
   });
   window = await app.firstWindow();
@@ -70,6 +72,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await app?.close();
   if (vaultRoot) await rm(vaultRoot, { recursive: true, force: true });
+  if (userData) await rm(userData, { recursive: true, force: true });
 });
 
 // Expand a folder only if it isn't already (folder state persists across tests in one window),
@@ -183,6 +186,20 @@ test('creates and renames a note via the context menu, and reflects external cha
     'utf8',
   );
   await expect(window.getByRole('button', { name: 'external' })).toBeVisible({ timeout: 8000 });
+});
+
+test('settings: switching theme applies live', async () => {
+  await window.getByRole('button', { name: 'Settings' }).click();
+  await expect(window.getByTestId('settings-dialog')).toBeVisible();
+
+  await window.getByRole('button', { name: 'Dark' }).click();
+  await expect(window.locator('html')).toHaveAttribute('data-theme', 'dark', { timeout: 5000 });
+
+  await window.getByRole('button', { name: 'Light' }).click();
+  await expect(window.locator('html')).toHaveAttribute('data-theme', 'light', { timeout: 5000 });
+
+  await window.getByRole('button', { name: 'Close settings' }).click();
+  await expect(window.getByTestId('settings-dialog')).toHaveCount(0);
 });
 
 test('an external edit to the OPEN note surfaces a conflict, never a silent clobber', async () => {

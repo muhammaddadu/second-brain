@@ -5,12 +5,13 @@
  * the renderer holds only UI state. A watcher subscription refreshes the tree live (E3).
  */
 import type { TreeNode } from '@brain/core';
-import { Search } from 'lucide-react';
+import { Search, Settings as SettingsIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Appearance, VaultInfo } from '../../shared/ipc';
 import { FolderTree } from './FolderTree';
 import { NoteView } from './NoteView';
 import { Onboarding } from './Onboarding';
+import { SettingsDialog } from './SettingsDialog';
 import { VaultSwitcher } from './VaultSwitcher';
 
 type Phase =
@@ -72,6 +73,7 @@ export function App() {
 function Workspace({ info, onSwitch }: { info: VaultInfo; onSwitch: (info: VaultInfo) => void }) {
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshTree = useCallback(async () => {
@@ -111,18 +113,29 @@ function Workspace({ info, onSwitch }: { info: VaultInfo; onSwitch: (info: Vault
         </button>
       </header>
       <div className="flex min-h-0 flex-1">
-        <nav className="sidebar border-edge w-64 shrink-0 overflow-y-auto border-r py-2">
-          <FolderTree
-            nodes={tree}
-            selectedPath={selected}
-            onSelect={setSelected}
-            onRefresh={refreshTree}
-          />
+        <nav className="sidebar border-edge flex w-64 shrink-0 flex-col border-r">
+          <div className="min-h-0 flex-1 overflow-y-auto py-2">
+            <FolderTree
+              nodes={tree}
+              selectedPath={selected}
+              onSelect={setSelected}
+              onRefresh={refreshTree}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="border-edge text-muted hover:bg-edge/50 hover:text-ink flex items-center gap-2 border-t px-3 py-2 text-left text-sm"
+          >
+            <SettingsIcon size={15} strokeWidth={1.75} aria-hidden />
+            Settings
+          </button>
         </nav>
         <main className="content-surface min-w-0 flex-1 overflow-y-auto">
           <NoteView path={selected} />
         </main>
       </div>
+      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

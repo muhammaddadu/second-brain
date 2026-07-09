@@ -14,6 +14,8 @@ export const IPC = {
   pickVault: 'app:pick-vault',
   openRecent: 'app:open-recent',
   recentVaults: 'app:recent-vaults',
+  getSettings: 'app:get-settings',
+  setSettings: 'app:set-settings',
   vaultInfo: 'vault:info',
   vaultTree: 'vault:tree',
   readNote: 'vault:read-note',
@@ -49,6 +51,14 @@ export interface Appearance {
 export interface RecentVault {
   name: string;
   path: string;
+}
+
+/** User preferences (persisted; the seam for more settings over time). */
+export interface Settings {
+  /** Follow the OS, or force light/dark. */
+  theme: 'system' | 'light' | 'dark';
+  /** Turn off window translucency (vibrancy/Mica) regardless of platform. */
+  reduceTransparency: boolean;
 }
 
 /**
@@ -98,6 +108,10 @@ export interface VaultApi {
   openRecent(path: string): Promise<VaultInfo | null>;
   /** Validated recent vaults (for the in-app switcher), most-recent first. */
   recentVaults(): Promise<RecentVault[]>;
+  /** Current user preferences. */
+  getSettings(): Promise<Settings>;
+  /** Merge and persist preferences; applies immediately. Returns the full settings. */
+  setSettings(patch: Partial<Settings>): Promise<Settings>;
   info(): Promise<VaultInfo>;
   tree(): Promise<TreeNode[]>;
   readNote(path: string): Promise<ReadNoteResult>;

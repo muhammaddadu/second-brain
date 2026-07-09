@@ -34,6 +34,7 @@ import {
   type RecentVault,
   type SaveResult,
   type SetTagsResult,
+  type Settings,
   type StartupState,
   type VaultChangePayload,
   type VaultInfo,
@@ -58,7 +59,10 @@ let watcher: VaultWatcher | null = null;
 
 interface Config {
   recent: string[];
+  settings: Settings;
 }
+
+const DEFAULT_SETTINGS: Settings = { theme: 'system', reduceTransparency: false };
 
 function configPath(): string {
   return join(app.getPath('userData'), 'config.json');
@@ -74,22 +78,35 @@ function readConfig(): Config {
     if (typeof raw.vaultPath === 'string' && !recent.includes(raw.vaultPath)) {
       recent.unshift(raw.vaultPath);
     }
-    return { recent };
+    return { recent, settings: { ...DEFAULT_SETTINGS, ...(raw.settings ?? {}) } };
   } catch {
-    return { recent: [] };
+    return { recent: [], settings: DEFAULT_SETTINGS };
+  }
+}
+
+function writeConfig(config: Config): void {
+  try {
+    writeFileSync(configPath(), `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+  } catch {
+    // Non-fatal: we just won't persist across launches.
   }
 }
 
 function rememberVault(vaultPath: string): void {
-  const recent = [vaultPath, ...readConfig().recent.filter((p) => p !== vaultPath)].slice(
-    0,
-    MAX_RECENT,
-  );
-  try {
-    writeFileSync(configPath(), `${JSON.stringify({ recent }, null, 2)}\n`, 'utf8');
-  } catch {
-    // Non-fatal: we just won't remember across launches.
-  }
+  const config = readConfig();
+  config.recent = [vaultPath, ...config.recent.filter((p) => p !== vaultPath)].slice(0, MAX_RECENT);
+  writeConfig(config);
+}
+
+function readSettings(): Settings {
+  return readConfig().settings;
+}
+
+function saveSettings(patch: Partial<Settings>): Settings {
+  const config = readConfig();
+  config.settings = { ...config.settings, ...patch };
+  writeConfig(config);
+  return config.settings;
 }
 
 // --- Vault activation --------------------------------------------------------
@@ -261,6 +278,15 @@ function registerHandlers(): void {
 
   ipcMain.handle(IPC.recentVaults, () => validRecentVaults());
 
+  ipcMain.handle(IPC.getSettings, (): Settings => readSettings());
+  ipcMain.handle(IPC.setSettings, (_event, patch: Partial<Settings>): Settings => {
+    const saved = saveSettings(patch);
+    nativeTheme.themeSource = saved.theme; // fires nativeTheme 'updated' → broadcastAppearance
+    applyTranslucency();
+    broadcastAppearance();
+    return saved;
+  });
+
   ipcMain.handle(IPC.createVault, async (): Promise<VaultInfo> => {
     const info = await activateVault(suggestedNewVaultPath());
     await seedWelcomeNote(requireVault());
@@ -334,9 +360,21 @@ const OPAQUE_BG = { light: '#f6f1e7', dark: '#1a1815' } as const;
 
 /** Whether a real OS translucency effect is active (and not suppressed by accessibility/override). */
 function translucencyActive(): boolean {
-  if (process.env.BRAIN_NO_VIBRANCY) return false; // opaque override (tests, screenshots, preference)
-  if (nativeTheme.prefersReducedTransparency) return false;
+  if (process.env.BRAIN_NO_VIBRANCY) return false; // opaque override (tests, screenshots)
+  if (readSettings().reduceTransparency) return false; // user preference
+  if (nativeTheme.prefersReducedTransparency) return false; // OS accessibility
   return isMac || isWin; // macOS vibrancy / Windows Mica; degrades to opaque elsewhere
+}
+
+/** Apply the current translucency preference to open windows live (no relaunch needed). */
+function applyTranslucency(): void {
+  const active = translucencyActive();
+  const bg = OPAQUE_BG[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (isMac) win.setVibrancy(active ? 'sidebar' : null);
+    else if (isWin) win.setBackgroundMaterial(active ? 'mica' : 'none');
+    if (!active) win.setBackgroundColor(bg);
+  }
 }
 
 function currentAppearance(): Appearance {
@@ -445,6 +483,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  nativeTheme.themeSource = readSettings().theme; // apply the saved theme preference before painting
   registerHandlers();
   buildAppMenu();
   createWindow();

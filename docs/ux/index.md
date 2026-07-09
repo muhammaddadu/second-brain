@@ -54,6 +54,10 @@ Two panels plus a global search overlay (ASCII wireframe — permitted exception
 - If the open note changes on disk, a non-destructive conflict banner (Reload / Keep mine) — never a silent clobber (E3 ✓).
 - **Diagram blocks (E7 ✓):** a code block tagged `mermaid` renders inline as the diagram, with its text source shown directly beneath for editing; the diagram re-renders as you type. Invalid source shows the render error next to the intact, still-editable source. Unknown language tags display as normal code blocks. Behind an app-layer language→renderer registry, so more diagram languages are additions. Traces to [PRD §3.7](../product/prd.md).
 
+## Settings (E1 ✓)
+
+A **Settings** entry pinned at the bottom of the sidebar opens a small preferences panel — the seam for user preferences over time. Today it exposes what is genuinely configurable: **Appearance → Theme** (System / Light / Dark, applied live via `nativeTheme`) and **Reduce transparency** (turns off the vibrancy/Mica effect). Preferences persist in the app config and apply immediately. Future settings (default editor behaviour, embedding provider for E4, agent rules shortcuts) slot into this same panel.
+
 ## Search (⌘K, E4)
 
 - Overlay from anywhere: type → hybrid results (keyword + semantic) with snippet and path → Enter opens the note.
