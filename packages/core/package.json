@@ -21,6 +21,7 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1083.0",
     "@blocknote/server-util": "^0.51.0",
     "chokidar": "^4.0.0",
     "node-sqlite3-wasm": "^0.8.59"

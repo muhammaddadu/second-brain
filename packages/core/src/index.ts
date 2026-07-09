@@ -3,12 +3,20 @@
 export { atomicWriteFile } from './atomic.js';
 export {
   cosineSimilarity,
-  createEmbeddingProvider,
-  DEFAULT_EMBEDDING_CONFIG,
-  type EmbeddingConfig,
+  createEmbeddingAdapter,
+  DEFAULT_EMBEDDING_SETTINGS,
+  type DiscoveredProvider,
+  type EmbeddingAdapter,
   type EmbeddingProvider,
+  type EmbeddingSettings,
   fuseRankings,
+  type ProviderConfig,
+  type ProviderKind,
+  type ProviderSecrets,
+  scanLocalProviders,
+  type TestResult,
 } from './embeddings.js';
+export { BEDROCK_EMBEDDING_MODELS } from './embeddings-bedrock.js';
 export {
   CURRENT_ENVELOPE_VERSION,
   getTags,

@@ -6,14 +6,11 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import {
-  createEmbeddingProvider,
   createFolder,
   createNote,
-  DEFAULT_EMBEDDING_CONFIG,
-  type EmbeddingProvider,
-  embedPending,
+  DEFAULT_EMBEDDING_SETTINGS,
+  type EmbeddingSettings,
   hashNote,
-  hybridSearch,
   indexPath,
   initVault,
   isVault,
@@ -25,13 +22,13 @@ import {
   NoteExistsError,
   openSearchIndex,
   openVault,
+  type ProviderKind,
   readNote,
   reindexNote,
   renameFolder,
   renameNote,
   type SearchIndex,
   setFolderOrder,
-  syncIndex,
   trashFolder,
   trashNote,
   updateNoteBlocksGuarded,
@@ -41,11 +38,13 @@ import {
   type VaultWatcher,
   watchVault,
 } from '@brain/core';
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage } from 'electron';
 import {
   type Appearance,
+  type IndexStats,
   type IndexStatus,
   IPC,
+  type ProviderSecretInput,
   type ReadNoteResult,
   type RecentVault,
   type SaveResult,
@@ -57,6 +56,7 @@ import {
   type VaultInfo,
 } from '../shared/ipc.js';
 import { APP_SCHEME } from '../shared/route.js';
+import { createEmbeddingService } from './embedding-service.js';
 
 const MAX_RECENT = 8;
 // No spaces in the folder name (shell/path-friendly); the display name stays "Second Brain".
@@ -73,10 +73,6 @@ app.setName(APP_NAME);
 let currentVault: Vault | null = null;
 let watcher: VaultWatcher | null = null;
 let searchIndex: SearchIndex | null = null;
-// The embedding provider (null = off / keyword-only), rebuilt from settings. `embedding` guards
-// against overlapping embed passes; a running pass re-queries pending chunks, so it absorbs new work.
-let embedProvider: EmbeddingProvider | null = null;
-let embedding = false;
 
 /** Push indexing status to every window so the UI can show progress. */
 function pushIndexStatus(status: IndexStatus): void {
@@ -85,44 +81,46 @@ function pushIndexStatus(status: IndexStatus): void {
   }
 }
 
-/** Rebuild the embedding provider from the current settings (call on startup and on settings change). */
-function refreshEmbeddingProvider(): void {
-  embedProvider = createEmbeddingProvider(readSettings().embedding);
-}
-
-/** Run the (network, slow) embedding pass over pending chunks, pushing progress; no-op if off/busy. */
-async function scheduleEmbedPass(index: SearchIndex): Promise<void> {
-  if (embedding || !embedProvider) return;
-  embedding = true;
-  try {
-    await embedPending(index, embedProvider, (p) => {
-      if (p.total > 0 && p.done < p.total) {
-        pushIndexStatus({ state: 'indexing', done: p.done, total: p.total });
-      }
-    });
-  } catch (error) {
-    console.error('embedding pass failed', error);
-  } finally {
-    embedding = false;
-    pushIndexStatus({ state: 'idle', done: 0, total: 0 });
-  }
-}
-
 // --- Config (remembered vaults) ---------------------------------------------
 
 interface Config {
   recent: string[];
   settings: Settings;
+  /** Per-provider-kind encrypted secret blobs (base64). Never sent to the renderer or the vault. */
+  secrets: Record<string, string>;
 }
 
 const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
   reduceTransparency: false,
-  embedding: DEFAULT_EMBEDDING_CONFIG,
+  embedding: DEFAULT_EMBEDDING_SETTINGS,
 };
 
 function configPath(): string {
   return join(app.getPath('userData'), 'config.json');
+}
+
+/**
+ * Upgrade a persisted `embedding` value to the ADR-0008 shape. The ADR-0007 flat form
+ * (`{ provider, baseUrl, model, apiKey }`) maps to a provider kind + per-kind config; any old apiKey
+ * is dropped (the owner re-enters it, now stored in the keychain) rather than left in plaintext.
+ */
+function migrateEmbedding(raw: unknown): EmbeddingSettings {
+  if (!raw || typeof raw !== 'object') return DEFAULT_EMBEDDING_SETTINGS;
+  if ('enabled' in raw && 'configs' in raw) return raw as EmbeddingSettings; // already ADR-0008
+  const old = raw as { provider?: string; baseUrl?: string; model?: string };
+  const kind: ProviderKind = (old.baseUrl ?? '').includes('11434') ? 'ollama' : 'openai-compatible';
+  const migrated: EmbeddingSettings = structuredClone(DEFAULT_EMBEDDING_SETTINGS);
+  migrated.enabled = old.provider === 'openai-compatible';
+  migrated.kind = kind;
+  if (old.baseUrl || old.model) {
+    migrated.configs[kind] = {
+      kind,
+      baseUrl: old.baseUrl ?? migrated.configs[kind]?.baseUrl ?? '',
+      model: old.model ?? '',
+    };
+  }
+  return migrated;
 }
 
 function readConfig(): Config {
@@ -135,11 +133,56 @@ function readConfig(): Config {
     if (typeof raw.vaultPath === 'string' && !recent.includes(raw.vaultPath)) {
       recent.unshift(raw.vaultPath);
     }
-    return { recent, settings: { ...DEFAULT_SETTINGS, ...(raw.settings ?? {}) } };
+    const settings: Settings = { ...DEFAULT_SETTINGS, ...(raw.settings ?? {}) };
+    settings.embedding = migrateEmbedding(
+      (raw.settings as { embedding?: unknown } | undefined)?.embedding,
+    );
+    const secrets =
+      raw.secrets && typeof raw.secrets === 'object' ? (raw.secrets as Record<string, string>) : {};
+    return { recent, settings, secrets };
   } catch {
-    return { recent: [], settings: DEFAULT_SETTINGS };
+    return { recent: [], settings: DEFAULT_SETTINGS, secrets: {} };
   }
 }
+
+// --- Embedding provider secrets (OS keychain via safeStorage; ADR 0008) ------
+// Persistence lives here (config is this module's concern); the embedding *service* is injected
+// these accessors so its provider/indexing logic stays in one cohesive module.
+
+function secretStorageAvailable(): boolean {
+  return safeStorage.isEncryptionAvailable();
+}
+
+/** Decrypt a provider's stored secret, or `{}` if none / the keychain is unavailable. */
+function readSecret(kind: ProviderKind): ProviderSecretInput {
+  const enc = readConfig().secrets[kind];
+  if (!enc || !safeStorage.isEncryptionAvailable()) return {};
+  try {
+    return JSON.parse(safeStorage.decryptString(Buffer.from(enc, 'base64'))) as ProviderSecretInput;
+  } catch {
+    return {};
+  }
+}
+
+/** Encrypt and persist a provider's secret; a blank secret clears it. */
+function writeSecret(kind: ProviderKind, input: ProviderSecretInput): void {
+  const config = readConfig();
+  const hasAny = Object.values(input).some((v) => typeof v === 'string' && v.trim());
+  if (!hasAny) {
+    delete config.secrets[kind];
+  } else if (safeStorage.isEncryptionAvailable()) {
+    config.secrets[kind] = safeStorage.encryptString(JSON.stringify(input)).toString('base64');
+  }
+  writeConfig(config);
+}
+
+/** The embedding/semantic-search service — owns provider state + indexing; see ./embedding-service. */
+const embeddings = createEmbeddingService({
+  getIndex: () => searchIndex,
+  getSettings: readSettings,
+  readSecret,
+  pushStatus: pushIndexStatus,
+});
 
 function writeConfig(config: Config): void {
   try {
@@ -205,10 +248,9 @@ async function activateVault(vaultPath: string): Promise<VaultInfo> {
   searchIndex?.close();
   const index = openSearchIndex(indexPath(vault));
   searchIndex = index;
-  refreshEmbeddingProvider();
   void (async () => {
-    await syncIndex(vault, index); // keyword index (fast, local)
-    await scheduleEmbedPass(index); // semantic embeddings (slow, network) if a provider is set
+    await embeddings.refresh();
+    await embeddings.syncAndEmbed(vault, index); // keyword sync (fast) then embeddings (if configured)
   })().catch((error) => console.error('index sync failed', error));
   watcher = watchVault(vault, async (change) => {
     let hash: string | undefined;
@@ -222,7 +264,7 @@ async function activateVault(vaultPath: string): Promise<VaultInfo> {
         try {
           hash = await hashNote(vault, change.path);
           await reindexNote(vault, index, change.path);
-          void scheduleEmbedPass(index); // embed the note's new chunks (if a provider is set)
+          void embeddings.runPass(); // embed the note's new chunks (if a provider is set)
         } catch {
           // File may have vanished between event and read; leave hash undefined.
         }
@@ -366,8 +408,7 @@ function registerHandlers(): void {
     // An embedding-config change rebuilds the provider and (re)embeds against the current index —
     // so turning semantic search on/off or changing the model takes effect immediately.
     if (patch.embedding) {
-      refreshEmbeddingProvider();
-      if (searchIndex) void scheduleEmbedPass(searchIndex);
+      void embeddings.refresh().then(() => embeddings.runPass());
     }
     return saved;
   });
@@ -474,8 +515,30 @@ function registerHandlers(): void {
     await setFolderOrder(requireVault(), folder, orderedNames);
   });
   ipcMain.handle(IPC.search, (_event, query: string, limit?: number) =>
-    searchIndex ? hybridSearch(searchIndex, query, embedProvider, limit) : [],
+    searchIndex ? embeddings.search(searchIndex, query, limit) : [],
   );
+
+  // --- Embeddings / semantic-search provider management (ADR 0008) ---
+  ipcMain.handle(IPC.scanProviders, () => embeddings.scan());
+  ipcMain.handle(IPC.listModels, (_event, kind: ProviderKind) => embeddings.listModels(kind));
+  ipcMain.handle(IPC.testProvider, () => embeddings.test());
+  ipcMain.handle(
+    IPC.setEmbeddingSecret,
+    async (_event, kind: ProviderKind, secret: ProviderSecretInput) => {
+      writeSecret(kind, secret);
+      await embeddings.refresh(); // pick up the new secret immediately
+    },
+  );
+  ipcMain.handle(IPC.hasEmbeddingSecret, (_event, kind: ProviderKind) =>
+    Boolean(readConfig().secrets[kind]),
+  );
+  ipcMain.handle(IPC.secretStorageAvailable, () => secretStorageAvailable());
+  ipcMain.handle(IPC.rebuildIndex, async () => {
+    if (currentVault) await embeddings.rebuild(currentVault);
+  });
+  ipcMain.handle(IPC.clearSemanticIndex, () => embeddings.clearSemantic());
+  ipcMain.handle(IPC.indexStats, (): IndexStats => embeddings.stats());
+  ipcMain.handle(IPC.pauseIndexing, (_event, paused: boolean) => embeddings.setPaused(paused));
 }
 
 // --- Appearance (native theme + translucency) --------------------------------

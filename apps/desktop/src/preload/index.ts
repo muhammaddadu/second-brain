@@ -57,6 +57,16 @@ const vault: VaultApi = {
     ipcRenderer.on(IPC.indexStatus, handler);
     return () => ipcRenderer.removeListener(IPC.indexStatus, handler);
   },
+  scanProviders: () => ipcRenderer.invoke(IPC.scanProviders),
+  listModels: (kind) => ipcRenderer.invoke(IPC.listModels, kind),
+  testProvider: () => ipcRenderer.invoke(IPC.testProvider),
+  setEmbeddingSecret: (kind, secret) => ipcRenderer.invoke(IPC.setEmbeddingSecret, kind, secret),
+  hasEmbeddingSecret: (kind) => ipcRenderer.invoke(IPC.hasEmbeddingSecret, kind),
+  secretStorageAvailable: () => ipcRenderer.invoke(IPC.secretStorageAvailable),
+  rebuildIndex: () => ipcRenderer.invoke(IPC.rebuildIndex),
+  clearSemanticIndex: () => ipcRenderer.invoke(IPC.clearSemanticIndex),
+  indexStats: () => ipcRenderer.invoke(IPC.indexStats),
+  pauseIndexing: (paused) => ipcRenderer.invoke(IPC.pauseIndexing, paused),
 };
 
 contextBridge.exposeInMainWorld('vault', vault);

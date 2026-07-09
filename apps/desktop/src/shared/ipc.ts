@@ -5,9 +5,12 @@
  * process (AGENTS.md architecture rule; app-architecture.md boundary rules).
  */
 import type {
-  EmbeddingConfig,
+  DiscoveredProvider,
+  EmbeddingSettings,
   NoteEnvelope,
+  ProviderKind,
   SearchHit,
+  TestResult,
   TreeNode,
   VaultEventType,
 } from '@brain/core';
@@ -40,6 +43,17 @@ export const IPC = {
   trashFolder: 'vault:trash-folder',
   setOrder: 'vault:set-order',
   search: 'vault:search',
+  // Embeddings / semantic-search provider management (ADR 0008).
+  scanProviders: 'embed:scan-providers',
+  listModels: 'embed:list-models',
+  testProvider: 'embed:test-provider',
+  setEmbeddingSecret: 'embed:set-secret',
+  hasEmbeddingSecret: 'embed:has-secret',
+  secretStorageAvailable: 'embed:secret-storage-available',
+  rebuildIndex: 'embed:rebuild-index',
+  clearSemanticIndex: 'embed:clear-semantic',
+  indexStats: 'embed:index-stats',
+  pauseIndexing: 'embed:pause-indexing',
   /** Main → renderer push: a file changed in the vault (watcher). */
   changed: 'vault:changed',
   /** Main → renderer push: indexing status (idle / indexing progress). */
@@ -75,8 +89,15 @@ export interface Settings {
   theme: 'system' | 'light' | 'dark';
   /** Turn off window translucency (vibrancy/Mica) regardless of platform. */
   reduceTransparency: boolean;
-  /** Semantic-search embedding provider (default off = keyword only, no network — ADR 0007). */
-  embedding: EmbeddingConfig;
+  /** Semantic-search embedding provider config (default off = keyword only, no network — ADR 0008). */
+  embedding: EmbeddingSettings;
+}
+
+/** Secret fields a provider may need; stored encrypted via the OS keychain, never in the vault. */
+export interface ProviderSecretInput {
+  apiKey?: string;
+  awsAccessKeyId?: string;
+  awsSecretAccessKey?: string;
 }
 
 /** Indexing status pushed to the renderer so the UI can show progress (idle when done). */
@@ -84,6 +105,16 @@ export interface IndexStatus {
   state: 'idle' | 'indexing';
   done: number;
   total: number;
+}
+
+/** Snapshot of the index for the settings screen. */
+export interface IndexStats {
+  notes: number;
+  chunks: number;
+  embedded: number;
+  /** The embedding model currently configured (null when semantic search is off). */
+  model: string | null;
+  paused: boolean;
 }
 
 /**
@@ -180,4 +211,26 @@ export interface VaultApi {
   onVaultChange(listener: (change: VaultChangePayload) => void): () => void;
   /** Subscribe to indexing status (progress of the embedding pass); returns an unsubscribe function. */
   onIndexStatus(listener: (status: IndexStatus) => void): () => void;
+
+  // --- Embeddings / semantic-search provider management (ADR 0008) ---
+  /** Probe local runtimes (Ollama, LM Studio) and report which are running + their models. */
+  scanProviders(): Promise<DiscoveredProvider[]>;
+  /** List embedding models a provider offers (uses its saved config + secret); [] if it can't. */
+  listModels(kind: ProviderKind): Promise<string[]>;
+  /** Test the currently-configured provider end-to-end; plain-language result. */
+  testProvider(): Promise<TestResult>;
+  /** Encrypt and store a provider's secret in the OS keychain (never written to the vault). */
+  setEmbeddingSecret(kind: ProviderKind, secret: ProviderSecretInput): Promise<void>;
+  /** Whether a secret is stored for a provider (without revealing it). */
+  hasEmbeddingSecret(kind: ProviderKind): Promise<boolean>;
+  /** Whether the OS keychain is available for storing secrets. */
+  secretStorageAvailable(): Promise<boolean>;
+  /** Rebuild the whole index from files (keyword + re-embed) — proves it's derived. */
+  rebuildIndex(): Promise<void>;
+  /** Drop all vectors (keeps keyword search); used before a model change or to reclaim space. */
+  clearSemanticIndex(): Promise<void>;
+  /** Current index counts + model + paused state, for the settings screen. */
+  indexStats(): Promise<IndexStats>;
+  /** Pause or resume the (network) embedding pass. */
+  pauseIndexing(paused: boolean): Promise<void>;
 }

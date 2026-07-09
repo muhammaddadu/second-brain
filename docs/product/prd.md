@@ -2,7 +2,7 @@
 
 > **This doc owns:** the requirements — what must be true, in and out of scope. **For why see** [value-proposition](value-proposition.md); **for build order see** [epics](epics/index.md); **for storage details see** [data-model](../architecture/data-model.md).
 
-Section numbers are **stable** — slim the bodies, don't renumber. This doc states the *requirements*; implementation status is tracked per epic in [epics/index.md](epics/index.md) (E0–E3 and E7 have shipped; search/RAG, CLI, and MCP are still to come).
+Section numbers are **stable** — slim the bodies, don't renumber. This doc states the *requirements*; implementation status is tracked per epic in [epics/index.md](epics/index.md) (E0–E4 and E7 have shipped — including keyword + semantic search; the E4 knowledge-graph view, CLI, and MCP are still to come).
 
 ## §1 Purpose
 

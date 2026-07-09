@@ -93,6 +93,10 @@ export interface SearchIndex {
   setEmbedding(chunkId: number, model: string, vec: number[]): void;
   /** Semantic search: distinct notes ranked by cosine similarity to `queryVec` for `model`. */
   semanticHits(queryVec: number[], model: string, limit?: number): SearchHit[];
+  /** Drop all vectors (keeps keyword index) — for "clear semantic index" / a model change. */
+  clearEmbeddings(): void;
+  /** Counts for the UI: indexed notes, total chunks, and how many chunks have an embedding. */
+  stats(): { notes: number; chunks: number; embedded: number };
   /** Whether the underlying database is still open (false after {@link SearchIndex.close}). */
   isOpen(): boolean;
   close(): void;
@@ -354,6 +358,22 @@ export function openSearchIndex(dbPath: string): SearchIndex {
       }
       return hits;
     },
+    clearEmbeddings(): void {
+      if (!open) return;
+      db.exec('DELETE FROM embeddings;');
+    },
+    stats(): { notes: number; chunks: number; embedded: number } {
+      if (!open) return { notes: 0, chunks: 0, embedded: 0 };
+      const num = (sql: string): number => {
+        const row = db.get(sql);
+        return row && typeof row.n === 'number' ? row.n : 0;
+      };
+      return {
+        notes: num('SELECT count(*) AS n FROM notes'),
+        chunks: num('SELECT count(*) AS n FROM chunks'),
+        embedded: num('SELECT count(*) AS n FROM embeddings'),
+      };
+    },
     isOpen(): boolean {
       return open;
     },
@@ -468,6 +488,7 @@ export async function embedPending(
   index: SearchIndex,
   provider: EmbeddingProvider,
   onProgress?: (p: EmbedProgress) => void,
+  shouldContinue?: () => boolean,
 ): Promise<void> {
   const total = index.pendingCount(provider.model);
   if (total === 0) {
@@ -475,7 +496,7 @@ export async function embedPending(
     return;
   }
   let done = 0;
-  while (index.isOpen()) {
+  while (index.isOpen() && (shouldContinue?.() ?? true)) {
     const batch = index.pendingChunks(provider.model, EMBED_PAGE);
     if (batch.length === 0) break;
     const vectors = await provider.embed(batch.map((c) => c.text));

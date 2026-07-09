@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   cosineSimilarity,
-  createEmbeddingProvider,
+  createEmbeddingAdapter,
   decodeVector,
   encodeVector,
   fuseRankings,
+  scanLocalProviders,
 } from './embeddings.js';
 
 describe('cosineSimilarity', () => {
@@ -36,25 +37,41 @@ describe('fuseRankings (RRF)', () => {
   });
 });
 
-describe('createEmbeddingProvider', () => {
-  it('returns null when off or misconfigured', () => {
-    expect(createEmbeddingProvider({ provider: 'off', baseUrl: 'x', model: 'm' })).toBeNull();
-    expect(
-      createEmbeddingProvider({ provider: 'openai-compatible', baseUrl: '', model: 'm' }),
-    ).toBeNull();
-    expect(
-      createEmbeddingProvider({ provider: 'openai-compatible', baseUrl: 'x', model: '' }),
-    ).toBeNull();
+describe('createEmbeddingAdapter', () => {
+  const realFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = realFetch;
   });
 
-  it('POSTs the OpenAI /embeddings shape and parses data[].embedding', async () => {
-    const calls: Array<{ url: string; body: unknown; auth: string | null }> = [];
-    const realFetch = globalThis.fetch;
+  it('returns null when a config is incomplete', async () => {
+    expect(
+      await createEmbeddingAdapter({ kind: 'openai-compatible', baseUrl: '', model: 'm' }),
+    ).toBeNull();
+    expect(await createEmbeddingAdapter({ kind: 'ollama', baseUrl: 'x', model: '' })).toBeNull();
+    expect(await createEmbeddingAdapter({ kind: 'bedrock', model: '' })).toBeNull();
+  });
+
+  it('reports privacy mode per provider kind', async () => {
+    const ollama = await createEmbeddingAdapter({
+      kind: 'ollama',
+      baseUrl: 'http://localhost:11434/v1',
+      model: 'nomic-embed-text',
+    });
+    const openai = await createEmbeddingAdapter(
+      { kind: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'text-embedding-3-small' },
+      { apiKey: 'k' },
+    );
+    expect(ollama?.privacyMode()).toBe('local');
+    expect(openai?.privacyMode()).toBe('hosted');
+  });
+
+  it('POSTs the OpenAI /embeddings shape, sends the key, and parses data[].embedding', async () => {
+    const calls: Array<{ url: string; auth: string | null; body: unknown }> = [];
     globalThis.fetch = (async (url: string, init: RequestInit) => {
       calls.push({
         url,
-        body: JSON.parse(String(init.body)),
         auth: (init.headers as Record<string, string>).authorization ?? null,
+        body: JSON.parse(String(init.body)),
       });
       const input = JSON.parse(String(init.body)).input as string[];
       return {
@@ -62,41 +79,54 @@ describe('createEmbeddingProvider', () => {
         json: async () => ({ data: input.map((_, i) => ({ embedding: [i, i + 1] })) }),
       };
     }) as unknown as typeof fetch;
-    try {
-      const provider = createEmbeddingProvider({
-        provider: 'openai-compatible',
-        baseUrl: 'http://localhost:11434/v1/',
-        model: 'nomic-embed-text',
-        apiKey: 'secret',
-      });
-      const vecs = await provider?.embed(['hello', 'world']);
-      expect(vecs).toEqual([
-        [0, 1],
-        [1, 2],
-      ]);
-      expect(calls[0]?.url).toBe('http://localhost:11434/v1/embeddings'); // trailing slash normalized
-      expect(calls[0]?.auth).toBe('Bearer secret');
-    } finally {
-      globalThis.fetch = realFetch;
-    }
+
+    const adapter = await createEmbeddingAdapter(
+      { kind: 'openai-compatible', baseUrl: 'http://host/v1/', model: 'm' },
+      { apiKey: 'secret' },
+    );
+    const vecs = await adapter?.embed(['a', 'b']);
+    expect(vecs).toEqual([
+      [0, 1],
+      [1, 2],
+    ]);
+    expect(calls[0]?.url).toBe('http://host/v1/embeddings'); // trailing slash normalized
+    expect(calls[0]?.auth).toBe('Bearer secret');
   });
 
-  it('throws on a non-OK response', async () => {
-    const realFetch = globalThis.fetch;
-    globalThis.fetch = (async () => ({
-      ok: false,
-      status: 500,
-      statusText: 'err',
-    })) as unknown as typeof fetch;
-    try {
-      const provider = createEmbeddingProvider({
-        provider: 'openai-compatible',
-        baseUrl: 'http://x/v1',
-        model: 'm',
-      });
-      await expect(provider?.embed(['a'])).rejects.toThrow(/500/);
-    } finally {
-      globalThis.fetch = realFetch;
-    }
+  it('testConnection returns a plain-language failure when the endpoint is unreachable', async () => {
+    globalThis.fetch = (async () => {
+      throw new Error('fetch failed');
+    }) as unknown as typeof fetch;
+    const adapter = await createEmbeddingAdapter({
+      kind: 'ollama',
+      baseUrl: 'http://localhost:11434/v1',
+      model: 'nomic-embed-text',
+    });
+    const result = await adapter?.testConnection();
+    expect(result?.ok).toBe(false);
+    expect(result?.message).toMatch(/running/i);
+  });
+});
+
+describe('scanLocalProviders', () => {
+  const realFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  it('marks a reachable runtime running with its models, others failed', async () => {
+    globalThis.fetch = (async (url: string) => {
+      if (url.includes('11434')) {
+        return { ok: true, json: async () => ({ data: [{ id: 'nomic-embed-text' }] }) };
+      }
+      throw new Error('ECONNREFUSED');
+    }) as unknown as typeof fetch;
+
+    const found = await scanLocalProviders();
+    const ollama = found.find((p) => p.kind === 'ollama');
+    const lmstudio = found.find((p) => p.kind === 'lmstudio');
+    expect(ollama?.status).toBe('running');
+    expect(ollama?.models).toContain('nomic-embed-text');
+    expect(lmstudio?.status).toBe('connection-failed');
   });
 });

@@ -1,78 +1,254 @@
 /**
- * Embeddings (E4 semantic leg, ADR 0007). A pluggable embedding provider — default *off* (keyword
- * only, no network) — configured as an OpenAI-compatible endpoint, so the same client reaches a
- * local runtime (Ollama/LM Studio at `http://localhost:11434/v1`) or a hosted API just by changing
- * the base URL + model. Vectors are stored in the derived SQLite index and searched by brute-force
- * cosine, fused with FTS results. This module owns provider I/O and the vector math only.
+ * Embeddings (E4 semantic leg). Providers are **adapters behind one interface** (ADR 0008): the
+ * index/search code depends only on {@link EmbeddingProvider}, so adding a provider is one adapter,
+ * not edits across call sites. Default is *off* (keyword only, no network); local providers keep
+ * note text on-device. Vectors live in the SQLite index and are searched by brute-force cosine.
+ * This module owns provider I/O, discovery, and the vector math; secrets are injected (never stored
+ * here — the main process resolves them from the OS keychain).
  */
 
-/** Owner-configurable embedding settings; `off` means keyword-only, no embeddings, no network. */
-export interface EmbeddingConfig {
-  provider: 'off' | 'openai-compatible';
-  /** OpenAI-compatible base URL, e.g. `http://localhost:11434/v1` (Ollama) or `https://api.openai.com/v1`. */
-  baseUrl: string;
-  /** Model name, e.g. `nomic-embed-text` (Ollama) or `text-embedding-3-small` (OpenAI). */
-  model: string;
-  /** Optional bearer token for hosted providers; local runtimes usually need none. */
-  apiKey?: string;
+/** Provider kinds shipped today. Azure/Vertex route to `openai-compatible` until native adapters land. */
+export type ProviderKind = 'ollama' | 'lmstudio' | 'openai' | 'openai-compatible' | 'bedrock';
+
+/** Non-secret configuration for a single provider (secrets are passed separately at construction). */
+export interface ProviderConfig {
+  kind: ProviderKind;
+  /** OpenAI-compatible base URL (ollama/lmstudio/openai/custom). */
+  baseUrl?: string;
+  /** Model name, or the Bedrock model id (e.g. `amazon.titan-embed-text-v2:0`). */
+  model?: string;
+  /** AWS region (bedrock only). */
+  region?: string;
 }
 
-export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
-  provider: 'off',
-  baseUrl: 'http://localhost:11434/v1',
-  model: 'nomic-embed-text',
+/** Secrets an adapter may need, resolved by the main process from `safeStorage` and injected. */
+export interface ProviderSecrets {
+  apiKey?: string;
+  awsAccessKeyId?: string;
+  awsSecretAccessKey?: string;
+}
+
+/** Whole embedding configuration persisted in settings: which provider, and each provider's config. */
+export interface EmbeddingSettings {
+  enabled: boolean;
+  kind: ProviderKind;
+  /** Per-kind config, so switching providers preserves each one's fields. */
+  configs: Partial<Record<ProviderKind, ProviderConfig>>;
+}
+
+export const DEFAULT_EMBEDDING_SETTINGS: EmbeddingSettings = {
+  enabled: false,
+  kind: 'ollama',
+  configs: {
+    ollama: { kind: 'ollama', baseUrl: 'http://localhost:11434/v1', model: 'nomic-embed-text' },
+    lmstudio: { kind: 'lmstudio', baseUrl: 'http://localhost:1234/v1', model: '' },
+    openai: {
+      kind: 'openai',
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'text-embedding-3-small',
+    },
+    'openai-compatible': { kind: 'openai-compatible', baseUrl: '', model: '' },
+    bedrock: { kind: 'bedrock', region: 'us-east-1', model: 'amazon.titan-embed-text-v2:0' },
+  },
 };
 
-/** Turns text into vectors. `model` is stored with the vectors so a model change triggers re-embed. */
+/** Result of a provider connection test, in plain language for the UI. */
+export interface TestResult {
+  ok: boolean;
+  message: string;
+  dimensions?: number;
+}
+
+/** Minimal surface the index/search needs — every adapter is also a provider. */
 export interface EmbeddingProvider {
   readonly model: string;
   embed(texts: string[]): Promise<number[][]>;
 }
 
-/** Largest batch of chunks sent to the provider in one request. */
-const EMBED_BATCH = 64;
+/** Full provider adapter (ADR 0008). Index/search use only the {@link EmbeddingProvider} subset. */
+export interface EmbeddingAdapter extends EmbeddingProvider {
+  readonly kind: ProviderKind;
+  /** 'local' = note text stays on this machine; 'hosted' = text is sent to the provider. */
+  privacyMode(): 'local' | 'hosted';
+  /** Largest number of inputs per request. */
+  maxBatch(): number;
+  /** Known embedding dimension after a successful test, else null. */
+  dimensions(): number | null;
+  /** Models this provider offers (empty if it can't enumerate). */
+  listModels(): Promise<string[]>;
+  /** Probe connectivity + that the model returns embeddings; plain-language message. */
+  testConnection(): Promise<TestResult>;
+}
+
+const OPENAI_BATCH = 64;
+
+function bearer(apiKey?: string): Record<string, string> {
+  return apiKey ? { authorization: `Bearer ${apiKey}` } : {};
+}
 
 /**
- * Build a provider from config, or null when embeddings are off/misconfigured (caller falls back to
- * keyword-only). The request/response shape is the OpenAI `/embeddings` contract, which local
- * runtimes implement too.
+ * Adapter for any provider speaking the OpenAI `/embeddings` contract — Ollama, LM Studio, OpenAI,
+ * and custom endpoints all differ only in base URL, whether a key is needed, and privacy.
  */
-export function createEmbeddingProvider(config: EmbeddingConfig): EmbeddingProvider | null {
-  if (config.provider !== 'openai-compatible') return null;
-  if (!config.baseUrl.trim() || !config.model.trim()) return null;
-  const endpoint = `${config.baseUrl.replace(/\/+$/, '')}/embeddings`;
-  return {
-    model: config.model,
-    async embed(texts: string[]): Promise<number[][]> {
-      if (texts.length === 0) return [];
-      const out: number[][] = [];
-      for (let i = 0; i < texts.length; i += EMBED_BATCH) {
-        const batch = texts.slice(i, i + EMBED_BATCH);
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            ...(config.apiKey ? { authorization: `Bearer ${config.apiKey}` } : {}),
-          },
-          body: JSON.stringify({ model: config.model, input: batch }),
-        });
-        if (!res.ok) {
-          throw new Error(`embeddings request failed: ${res.status} ${res.statusText}`);
-        }
-        const json = (await res.json()) as { data?: Array<{ embedding?: number[] }> };
-        const data = json.data ?? [];
-        for (const item of data) {
-          if (Array.isArray(item.embedding)) out.push(item.embedding);
-        }
-        if (data.length !== batch.length) {
-          throw new Error(
-            `embeddings response count mismatch: got ${data.length}, want ${batch.length}`,
-          );
-        }
+function openAiFamilyAdapter(
+  kind: ProviderKind,
+  privacy: 'local' | 'hosted',
+  baseUrl: string,
+  model: string,
+  apiKey: string | undefined,
+): EmbeddingAdapter {
+  const root = baseUrl.replace(/\/+$/, '');
+  let dims: number | null = null;
+
+  async function embed(texts: string[]): Promise<number[][]> {
+    if (texts.length === 0) return [];
+    const out: number[][] = [];
+    for (let i = 0; i < texts.length; i += OPENAI_BATCH) {
+      const batch = texts.slice(i, i + OPENAI_BATCH);
+      const res = await fetch(`${root}/embeddings`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...bearer(apiKey) },
+        body: JSON.stringify({ model, input: batch }),
+      });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      const json = (await res.json()) as { data?: Array<{ embedding?: number[] }> };
+      const data = json.data ?? [];
+      if (data.length !== batch.length) {
+        throw new Error(`expected ${batch.length} embeddings, got ${data.length}`);
       }
-      return out;
+      for (const item of data) {
+        if (!Array.isArray(item.embedding)) throw new Error('response was not an embedding');
+        out.push(item.embedding);
+        dims = item.embedding.length;
+      }
+    }
+    return out;
+  }
+
+  return {
+    kind,
+    model,
+    privacyMode: () => privacy,
+    maxBatch: () => OPENAI_BATCH,
+    dimensions: () => dims,
+    async listModels(): Promise<string[]> {
+      try {
+        const res = await fetch(`${root}/models`, { headers: bearer(apiKey) });
+        if (!res.ok) return [];
+        const json = (await res.json()) as { data?: Array<{ id?: string }> };
+        return (json.data ?? [])
+          .map((m) => m.id)
+          .filter((id): id is string => typeof id === 'string');
+      } catch {
+        return [];
+      }
     },
+    async testConnection(): Promise<TestResult> {
+      if (!model) return { ok: false, message: 'Choose an embedding model first.' };
+      try {
+        const [vec] = await embed(['connection test']);
+        if (!vec || vec.length === 0) {
+          return { ok: false, message: 'The endpoint responded, but not with an embedding.' };
+        }
+        return {
+          ok: true,
+          message: `Connected — ${vec.length}-dimension embeddings.`,
+          dimensions: vec.length,
+        };
+      } catch (error) {
+        return { ok: false, message: explainError(error, privacy) };
+      }
+    },
+    embed,
   };
+}
+
+/** Turn a raw error into plain-language guidance for the UI. */
+function explainError(error: unknown, privacy: 'local' | 'hosted'): string {
+  const msg = error instanceof Error ? error.message : String(error);
+  if (/fetch failed|ECONNREFUSED|Failed to fetch|network/i.test(msg)) {
+    return privacy === 'local'
+      ? 'Could not reach the local runtime. Is it installed and running?'
+      : 'Could not reach the provider. Check the endpoint URL and your connection.';
+  }
+  if (/\b401\b|unauthorized|invalid.*key/i.test(msg)) return 'The provider rejected the API key.';
+  if (/\b501\b|not implemented/i.test(msg)) {
+    return 'This endpoint does not implement embeddings — choose an embedding model, not a chat model.';
+  }
+  if (/\b404\b|not found|model/i.test(msg)) return 'That model was not found on the provider.';
+  if (/not an embedding/i.test(msg)) return 'This model does not appear to support embeddings.';
+  return `Connection failed: ${msg}`;
+}
+
+/**
+ * Build the adapter for a provider config + injected secrets, or null when embeddings are off /
+ * the config is incomplete (caller falls back to keyword-only). Bedrock is loaded lazily so its
+ * AWS SDK never loads for the common local path.
+ */
+export async function createEmbeddingAdapter(
+  config: ProviderConfig,
+  secrets: ProviderSecrets = {},
+): Promise<EmbeddingAdapter | null> {
+  switch (config.kind) {
+    case 'ollama':
+      if (!config.baseUrl || !config.model) return null;
+      return openAiFamilyAdapter('ollama', 'local', config.baseUrl, config.model, undefined);
+    case 'lmstudio':
+      if (!config.baseUrl || !config.model) return null;
+      return openAiFamilyAdapter('lmstudio', 'local', config.baseUrl, config.model, undefined);
+    case 'openai':
+      if (!config.baseUrl || !config.model) return null;
+      return openAiFamilyAdapter('openai', 'hosted', config.baseUrl, config.model, secrets.apiKey);
+    case 'openai-compatible':
+      if (!config.baseUrl || !config.model) return null;
+      return openAiFamilyAdapter(
+        'openai-compatible',
+        'hosted',
+        config.baseUrl,
+        config.model,
+        secrets.apiKey,
+      );
+    case 'bedrock': {
+      if (!config.region || !config.model) return null;
+      const { createBedrockAdapter } = await import('./embeddings-bedrock.js');
+      return createBedrockAdapter(config.region, config.model, secrets);
+    }
+    default:
+      return null;
+  }
+}
+
+/** Detection state for a local runtime the app scanned for. */
+export interface DiscoveredProvider {
+  kind: ProviderKind;
+  status: 'running' | 'needs-setup' | 'connection-failed';
+  baseUrl: string;
+  models: string[];
+}
+
+const LOCAL_PROBES: Array<{ kind: ProviderKind; baseUrl: string }> = [
+  { kind: 'ollama', baseUrl: 'http://localhost:11434/v1' },
+  { kind: 'lmstudio', baseUrl: 'http://localhost:1234/v1' },
+];
+
+/** Probe well-known local runtimes so setup is a click, not a manual URL (ADR 0008 self-discovery). */
+export async function scanLocalProviders(): Promise<DiscoveredProvider[]> {
+  return Promise.all(
+    LOCAL_PROBES.map(async ({ kind, baseUrl }) => {
+      // Probe directly (not via listModels, which swallows errors) so we can tell running from down.
+      try {
+        const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/models`);
+        if (!res.ok) return { kind, status: 'needs-setup' as const, baseUrl, models: [] };
+        const json = (await res.json()) as { data?: Array<{ id?: string }> };
+        const models = (json.data ?? [])
+          .map((m) => m.id)
+          .filter((id): id is string => typeof id === 'string');
+        return { kind, status: 'running' as const, baseUrl, models };
+      } catch {
+        return { kind, status: 'connection-failed' as const, baseUrl, models: [] };
+      }
+    }),
+  );
 }
 
 /** Cosine similarity of two equal-length vectors; 0 for a zero vector or a length mismatch. */

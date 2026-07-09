@@ -13,3 +13,4 @@ Significant architecture decisions, one per file, append-only. A decision is nev
 | [0005](0005-manual-ordering-per-folder-sidecar.md) | Persist manual folder/note order in a per-folder `.order.json` sidecar | accepted |
 | [0006](0006-wasm-sqlite-for-derived-index.md) | Build the derived search index on WASM SQLite (`node-sqlite3-wasm`), not a native binding | accepted |
 | [0007](0007-embeddings-provider-config-and-vector-storage.md) | Configure embeddings via an OpenAI-compatible provider; store vectors in the same SQLite index | accepted |
+| [0008](0008-embedding-provider-adapters-and-discovery.md) | Embedding providers as adapters behind one interface, with local discovery and keychain secrets | accepted |

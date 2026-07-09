@@ -312,19 +312,20 @@ test('settings page: switching theme applies live, sidebar intact', async () => 
   await expect(window.getByTestId('settings-page')).toHaveCount(0);
 });
 
-test('settings: enabling semantic search reveals the embedding provider fields', async () => {
+test('settings: enabling semantic search reveals the provider picker and config', async () => {
   await window.getByRole('button', { name: 'Settings' }).click();
   const toggle = window.getByTestId('semantic-toggle');
   await expect(toggle).not.toBeChecked(); // off by default (private, no network)
 
   await toggle.check();
-  // Provider config appears; the local Ollama endpoint is the placeholder.
-  await expect(window.getByPlaceholder('http://localhost:11434/v1')).toBeVisible();
-  await expect(window.getByPlaceholder('nomic-embed-text')).toBeVisible();
+  // The provider picker appears (Ollama recommended + selected by default) with a Test action.
+  await expect(window.getByRole('button', { name: /Ollama/ })).toBeVisible();
+  await expect(window.getByRole('button', { name: 'AWS Bedrock' })).toBeVisible();
+  await expect(window.getByTestId('test-connection')).toBeVisible();
 
   // Turn it back off so later tests (and the app's default) stay keyword-only.
   await toggle.uncheck();
-  await expect(window.getByPlaceholder('nomic-embed-text')).toHaveCount(0);
+  await expect(window.getByTestId('test-connection')).toHaveCount(0);
 
   await openNote('Journal', '2026-07-07');
 });
