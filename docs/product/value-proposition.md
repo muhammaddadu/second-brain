@@ -4,7 +4,7 @@
 
 ## The problem
 
-Notes apps are built for humans typing. AI agents are now doing a large share of the knowledge work — summarising days, researching topics, drafting plans — but their output lands in chat transcripts and gets lost. There is no personal knowledge base that is *equally* a first-class surface for the human (rich editing, browsable folders) and for agents (structured programmatic access, search built in, house rules to follow). Existing options fail one side: rich apps (Notion, Obsidian without plugins) have weak or bolted-on agent access; plain folders of Markdown have no rich UI and no retrieval.
+Notes apps are built for humans typing. AI agents are now doing a large share of the knowledge work — summarising days, researching topics, drafting plans — but their output lands in chat transcripts and gets lost. There is no personal knowledge base that is *equally* a first-class surface for the human (rich editing, browsable folders) and for agents (structured programmatic access, search built in, house rules to follow). Existing options fail one side: rich note apps have weak or bolted-on agent access; plain folders of Markdown have no rich UI and no retrieval.
 
 ## The product
 

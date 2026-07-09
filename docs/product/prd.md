@@ -40,6 +40,7 @@ A local-first desktop second brain: notes in owner-chosen folders and tags, rich
 - The index is derived from the files and fully rebuildable; it updates incrementally as notes change.
 - The same search serves the app UI, the CLI, and MCP tools — one implementation in the core library.
 - Default embedding path is local (no note content leaves the machine); a remote embedding provider is opt-in configuration.
+- **Knowledge graph:** an interactive visual graph of the vault — notes as nodes, edges from semantic similarity (embeddings) and shared tags — so the owner can *see* how notes relate and navigate by exploring clusters. Derived from the index (rebuildable); clicking a node opens the note. Details in [E4](epics/E4-search-rag.md).
 
 ### §3.5 Agent surfaces
 
@@ -61,6 +62,13 @@ A local-first desktop second brain: notes in owner-chosen folders and tags, rich
 - v1 renders **Mermaid**. The language-tag → renderer mapping is extensible so further text-based diagram languages can be added without changing the storage format (storage owned by [data-model](../architecture/data-model.md)).
 - The owner can edit a diagram's source in the app and see the rendered result update; invalid source shows the error alongside the intact source — it never destroys or hides the content.
 - Unknown/unsupported language tags fall back to plain code blocks, never dropped.
+
+### §3.8 Databases
+
+- A **database** is a folder of notes with a typed schema: each note is a row, its property values stored in note metadata; the schema (property definitions + views) lives in a `database.json` in the folder ([data-model](../architecture/data-model.md), rationale [ADR 0004](../adr/0004-databases-as-folders-of-notes-with-schema.md)).
+- Property types v1: text, number, select, multi-select, date, checkbox, url. Views v1: **table** and **board** (grouped by a select property).
+- Because a row is a note, everything else already works on rows: rich editing of the row's page, search/RAG, Markdown export, live updates, and agent/CLI/MCP read-write — an agent adds a row by creating a note with properties, no bespoke schema.
+- Kept clean, not a second system: a database folder opens as a table/board in the right panel; a row opens as its note. Relations/rollups are out of v1.
 
 ## §4 Non-functional requirements
 

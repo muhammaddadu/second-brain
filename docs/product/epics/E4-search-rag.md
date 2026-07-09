@@ -14,7 +14,8 @@ The retrieval layer that makes the vault findable for humans and agents alike: a
 - Incremental update on note change + full `rebuild` operation.
 - Hybrid query API: keyword + semantic, merged/ranked, returning note paths with snippets.
 - In-app ⌘K search UI: type → results → open note.
-- Decision recorded for PRD §7.2 (embedding model/runtime) in [tech-stack](../../architecture/tech-stack.md).
+- **Knowledge-graph view**: an interactive graph of the vault — notes as nodes, edges from semantic similarity (embedding nearest-neighbours, above a tunable threshold) and shared tags. Graph data comes from core (derived from the index, rebuildable); the app renders it (force-directed, zoom/pan, click-to-open, filter by tag, adjust threshold). It reuses the same index as search, so it is a *view* of the RAG, not a second store.
+- Decision recorded for PRD §7.2 (embedding model/runtime) in [tech-stack](../../architecture/tech-stack.md); graph rendering library chosen here too (candidates: a canvas/WebGL force-graph — decide for large-vault performance).
 
 ## Acceptance criteria
 
@@ -30,7 +31,14 @@ The retrieval layer that makes the vault findable for humans and agents alike: a
 ### E2E validation
 
 - [ ] An E2E spec opens ⌘K in the app, types a query, and opens a result note from a fixture vault.
+- [ ] An E2E spec opens the graph view, and clicking a node opens the corresponding note.
+
+### Knowledge graph
+
+- [ ] Core exposes a graph query — nodes (notes with title/tags) + weighted edges (semantic neighbours ∪ shared-tag links) — derived from the index and rebuildable (PRD §3.4).
+- [ ] The graph renders interactively (force layout, zoom/pan); a tag filter and a similarity-threshold control change what's shown; clicking a node opens the note.
+- [ ] The graph is derived only — deleting and rebuilding the index reproduces an equivalent graph (no graph data stored outside the index/files).
 
 ## Notes
 
-—
+The graph is a visualization of the RAG relationships (semantic + tag), not a separate feature — it shares E4's index. Relation properties from databases ([E8](E8-databases.md)) can later add explicit edges to the same graph.

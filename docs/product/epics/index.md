@@ -24,9 +24,10 @@ Epic IDs are stable (never renumbered); **table order is the build order**.
 | [E2](E2-blocknote-editor.md) | BlockNote editing & Markdown import/export | ✅ Done | E1 |
 | [E7](E7-diagrams.md) | Diagrams as first-class blocks | ✅ Done | E2 |
 | [E3](E3-file-actions.md) | File actions & live vault updates | ✅ Done | E2 |
-| [E4](E4-search-rag.md) | Search index & RAG | Planned | E0 (UI parts: E1) |
+| [E4](E4-search-rag.md) | Search index, RAG & knowledge graph | Planned | E0 (UI parts: E1) |
 | [E5](E5-cli.md) | CLI surface | Planned | E0, E4 |
 | [E6](E6-mcp-rules.md) | MCP server & vault rules | Planned | E5 |
+| [E8](E8-databases.md) | Databases | Planned | E2, E3 |
 
 ## Build order & dependencies
 
@@ -36,11 +37,13 @@ graph LR
     E1 --> E2[E2 BlockNote editor]
     E2 --> E7[E7 Diagrams]
     E2 --> E3[E3 File actions]
-    E0 --> E4[E4 Search & RAG]
+    E0 --> E4[E4 Search, RAG & graph]
     E1 -.search UI.-> E4
     E4 --> E5[E5 CLI]
     E0 --> E5
     E5 --> E6[E6 MCP & rules]
+    E2 --> E8[E8 Databases]
+    E3 --> E8
 ```
 
 ## Testing is first-class

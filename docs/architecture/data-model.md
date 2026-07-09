@@ -65,6 +65,23 @@ First-class in the UI, plain text content on disk ([PRD §3.7](../product/prd.md
 
 Owner-defined agent conventions ([PRD §3.6](../product/prd.md)) live in `RULES.md` at the vault root — **plain Markdown, a deliberate exception to the note format**: its consumers are agents reading instructions verbatim, so it must stay directly readable without conversion. It is versioned with the vault and editable in the app (as raw text or via Markdown import/export). E6 may extend this to a `rules/` folder if one file gets unwieldy; record that change here first. How agents receive rules is owned by [agent-integration](../guides/agent-integration.md).
 
+## Databases (planned — E8)
+
+A **database** is a folder that also contains a `database.json` descriptor; each note in that folder is a **row**. Storage rationale is [ADR 0004](../adr/0004-databases-as-folders-of-notes-with-schema.md); this is the format E8 builds to.
+
+```
+Projects/                     # a database folder
+  database.json               # schema: property definitions + saved views
+  acme-migration.note.json    # a row (a normal note)
+  billing-rework.note.json    # a row
+```
+
+- **Schema (`database.json`)** — documented, deterministically serialized JSON: an array of **property definitions** `{ id, name, type, options? }` (`type` ∈ `text | number | select | multiSelect | date | checkbox | url`; stable `id` so renaming a property never rewrites rows) plus saved **views** `{ name, type: "table" | "board", … }`. Views are presentation, not data.
+- **Row values live in note metadata** — a row's typed values sit under `meta.properties` keyed by property id, alongside the v1 `meta` keys; the note body is the row's page content. Because a row *is* a note, the editor, hybrid search, Markdown export, watcher, and every agent/CLI/MCP tool operate on rows unchanged.
+- **Values are not authoritative in the index** — the derived index *caches* `meta.properties` so table/board views render fast, but the files remain the source of truth (rebuildable).
+- **Markdown export** renders a row's properties as a small header block above its body, so exported rows stay readable with the app gone.
+- Relations (row-to-row links) and rollups are deferred; they share the link graph explored by the search graph (§ below) and need their own design.
+
 ## Index schema (derived)
 
 SQLite database at `.brain/index.db`, WAL mode. Entirely derived — deleting it and rebuilding must reproduce equivalent search results (E4 acceptance criterion). Planned shape, to be refined in E4:
