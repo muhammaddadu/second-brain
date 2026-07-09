@@ -8,9 +8,12 @@ import type { NoteEnvelope, TreeNode, VaultEventType } from '@brain/core';
 
 export const IPC = {
   startup: 'app:startup',
+  appearance: 'app:appearance',
+  appearanceChanged: 'app:appearance-changed',
   createVault: 'app:create-vault',
   pickVault: 'app:pick-vault',
   openRecent: 'app:open-recent',
+  recentVaults: 'app:recent-vaults',
   vaultInfo: 'vault:info',
   vaultTree: 'vault:tree',
   readNote: 'vault:read-note',
@@ -29,6 +32,17 @@ export const IPC = {
 export interface VaultInfo {
   name: string;
   root: string;
+}
+
+/**
+ * OS-driven appearance the renderer adapts to. `theme` tracks `nativeTheme` live; `translucent` is
+ * true only when a real OS effect is active (macOS vibrancy / Windows Mica) and the user hasn't
+ * asked for reduced transparency; `platform` drives title-bar/drag layout.
+ */
+export interface Appearance {
+  theme: 'light' | 'dark';
+  translucent: boolean;
+  platform: 'darwin' | 'win32' | 'linux';
 }
 
 /** A previously-used vault, shown on the welcome screen. */
@@ -72,12 +86,18 @@ export interface VaultChangePayload {
 export interface VaultApi {
   /** What to show at launch (ready vs. first-run setup). */
   startup(): Promise<StartupState>;
+  /** Current OS appearance (theme, translucency, platform). */
+  appearance(): Promise<Appearance>;
+  /** Subscribe to live appearance changes (system light/dark, transparency). Returns unsubscribe. */
+  onAppearanceChange(listener: (appearance: Appearance) => void): () => void;
   /** Create and open a fresh vault at the suggested path; returns the opened vault. */
   createVault(): Promise<VaultInfo>;
   /** Open a folder chosen via the OS picker as a vault; null if the user cancels. */
   pickVault(): Promise<VaultInfo | null>;
   /** Reopen a previously-used vault by path; null if it's no longer a valid vault. */
   openRecent(path: string): Promise<VaultInfo | null>;
+  /** Validated recent vaults (for the in-app switcher), most-recent first. */
+  recentVaults(): Promise<RecentVault[]>;
   info(): Promise<VaultInfo>;
   tree(): Promise<TreeNode[]>;
   readNote(path: string): Promise<ReadNoteResult>;

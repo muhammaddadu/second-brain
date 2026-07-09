@@ -1,10 +1,12 @@
 @import "tailwindcss";
 
 /*
- * Warm / paper theme (ux/index.md § Visual design). An editorial, low-contrast surface that gets
- * out of the way of note content. Tokens map Tailwind color/font utilities to CSS variables that
- * flip with the OS light/dark preference — so `bg-paper`, `text-ink`, `text-muted`, `border-edge`,
- * `text-accent`, `font-serif` all stay theme-aware.
+ * Warm / paper theme (ux/index.md § Visual design) with a native-feeling, adaptive shell.
+ * A calm, editorial surface: warm off-white paper, ink-brown text, soft warm-gray borders, and a
+ * single terracotta accent. Tokens are CSS variables so Tailwind color utilities (bg-paper,
+ * text-ink, border-edge, …) track the OS light/dark theme, which main stamps onto <html data-theme>
+ * live (native-window-effects.md). Translucency (macOS vibrancy / Windows Mica) is opt-in via
+ * data-translucent and degrades to a clean opaque surface everywhere else.
  */
 @theme {
   --color-paper: var(--paper);
@@ -32,8 +34,10 @@
   --accent-ink: #ffffff;
 }
 
+/* Dark tokens. Pre-JS default follows the OS preference; once main stamps data-theme, that wins
+ * (so switching to light on a dark OS, or vice-versa, works live). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --paper: #1a1815;
     --surface: #221f1a;
     --raised: #26221a;
@@ -44,6 +48,18 @@
     --accent: #d68a5c;
     --accent-ink: #1a1815;
   }
+}
+
+:root[data-theme="dark"] {
+  --paper: #1a1815;
+  --surface: #221f1a;
+  --raised: #26221a;
+  --ink: #ece5d8;
+  --muted: #9c9384;
+  --faint: #6a6250;
+  --edge: #332e26;
+  --accent: #d68a5c;
+  --accent-ink: #1a1815;
 }
 
 html,
@@ -61,16 +77,98 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Quiet, warm scrollbars that suit the paper surface. */
+/* --- Native translucency (glass) with graceful opaque fallback --- */
+
+/* When a real OS effect is active, let it show through the window + sidebar. */
+:root[data-translucent="true"] body {
+  background-color: transparent;
+}
+.sidebar {
+  background-color: var(--surface);
+}
+:root[data-translucent="true"] .sidebar {
+  background-color: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+/* The content area is always a solid reading surface, even over vibrancy. */
+.content-surface {
+  background-color: var(--paper);
+}
+
+/* Accessibility: never fake translucency when the user asks for reduced transparency. */
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-translucent="true"] body {
+    background-color: var(--paper);
+  }
+  :root[data-translucent="true"] .sidebar {
+    background-color: var(--surface);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* --- Draggable window regions (frameless / hidden title bar) --- */
+.app-drag {
+  -webkit-app-region: drag;
+}
+.app-no-drag,
+button,
+input,
+a,
+kbd {
+  -webkit-app-region: no-drag;
+}
+/* Leave room for the native window controls overlaid on the title bar. */
+:root[data-platform="darwin"] .titlebar {
+  padding-left: 80px; /* clear the macOS traffic lights */
+}
+:root[data-platform="win32"] .titlebar {
+  padding-right: 148px; /* clear the Windows caption buttons */
+}
+
+/* Quiet scrollbars. */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--edge) transparent;
 }
 
+/* --- Onboarding entrance animations (reduced-motion is handled globally above) --- */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-rise {
+  animation: rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+/* Gentle float for the welcome illustration. */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
 /*
  * Blend the BlockNote editor into the paper surface — by default its Mantine theme paints a stark
- * white card. Map its CSS variables to our tokens so the editor reads as part of the page, and
- * inherit our font so headings and body match the app.
+ * white card. Map its CSS variables to our tokens and inherit our font.
  */
 .bn-container {
   --bn-colors-editor-background: transparent;
@@ -91,8 +189,7 @@ body {
 
 /*
  * Our custom code block draws its own chrome (diagram preview + source strip, or a paper code
- * box). Drop Mantine's default dark code-block fill/padding so it doesn't show through as a black
- * canvas behind our content.
+ * box). Drop Mantine's default dark code-block fill/padding so it doesn't show through.
  */
 .bn-block-content[data-content-type="codeBlock"] {
   background-color: transparent !important;

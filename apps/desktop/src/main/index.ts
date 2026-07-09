@@ -26,8 +26,9 @@ import {
   type VaultWatcher,
   watchVault,
 } from '@brain/core';
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme } from 'electron';
 import {
+  type Appearance,
   IPC,
   type ReadNoteResult,
   type RecentVault,
@@ -39,7 +40,16 @@ import {
 } from '../shared/ipc.js';
 
 const MAX_RECENT = 8;
-const DEFAULT_VAULT_NAME = 'Second Brain';
+// No spaces in the folder name (shell/path-friendly); the display name stays "Second Brain".
+const DEFAULT_VAULT_NAME = 'SecondBrain';
+const APP_NAME = 'Second Brain';
+
+const isMac = process.platform === 'darwin';
+const isWin = process.platform === 'win32';
+
+// Set the app name before anything reads it, so the macOS menu/About/Quit say "Second Brain",
+// not "Electron" (windows-menu-and-app-name.md). productName fixes packaged builds.
+app.setName(APP_NAME);
 
 let currentVault: Vault | null = null;
 let watcher: VaultWatcher | null = null;
@@ -143,6 +153,62 @@ function requireVault(): Vault {
   return currentVault;
 }
 
+/** Remembered vaults that still exist and are valid, most-recent first. */
+async function validRecentVaults(): Promise<RecentVault[]> {
+  const result: RecentVault[] = [];
+  for (const path of readConfig().recent) {
+    if (await isVault(path)) result.push({ name: vaultName(path), path });
+  }
+  return result;
+}
+
+// A fresh vault opens onto a friendly note (a rendered diagram, not an empty tree) — low cognitive
+// load for the first run. Only seeded on create, never when opening an existing folder. Built as
+// native block JSON directly so main never imports the Markdown converter (jsdom can't be bundled
+// into the Electron main process).
+const WELCOME_BLOCKS: unknown[] = [
+  {
+    type: 'heading',
+    props: { level: 1 },
+    content: [{ type: 'text', text: 'Welcome to your Second Brain', styles: {} }],
+  },
+  {
+    type: 'paragraph',
+    content: [
+      {
+        type: 'text',
+        text: 'This is a note — edit it, or delete it. Everything here is a plain file in a folder you own.',
+        styles: {},
+      },
+    ],
+  },
+  {
+    type: 'codeBlock',
+    props: { language: 'mermaid' },
+    content: [
+      {
+        type: 'text',
+        text: 'graph LR\n  You["You"] --> Vault["Your vault"]\n  Agents["AI agents"] --> Vault\n  Vault --> Find["Find anything"]',
+        styles: {},
+      },
+    ],
+  },
+  {
+    type: 'paragraph',
+    content: [
+      { type: 'text', text: 'Right-click the sidebar to add notes and folders.', styles: {} },
+    ],
+  },
+];
+
+async function seedWelcomeNote(vault: Vault): Promise<void> {
+  try {
+    await createNote(vault, 'Welcome.note.json', { title: 'Welcome', blocks: WELCOME_BLOCKS });
+  } catch {
+    // Non-fatal: a seed failure must not block opening the vault.
+  }
+}
+
 // --- Free-name helpers for the tree's create actions -------------------------
 
 async function createNoteWithFreeName(vault: Vault, folder: string, base: string): Promise<string> {
@@ -183,14 +249,23 @@ function registerHandlers(): void {
     if (fromEnv) {
       return { mode: 'ready', info: await activateVault(fromEnv) };
     }
-    const recent: RecentVault[] = [];
-    for (const path of readConfig().recent) {
-      if (await isVault(path)) recent.push({ name: vaultName(path), path });
+    // Remember the last vault and reopen it automatically (org/tenant model); the welcome screen
+    // only appears on a true first run. Switching later goes through the in-app vault switcher.
+    const recent = await validRecentVaults();
+    const last = recent[0];
+    if (last) {
+      return { mode: 'ready', info: await activateVault(last.path) };
     }
     return { mode: 'setup', recent, suggestedPath: suggestedNewVaultPath() };
   });
 
-  ipcMain.handle(IPC.createVault, () => activateVault(suggestedNewVaultPath()));
+  ipcMain.handle(IPC.recentVaults, () => validRecentVaults());
+
+  ipcMain.handle(IPC.createVault, async (): Promise<VaultInfo> => {
+    const info = await activateVault(suggestedNewVaultPath());
+    await seedWelcomeNote(requireVault());
+    return info;
+  });
 
   ipcMain.handle(IPC.pickVault, async (): Promise<VaultInfo | null> => {
     const result = await dialog.showOpenDialog({
@@ -206,6 +281,8 @@ function registerHandlers(): void {
     if (!(await isVault(path))) return null;
     return activateVault(path);
   });
+
+  ipcMain.handle(IPC.appearance, (): Appearance => currentAppearance());
 
   ipcMain.handle(IPC.vaultInfo, (): VaultInfo => infoOf(requireVault()));
   ipcMain.handle(IPC.vaultTree, () => listTree(requireVault().root));
@@ -251,6 +328,94 @@ function registerHandlers(): void {
   });
 }
 
+// --- Appearance (native theme + translucency) --------------------------------
+
+const OPAQUE_BG = { light: '#f6f1e7', dark: '#1a1815' } as const;
+
+/** Whether a real OS translucency effect is active (and not suppressed by accessibility/override). */
+function translucencyActive(): boolean {
+  if (process.env.BRAIN_NO_VIBRANCY) return false; // opaque override (tests, screenshots, preference)
+  if (nativeTheme.prefersReducedTransparency) return false;
+  return isMac || isWin; // macOS vibrancy / Windows Mica; degrades to opaque elsewhere
+}
+
+function currentAppearance(): Appearance {
+  return {
+    theme: nativeTheme.shouldUseDarkColors ? 'dark' : 'light',
+    translucent: translucencyActive(),
+    platform: isMac ? 'darwin' : isWin ? 'win32' : 'linux',
+  };
+}
+
+function broadcastAppearance(): void {
+  const appearance = currentAppearance();
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send(IPC.appearanceChanged, appearance);
+  }
+}
+
+/** Platform- and accessibility-aware window options: vibrancy/Mica when available, else opaque. */
+function windowEffectOptions(): Electron.BrowserWindowConstructorOptions {
+  const dark = nativeTheme.shouldUseDarkColors;
+  const translucent = translucencyActive();
+  if (isMac) {
+    return translucent
+      ? {
+          vibrancy: 'sidebar',
+          visualEffectState: 'followWindow',
+          backgroundColor: '#00000000', // let the vibrancy show through
+          titleBarStyle: 'hiddenInset',
+          trafficLightPosition: { x: 16, y: 18 },
+        }
+      : {
+          backgroundColor: OPAQUE_BG[dark ? 'dark' : 'light'],
+          titleBarStyle: 'hiddenInset',
+          trafficLightPosition: { x: 16, y: 18 },
+        };
+  }
+  if (isWin) {
+    return {
+      ...(translucent ? { backgroundMaterial: 'mica' } : {}),
+      backgroundColor: OPAQUE_BG[dark ? 'dark' : 'light'],
+      titleBarStyle: 'hidden',
+      titleBarOverlay: {
+        color: '#00000000',
+        symbolColor: dark ? '#d8d0c2' : '#4a4438',
+        height: 44,
+      },
+    };
+  }
+  return { backgroundColor: OPAQUE_BG[dark ? 'dark' : 'light'] }; // Linux/other: opaque, native frame
+}
+
+// --- Application menu (fixes the "Electron" app-name label) -------------------
+
+function buildAppMenu(): void {
+  const template: Electron.MenuItemConstructorOptions[] = [
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' as const },
+              { type: 'separator' as const },
+              { role: 'hide' as const },
+              { role: 'hideOthers' as const },
+              { role: 'unhide' as const },
+              { type: 'separator' as const },
+              { role: 'quit' as const },
+            ],
+          } satisfies Electron.MenuItemConstructorOptions,
+        ]
+      : []),
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 function createWindow(): void {
   const window = new BrowserWindow({
     width: 1160,
@@ -258,8 +423,8 @@ function createWindow(): void {
     minWidth: 720,
     minHeight: 480,
     show: false,
-    title: 'Second Brain',
-    backgroundColor: '#f6f1e7',
+    title: APP_NAME,
+    ...windowEffectOptions(),
     webPreferences: {
       // electron-vite emits the preload as ESM (.mjs) in this "type": "module" package.
       preload: join(__dirname, '../preload/index.mjs'),
@@ -281,7 +446,10 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   registerHandlers();
+  buildAppMenu();
   createWindow();
+  // Push live appearance updates when the OS theme or transparency preference changes.
+  nativeTheme.on('updated', broadcastAppearance);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

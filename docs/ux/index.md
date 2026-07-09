@@ -4,15 +4,17 @@
 
 **Status: partly built** — the welcome screen and the main window (tree, editor, diagrams, file actions) have shipped (E1–E3, E7); the ⌘K search overlay lands with E4. Two surfaces: a first-run welcome screen and the main window.
 
-## First run — vault setup (E1 ✓)
+## First run & the current vault (E1 ✓)
 
-Instead of opening a raw OS folder picker (which invites pointing the app at a huge existing directory), the welcome screen offers, in order:
+The vault is the app's org/tenant: **chosen once, then remembered and reopened automatically** on every later launch. The welcome screen appears only on a true first run (no remembered vault). It's a low-cognitive-load moment — a small warm illustration and one obvious action, with staggered entrance animations (reduced-motion respected):
 
-- **Create a new vault** (primary) — makes a fresh, dedicated folder at a sensible default (`~/Second Brain`, de-duplicated) and opens it. One click, no decisions. The default is the home directory, **not** `~/Documents` or `~/Desktop`, on purpose: those are commonly iCloud-synced, and a cloud daemon syncing the vault (especially the SQLite index/WAL) fights the app's atomic writes and watcher.
-- **Open an existing folder…** — the OS picker, for power users who want a specific location.
-- **Recent** — previously-used vaults, shown when any exist, so returning owners reopen with one click rather than re-choosing.
+- **Create a new vault** (primary) — makes a fresh, dedicated folder at a sensible default (`~/SecondBrain`, no space, de-duplicated) and opens it, seeded with a friendly Welcome note (so the first view is a rendered note with a diagram, not an empty tree). One click, no decisions. The default is the home directory, **not** `~/Documents` or `~/Desktop`, on purpose: those are commonly iCloud-synced, and a cloud daemon syncing the vault (especially the SQLite index/WAL) fights the app's atomic writes and watcher.
+- **Open an existing folder…** — the OS picker, for choosing a specific location.
+- **Recent** — previously-used vaults, when any exist.
 
-**What makes a folder a vault:** the presence of a `.brain/vault.json` marker ([data-model](../architecture/data-model.md)). Creating or opening a folder writes it; recent entries are validated against it, so stale/deleted paths silently drop off. Setup is bypassed when a vault is provided explicitly (the `BRAIN_VAULT` env var, used by dev and tests).
+**Changing vault later** goes through the header **vault switcher** (the "context bar" — an org/tenant-style menu on the vault name): reopen a recent vault, open a folder, or create a new one. No forced return to the welcome screen.
+
+**What makes a folder a vault:** the presence of a `.brain/vault.json` marker ([data-model](../architecture/data-model.md)). Creating or opening a folder writes it; recent entries are validated against it, so stale/deleted paths silently drop off (and the most-recent still-valid vault is what auto-opens). An explicit `BRAIN_VAULT` env var overrides everything (dev/tests); `BRAIN_NO_VIBRANCY` forces the opaque, non-translucent look.
 
 ## Layout
 

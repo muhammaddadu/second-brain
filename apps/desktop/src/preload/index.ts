@@ -3,13 +3,20 @@
  * Every method just forwards to a main-process IPC handler — no logic, no filesystem here.
  */
 import { contextBridge, ipcRenderer } from 'electron';
-import { IPC, type VaultApi, type VaultChangePayload } from '../shared/ipc.js';
+import { type Appearance, IPC, type VaultApi, type VaultChangePayload } from '../shared/ipc.js';
 
 const vault: VaultApi = {
   startup: () => ipcRenderer.invoke(IPC.startup),
+  appearance: () => ipcRenderer.invoke(IPC.appearance),
+  onAppearanceChange: (listener) => {
+    const handler = (_event: unknown, appearance: Appearance) => listener(appearance);
+    ipcRenderer.on(IPC.appearanceChanged, handler);
+    return () => ipcRenderer.removeListener(IPC.appearanceChanged, handler);
+  },
   createVault: () => ipcRenderer.invoke(IPC.createVault),
   pickVault: () => ipcRenderer.invoke(IPC.pickVault),
   openRecent: (path) => ipcRenderer.invoke(IPC.openRecent, path),
+  recentVaults: () => ipcRenderer.invoke(IPC.recentVaults),
   info: () => ipcRenderer.invoke(IPC.vaultInfo),
   tree: () => ipcRenderer.invoke(IPC.vaultTree),
   readNote: (path) => ipcRenderer.invoke(IPC.readNote, path),

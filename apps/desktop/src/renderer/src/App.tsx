@@ -5,20 +5,36 @@
  * the renderer holds only UI state. A watcher subscription refreshes the tree live (E3).
  */
 import type { TreeNode } from '@brain/core';
-import { NotebookPen, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { VaultInfo } from '../../shared/ipc';
+import type { Appearance, VaultInfo } from '../../shared/ipc';
 import { FolderTree } from './FolderTree';
 import { NoteView } from './NoteView';
 import { Onboarding } from './Onboarding';
+import { VaultSwitcher } from './VaultSwitcher';
 
 type Phase =
   | { name: 'loading' }
   | { name: 'setup'; recent: { name: string; path: string }[]; suggestedPath: string }
   | { name: 'ready'; info: VaultInfo };
 
+/** Stamp the OS appearance onto <html> so CSS adapts (theme, translucency, platform layout). */
+function useAppearance() {
+  useEffect(() => {
+    function apply(a: Appearance) {
+      const el = document.documentElement;
+      el.dataset.theme = a.theme;
+      el.dataset.translucent = String(a.translucent);
+      el.dataset.platform = a.platform;
+    }
+    window.vault.appearance().then(apply).catch(console.error);
+    return window.vault.onAppearanceChange(apply);
+  }, []);
+}
+
 export function App() {
   const [phase, setPhase] = useState<Phase>({ name: 'loading' });
+  useAppearance();
 
   useEffect(() => {
     window.vault
@@ -44,10 +60,16 @@ export function App() {
       />
     );
   }
-  return <Workspace info={phase.info} />;
+  return (
+    <Workspace
+      key={phase.info.root}
+      info={phase.info}
+      onSwitch={(info) => setPhase({ name: 'ready', info })}
+    />
+  );
 }
 
-function Workspace({ info }: { info: VaultInfo }) {
+function Workspace({ info, onSwitch }: { info: VaultInfo; onSwitch: (info: VaultInfo) => void }) {
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -70,18 +92,13 @@ function Workspace({ info }: { info: VaultInfo }) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="border-edge flex items-center justify-between border-b px-4 py-2.5">
-        <div className="text-ink flex items-center gap-2">
-          <NotebookPen size={17} strokeWidth={1.75} className="text-accent" aria-hidden />
-          <span className="text-sm font-semibold" data-testid="vault-name">
-            {info.name}
-          </span>
-        </div>
+      <header className="titlebar app-drag border-edge flex items-center justify-between border-b px-4 py-2">
+        <VaultSwitcher current={info} onSwitch={onSwitch} />
         <button
           type="button"
           disabled
           title="Search arrives in E4"
-          className="border-edge text-faint hover:text-muted flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs"
+          className="app-no-drag border-edge text-faint hover:text-muted flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs"
         >
           <Search size={14} strokeWidth={2} />
           <span>Search</span>
@@ -89,7 +106,7 @@ function Workspace({ info }: { info: VaultInfo }) {
         </button>
       </header>
       <div className="flex min-h-0 flex-1">
-        <nav className="border-edge bg-surface w-64 shrink-0 overflow-y-auto border-r py-2">
+        <nav className="sidebar border-edge w-64 shrink-0 overflow-y-auto border-r py-2">
           <FolderTree
             nodes={tree}
             selectedPath={selected}
@@ -97,7 +114,7 @@ function Workspace({ info }: { info: VaultInfo }) {
             onRefresh={refreshTree}
           />
         </nav>
-        <main className="min-w-0 flex-1 overflow-y-auto">
+        <main className="content-surface min-w-0 flex-1 overflow-y-auto">
           <NoteView path={selected} />
         </main>
       </div>

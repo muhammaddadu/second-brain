@@ -1,16 +1,77 @@
 /**
- * First-run welcome screen. Instead of dropping the user into a raw OS folder picker (which
- * invites pointing the app at a huge existing directory like ~/Documents), we offer to create a
- * fresh, dedicated vault in one click — and, if they've used the app before, to reopen a recent
- * vault. "Open an existing folder" stays available for power users.
+ * First-run welcome. Designed for a low-cognitive-load, great-feeling first minute: a small
+ * animated concept diagram carries the idea (you + your AI agents share one vault) instead of a
+ * wall of text, then one obvious action. Entrance animations stagger in and respect reduced-motion
+ * (neutralized globally in styles.css). See ux/index.md § First run.
  */
-
-import { ChevronRight, FolderOpen, FolderPlus, NotebookPen } from 'lucide-react';
+import { ChevronRight, FolderOpen, FolderPlus } from 'lucide-react';
 import { useState } from 'react';
 import type { RecentVault, VaultInfo } from '../../shared/ipc';
 
 function prettyPath(path: string): string {
   return path.replace(/^\/Users\/[^/]+/, '~').replace(/^\/home\/[^/]+/, '~');
+}
+
+/** A warm, minimal illustration: a floating note card resting on a second one — paper, not a flowchart. */
+function WelcomeArt() {
+  return (
+    <svg viewBox="0 0 240 170" className="mx-auto h-40 w-auto" role="img" aria-label="A note card">
+      <title>Your notes, on paper you own</title>
+      <defs>
+        <filter id="cardShadow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="5" stdDeviation="7" floodColor="#2c2822" floodOpacity="0.14" />
+        </filter>
+      </defs>
+      {/* card behind, slightly rotated — hints at a stack */}
+      <rect
+        x="74"
+        y="30"
+        width="92"
+        height="108"
+        rx="13"
+        fill="var(--surface)"
+        stroke="var(--edge)"
+        transform="rotate(-7 120 84)"
+      />
+      {/* front card floats gently */}
+      <g className="animate-float">
+        <g transform="rotate(4 120 92)">
+          <rect
+            x="64"
+            y="40"
+            width="112"
+            height="112"
+            rx="15"
+            fill="var(--raised)"
+            stroke="var(--edge)"
+            filter="url(#cardShadow)"
+          />
+          {/* title accent + body lines + a little tag — reads as a note without any text */}
+          <rect x="82" y="62" width="46" height="8" rx="4" fill="var(--accent)" />
+          <rect x="82" y="82" width="78" height="6" rx="3" fill="var(--muted)" fillOpacity="0.32" />
+          <rect x="82" y="95" width="78" height="6" rx="3" fill="var(--muted)" fillOpacity="0.32" />
+          <rect
+            x="82"
+            y="108"
+            width="50"
+            height="6"
+            rx="3"
+            fill="var(--muted)"
+            fillOpacity="0.32"
+          />
+          <rect
+            x="82"
+            y="124"
+            width="34"
+            height="14"
+            rx="7"
+            fill="var(--surface)"
+            stroke="var(--edge)"
+          />
+        </g>
+      </g>
+    </svg>
+  );
 }
 
 export function Onboarding({
@@ -36,26 +97,34 @@ export function Onboarding({
   }
 
   return (
-    <div className="from-paper to-surface flex h-full items-center justify-center bg-gradient-to-b px-6">
+    <div className="flex h-full items-center justify-center px-6">
+      {/* Draggable region so the frameless window can be moved from the welcome screen. */}
+      <div className="app-drag fixed inset-x-0 top-0 h-11" />
       <div className="w-full max-w-md">
-        <div className="bg-accent/12 text-accent mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl">
-          <NotebookPen size={24} strokeWidth={1.75} />
+        <div className="animate-rise mb-7">
+          <WelcomeArt />
         </div>
-        <h1 className="font-serif text-3xl font-semibold tracking-tight">
-          Welcome to Second Brain
+
+        <h1
+          className="animate-rise text-center text-2xl font-semibold"
+          style={{ animationDelay: '140ms' }}
+        >
+          Second Brain
         </h1>
-        <p className="text-muted mt-2 text-sm leading-relaxed">
-          A vault is a normal folder — Second Brain keeps a small hidden index inside it. Start
-          fresh, or open a folder you’ve used before.
+        <p
+          className="text-muted animate-rise mt-1.5 text-center text-sm"
+          style={{ animationDelay: '200ms' }}
+        >
+          A local notes vault you and your AI agents share.
         </p>
 
-        <div className="mt-7 space-y-2.5">
+        <div className="animate-rise mt-7 space-y-2.5" style={{ animationDelay: '280ms' }}>
           <button
             type="button"
             disabled={busy}
             onClick={() => void run(() => window.vault.createVault())}
             data-testid="create-vault"
-            className="bg-accent text-accent-ink hover:opacity-90 flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-opacity disabled:opacity-60"
+            className="bg-accent text-accent-ink flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             <FolderPlus size={20} strokeWidth={1.75} className="shrink-0" />
             <span className="min-w-0">
@@ -76,7 +145,7 @@ export function Onboarding({
         </div>
 
         {recent.length > 0 && (
-          <div className="mt-7">
+          <div className="animate-rise mt-7" style={{ animationDelay: '360ms' }}>
             <h2 className="text-faint mb-2 text-xs font-medium tracking-wide uppercase">Recent</h2>
             <ul className="border-edge divide-edge divide-y overflow-hidden rounded-lg border">
               {recent.map((vault) => (

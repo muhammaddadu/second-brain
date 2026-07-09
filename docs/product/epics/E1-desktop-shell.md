@@ -31,7 +31,12 @@ The first runnable app: an Electron + React shell that opens a vault, shows the 
 
 ## Notes
 
-- **Vault setup refined (2026-07-09):** replaced the bare folder picker with a first-run welcome screen — create a fresh dedicated vault in one click, open an existing folder, or reopen a recent one. A `.brain/vault.json` marker (`core.initVault`/`isVault`) identifies vaults; `BRAIN_VAULT` still bypasses setup for dev/E2E. Flow spec in [ux/index.md § First run](../../ux/index.md); marker in [data-model](../../architecture/data-model.md). Icons via lucide-react; warm-paper visual system tuned across the app.
+- **Vault setup + native shell refined (2026-07-09):**
+  - First-run welcome screen (warm illustration, one-click **create** a fresh dedicated vault seeded with a Welcome note, **open** a folder, or reopen a **recent** one), with staggered entrance animations. A `.brain/vault.json` marker (`core.initVault`/`isVault`) identifies vaults.
+  - The chosen vault is **remembered and auto-opened** on later launches (org/tenant model); the welcome screen shows only on a true first run. Changing vault later uses the header **vault switcher**. `BRAIN_VAULT` overrides for dev/E2E.
+  - **Native adaptive shell:** macOS vibrancy / Windows Mica with a clean opaque fallback (`BRAIN_NO_VIBRANCY` forces opaque); live light/dark via `nativeTheme` stamped onto `<html data-theme>`; `prefers-reduced-transparency`/`-motion` respected; frameless draggable title bar with platform-aware spacing. Built per the `electron` skill (see references).
+  - App name fixed to "Second Brain" (`app.setName` + explicit menu; `productName` for packaged builds). Icons via lucide-react; warm-paper visual system tuned across the app.
+  - Flow spec in [ux/index.md § First run](../../ux/index.md); marker in [data-model](../../architecture/data-model.md).
 - IPC seam: channels + the `VaultApi` type live in one place, `apps/desktop/src/shared/ipc.ts`, imported by main, preload, and (type-only) the renderer.
 - Electron tooling (electron-vite) and styling (Tailwind v4, warm-paper theme) decided in E1 — recorded in [tech-stack](../../architecture/tech-stack.md#fixed-in-e1-2026-07-09) and [ux/index.md § Visual design](../../ux/index.md).
 - Cross-platform packaging for all three OSes is *not* gated here — it builds and runs on the dev machine; full packaging is revisited after E6 (see epics index → out of scope).
