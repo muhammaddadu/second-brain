@@ -2,11 +2,11 @@
 
 > **This doc owns:** the code layout — packages, module boundaries, and where logic lives. **For process/system shape see** [system-architecture](system-architecture.md); **for dependency choices see** [tech-stack](tech-stack.md).
 
-**Status: planned** — this is the layout E0 scaffolds; keep this doc in lockstep as packages land.
+**Status: partial** — E0 scaffolded the workspace and `packages/core`; the app and other packages are still planned. Keep this doc in lockstep as packages land.
 
 ## Monorepo layout
 
-TypeScript workspace monorepo (package manager fixed in E0 — see [tech-stack](tech-stack.md)):
+pnpm workspace monorepo, TypeScript strict throughout (tooling fixed in E0 — see [tech-stack](tech-stack.md)):
 
 ```
 apps/

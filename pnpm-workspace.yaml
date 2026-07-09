@@ -1,0 +1,3 @@
+# Workspace packages. apps/* lands in E1 (desktop shell).
+packages:
+  - 'packages/*'

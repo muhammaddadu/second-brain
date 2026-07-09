@@ -15,9 +15,17 @@
 | **Local embedding model** | semantic search default | privacy default ([PRD §4.1](../product/prd.md)); specific model/runtime is **open — [PRD §7.2](../product/prd.md#7-open-questions)**, decided in E4; provider interface stays pluggable for opt-in remote | E4 |
 | **MCP TypeScript SDK** (stdio) | agent surface | official SDK; stdio transport is what Claude Code / desktop clients spawn | E6 |
 
-## To be fixed in E0 (record here when chosen)
+## Fixed in E0 (2026-07-09)
 
-Workspace/package manager (pnpm workspaces is the default candidate), test runner (Vitest is the default candidate), linter/formatter, Electron tooling (electron-vite vs. Forge). Don't agonise — pick boring, record, move on.
+| Choice | What | Why |
+|--------|------|-----|
+| **pnpm workspaces** | monorepo package manager | fast, strict, disk-efficient; best-in-class workspace support for a multi-package repo |
+| **Vitest** | test runner | TS-native, fast watch, Vite-aligned with the desktop app's future build; colocated `*.test.ts` |
+| **Biome** | lint + format (one tool) | single fast binary, near-zero config vs. the ESLint+Prettier pair for a fresh repo |
+| **TypeScript strict + NodeNext ESM** | shared `tsconfig.base.json` | strict mode with `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`; ESM throughout |
+| **Vault concurrency: atomic write-then-rename + watcher + WAL** | see [ADR 0002](../adr/0002-vault-concurrency-atomic-write-rename.md) | integrity by construction, no coordinator, headless-safe |
+
+**Still deferred:** Electron tooling (electron-vite vs. Forge) — decided in E1 when `apps/desktop` lands.
 
 ## Constraints on future additions
 
