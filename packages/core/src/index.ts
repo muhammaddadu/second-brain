@@ -76,6 +76,7 @@ export {
   exportVaultToMarkdown,
   importMarkdownAsNote,
 } from './import-export.js';
+export { IMPORTABLE_EXTENSIONS, type ImportResult, importFileAsNote } from './import-file.js';
 export { blocksToMarkdown, markdownToBlocks } from './markdown.js';
 export {
   AGENT_GUIDE_FILE,

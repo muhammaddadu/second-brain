@@ -12,6 +12,7 @@ import {
   createFolderWithUniqueName,
   createNoteWithUniqueName,
   hashNote,
+  importFileAsNote,
   indexPath,
   initVault,
   isVault,
@@ -318,6 +319,16 @@ function registerHandlers(): void {
   ipcMain.handle(IPC.setOrder, async (_event, folder: string, orderedNames: string[]) => {
     await setFolderOrder(requireVault(), folder, orderedNames);
   });
+  ipcMain.handle(
+    IPC.importFiles,
+    async (_event, folder: string, files: Array<{ name: string; data: Uint8Array }>) => {
+      const results = [];
+      for (const file of files) {
+        results.push(await importFileAsNote(requireVault(), folder, file.name, file.data));
+      }
+      return results;
+    },
+  );
   ipcMain.handle(IPC.search, (_event, query: string, limit?: number) =>
     searchIndex ? embeddings.search(searchIndex, query, limit) : [],
   );

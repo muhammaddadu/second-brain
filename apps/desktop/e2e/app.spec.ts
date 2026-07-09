@@ -533,6 +533,29 @@ test('sidebar keyboard: arrows navigate, Enter opens, Delete asks before trashin
   await expect(first).toHaveAttribute('aria-expanded', /true|false/);
 });
 
+test('dropping a Markdown file onto the tree imports it as a note', async () => {
+  const tree = window.getByTestId('folder-tree');
+  const dataTransfer = await window.evaluateHandle(() => {
+    const dt = new DataTransfer();
+    dt.items.add(
+      new File(['# Imported doc\n\nBrought in by drag and drop.'], 'Imported doc.md', {
+        type: 'text/markdown',
+      }),
+    );
+    return dt;
+  });
+  await tree.dispatchEvent('drop', { dataTransfer });
+
+  // The converted note lands on disk at the vault root and appears in the tree.
+  const imported = join(vaultRoot, 'Imported doc.note.json');
+  await expect
+    .poll(async () => readFile(imported, 'utf8').catch(() => ''), { timeout: 8000 })
+    .toContain('Brought in by drag and drop');
+  const parsed = JSON.parse(await readFile(imported, 'utf8'));
+  expect(parsed.meta.title).toBe('Imported doc');
+  await expect(window.getByRole('button', { name: 'Imported doc', exact: true })).toBeVisible();
+});
+
 test('opens the knowledge graph and can return to a note', async () => {
   await window.getByTestId('graph-button').click();
   await expect(window.getByRole('heading', { name: 'Knowledge graph' })).toBeVisible();

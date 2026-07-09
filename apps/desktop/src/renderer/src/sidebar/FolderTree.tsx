@@ -52,6 +52,7 @@ export function FolderTree({
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [moving, setMoving] = useState<TreeNode | null>(null);
   const [confirmTrash, setConfirmTrash] = useState<TreeNode | null>(null);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
   // Keyboard focus (roving): the row arrow keys move between; Enter opens, Delete asks to trash.
   const [focusedPath, setFocusedPath] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -209,6 +210,26 @@ export function FolderTree({
     });
   }
 
+  /** Whether a drag carries OS files (an import) rather than an internal tree node. */
+  function isFileDrag(e: React.DragEvent): boolean {
+    return Array.from(e.dataTransfer?.types ?? []).includes('Files');
+  }
+
+  /** Import dropped files into `folder`, converting each to a note; failures are shown, not silent. */
+  function importDropped(folder: string, list: FileList | null) {
+    if (!list || list.length === 0) return;
+    const files = Array.from(list);
+    return guard(async () => {
+      const payload = await Promise.all(
+        files.map(async (f) => ({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) })),
+      );
+      const results = await window.vault.importFiles(folder, payload);
+      setImportErrors(results.flatMap((r) => (r.ok ? [] : [r.reason])));
+      if (folder) setExpandedFor(folder, true);
+      await onRefresh();
+    });
+  }
+
   /** Arrow/Enter/Delete keyboard navigation over the visible rows (scoped to the tree container). */
   function onTreeKeyDown(e: React.KeyboardEvent) {
     // Never hijack typing in an inline-rename input (events bubble up to this container).
@@ -308,13 +329,18 @@ export function FolderTree({
         setMenu({ node: null, x: e.clientX, y: e.clientY });
       }}
       onDragOver={(e) => {
-        if (canDropInto(draggingRef.current, null)) {
+        if (isFileDrag(e) || canDropInto(draggingRef.current, null)) {
           e.preventDefault();
           setDropHint({ path: '', pos: 'into' });
         }
       }}
       onDrop={(e) => {
         e.preventDefault();
+        if (isFileDrag(e)) {
+          setDropHint(null);
+          void importDropped('', e.dataTransfer.files);
+          return;
+        }
         dropOnRoot();
       }}
     >
@@ -359,11 +385,30 @@ export function FolderTree({
               }}
               onHoverItem={hoverItem}
               onDropOnItem={dropOnItem}
+              onFileDropOnFolder={(n, files) => void importDropped(n.path, files)}
             />
           ))}
         </ul>
       )}
 
+      {importErrors.length > 0 && (
+        <div
+          className="border-edge bg-surface text-accent m-2 rounded-lg border px-3 py-2 text-xs"
+          role="alert"
+          data-testid="import-errors"
+        >
+          {importErrors.map((err) => (
+            <p key={err}>{err}</p>
+          ))}
+          <button
+            type="button"
+            onClick={() => setImportErrors([])}
+            className="text-muted hover:text-ink mt-1 underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       {menu && (
         <ContextMenu
           x={menu.x}
@@ -418,6 +463,7 @@ interface TreeItemProps {
   /** Report a drag hovering this row at vertical fraction `frac` (0=top … 1=bottom). */
   onHoverItem: (node: TreeNode, frac: number) => void;
   onDropOnItem: (node: TreeNode, frac: number) => void;
+  onFileDropOnFolder: (node: TreeNode, files: FileList) => void;
 }
 
 /** Pointer position within a row as a 0..1 fraction from its top — drives before/after/into intent. */
@@ -449,6 +495,12 @@ function TreeItem(props: TreeItemProps) {
     onDrop: (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      // OS files dropped onto a folder row import into that folder (notes import into its parent).
+      if (Array.from(e.dataTransfer?.types ?? []).includes('Files')) {
+        const target = node.type === 'folder' ? node : null;
+        if (target) props.onFileDropOnFolder(target, e.dataTransfer.files);
+        return;
+      }
       props.onDropOnItem(node, rowFraction(e));
     },
   };

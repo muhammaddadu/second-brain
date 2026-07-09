@@ -10,6 +10,7 @@ import type {
   DiscoveredProvider,
   EmbeddingSettings,
   GraphData,
+  ImportResult,
   NoteEnvelope,
   PropertyType,
   ProviderKind,
@@ -47,6 +48,7 @@ export const IPC = {
   moveFolder: 'vault:move-folder',
   trashFolder: 'vault:trash-folder',
   setOrder: 'vault:set-order',
+  importFiles: 'vault:import-files',
   search: 'vault:search',
   graph: 'vault:graph',
   // Databases (E8, ADR 0004).
@@ -251,6 +253,11 @@ export interface VaultApi {
    * `orderedNames` are on-disk entry names (a folder's dir name, a note's `.note.json` filename).
    */
   setOrder(folder: string, orderedNames: string[]): Promise<void>;
+  /** Import dropped files into `folder` ('' = root), converting each to a note; per-file results. */
+  importFiles(
+    folder: string,
+    files: Array<{ name: string; data: Uint8Array }>,
+  ): Promise<ImportResult[]>;
   /** Search the vault (keyword, plus semantic when a provider is configured); ranked, with snippets. */
   search(query: string, limit?: number): Promise<SearchHit[]>;
   /** The knowledge graph derived from the index — notes as nodes, tag + semantic edges. */

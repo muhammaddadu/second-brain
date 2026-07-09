@@ -16,6 +16,11 @@ export default defineConfig({
           'node-sqlite3-wasm',
           '@aws-sdk/client-bedrock-runtime',
           '@huggingface/transformers',
+          'mammoth',
+          'pdf-parse',
+          // Markdown conversion (file import) — server-util drags in jsdom, whose relative
+          // requires break when bundled (see LEARNINGS: jsdom xhr-sync-worker).
+          '@blocknote/server-util',
         ],
       },
     },

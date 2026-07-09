@@ -46,6 +46,7 @@ const vault: VaultApi = {
   moveFolder: (fromPath, toPath) => ipcRenderer.invoke(IPC.moveFolder, fromPath, toPath),
   trashFolder: (path) => ipcRenderer.invoke(IPC.trashFolder, path),
   setOrder: (folder, orderedNames) => ipcRenderer.invoke(IPC.setOrder, folder, orderedNames),
+  importFiles: (folder, files) => ipcRenderer.invoke(IPC.importFiles, folder, files),
   search: (query, limit) => ipcRenderer.invoke(IPC.search, query, limit),
   graph: (threshold) => ipcRenderer.invoke(IPC.graph, threshold),
   getDatabase: (folder) => ipcRenderer.invoke(IPC.getDatabase, folder),
