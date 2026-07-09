@@ -8,7 +8,7 @@
 
 The vault is the app's org/tenant: **chosen once, then remembered and reopened automatically** on every later launch. The welcome screen appears only on a true first run (no remembered vault). It's a low-cognitive-load moment — a small warm illustration and one obvious action, with staggered entrance animations (reduced-motion respected):
 
-- **Create a new vault** (primary) — makes a fresh, dedicated folder at a sensible default (`~/SecondBrain`, no space, de-duplicated) and opens it, seeded with a friendly Welcome note (so the first view is a rendered note with a diagram, not an empty tree). One click, no decisions. The default is the home directory, **not** `~/Documents` or `~/Desktop`, on purpose: those are commonly iCloud-synced, and a cloud daemon syncing the vault (especially the SQLite index/WAL) fights the app's atomic writes and watcher.
+- **Create a new vault** (primary) — makes a fresh, dedicated folder at a sensible default (`~/SecondBrain`, no space, de-duplicated) and opens it, seeded with a small **folder-organised starter set** (Welcome + a Guide folder covering folders/tags, search & RAG, agents, and diagrams; an Ideas note on the local-first principles; and an example Journal note). It's real content so the first view isn't an empty tree — and gives search/semantic retrieval something to find immediately. One click, no decisions. The default is the home directory, **not** `~/Documents` or `~/Desktop`, on purpose: those are commonly iCloud-synced, and a cloud daemon syncing the vault (especially the SQLite index/WAL) fights the app's atomic writes and watcher.
 - **Open an existing folder…** — the OS picker, for choosing a specific location.
 - **Recent** — previously-used vaults, when any exist.
 

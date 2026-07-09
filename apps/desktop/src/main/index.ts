@@ -298,50 +298,170 @@ async function validRecentVaults(): Promise<RecentVault[]> {
   return result;
 }
 
-// A fresh vault opens onto a friendly note (a rendered diagram, not an empty tree) — low cognitive
-// load for the first run. Only seeded on create, never when opening an existing folder. Built as
-// native block JSON directly so main never imports the Markdown converter (jsdom can't be bundled
-// into the Electron main process).
-const WELCOME_BLOCKS: unknown[] = [
+// A fresh vault opens onto a small, folder-organised starter set that explains the product and
+// gives search / RAG something real to work with — not an empty tree. Only seeded on create, never
+// when opening an existing folder. Authored as native block JSON directly so main never imports the
+// Markdown converter (jsdom can't be bundled into the Electron main process).
+const h = (level: 1 | 2 | 3, text: string): unknown => ({
+  type: 'heading',
+  props: { level },
+  content: [{ type: 'text', text, styles: {} }],
+});
+const p = (text: string): unknown => ({
+  type: 'paragraph',
+  content: [{ type: 'text', text, styles: {} }],
+});
+const li = (text: string): unknown => ({
+  type: 'bulletListItem',
+  content: [{ type: 'text', text, styles: {} }],
+});
+const mermaid = (src: string): unknown => ({
+  type: 'codeBlock',
+  props: { language: 'mermaid' },
+  content: [{ type: 'text', text: src, styles: {} }],
+});
+
+interface SeedNote {
+  path: string;
+  title: string;
+  tags: string[];
+  blocks: unknown[];
+}
+
+const SEED_NOTES: SeedNote[] = [
   {
-    type: 'heading',
-    props: { level: 1 },
-    content: [{ type: 'text', text: 'Welcome to your Second Brain', styles: {} }],
-  },
-  {
-    type: 'paragraph',
-    content: [
-      {
-        type: 'text',
-        text: 'This is a note — edit it, or delete it. Everything here is a plain file in a folder you own.',
-        styles: {},
-      },
+    path: 'Welcome.note.json',
+    title: 'Welcome',
+    tags: ['guide'],
+    blocks: [
+      h(1, 'Welcome to your Second Brain'),
+      p(
+        'A local-first place to think, write, and find things again. Every note is a plain file in a folder you own — nothing leaves your machine unless you choose to connect a provider.',
+      ),
+      mermaid(
+        'graph LR\n  You["You"] --> Vault["Your vault (plain files)"]\n  Agents["AI agents"] --> Vault\n  Vault --> Search["Find by keyword or meaning"]',
+      ),
+      p(
+        'This starter set explains how everything works — edit or delete any of it. Right-click the sidebar to add your own notes and folders.',
+      ),
+      li('Guide — how folders, tags, search, agents, and diagrams work.'),
+      li('Ideas — the thinking behind the app.'),
+      li('Journal — an example daily note.'),
     ],
   },
   {
-    type: 'codeBlock',
-    props: { language: 'mermaid' },
-    content: [
-      {
-        type: 'text',
-        text: 'graph LR\n  You["You"] --> Vault["Your vault"]\n  Agents["AI agents"] --> Vault\n  Vault --> Find["Find anything"]',
-        styles: {},
-      },
+    path: 'Guide/Organising with folders and tags.note.json',
+    title: 'Organising with folders and tags',
+    tags: ['guide', 'organisation'],
+    blocks: [
+      h(1, 'Folders and tags'),
+      p(
+        'Your folder tree is the organisation — there is no hidden database mapping notes to places. Drag a note onto a folder to move it, or onto the gap between notes to reorder; the order is remembered.',
+      ),
+      p(
+        'Tags live in a note’s metadata and cut across folders, so a single note can belong to many themes at once. Use folders for where something lives and tags for what it is about.',
+      ),
+      li('Move: drop onto a folder’s middle.'),
+      li('Reorder: drop on a sibling’s top or bottom edge.'),
+      li('Rename a note by editing its title — the file is renamed to match.'),
     ],
   },
   {
-    type: 'paragraph',
-    content: [
-      { type: 'text', text: 'Right-click the sidebar to add notes and folders.', styles: {} },
+    path: 'Guide/Finding anything — search and RAG.note.json',
+    title: 'Finding anything — search and RAG',
+    tags: ['guide', 'search'],
+    blocks: [
+      h(1, 'Search and retrieval'),
+      p(
+        'Press ⌘K anywhere to search. Keyword search is always on and fully local — it matches the exact words in your notes and highlights them in the results.',
+      ),
+      p(
+        'Semantic search is optional. When you turn it on in Settings, the app also finds notes by meaning, so a search for “staying focused” can surface a note about attention and deep work even if those exact words never appear. Keyword and semantic results are blended into one ranked list.',
+      ),
+      p(
+        'The recommended setup runs a small model (EmbeddingGemma) entirely on your device, so semantic search stays private and works offline. You can also point it at Ollama, OpenAI, or another provider.',
+      ),
+    ],
+  },
+  {
+    path: 'Guide/AI agents and your rules.note.json',
+    title: 'AI agents and your rules',
+    tags: ['guide', 'agents'],
+    blocks: [
+      h(1, 'Let agents work in your vault'),
+      p(
+        'The whole vault is designed to be readable and writable by AI agents through a CLI and an MCP server, so you can ask an assistant to “summarise my last 24 hours and file the notes where they belong.”',
+      ),
+      p(
+        'Agents follow rules you define — conventions for where things go and how they are named — so their edits fit your system instead of fighting it. Because everything is plain files, an agent’s changes are just ordinary note edits you can review, keep, or undo.',
+      ),
+      mermaid(
+        'sequenceDiagram\n  You->>Agent: Summarise today\n  Agent->>Vault: Search + read notes\n  Agent->>Vault: Write summary\n  Vault-->>You: New note, filed by your rules',
+      ),
+    ],
+  },
+  {
+    path: 'Guide/Diagrams and rich content.note.json',
+    title: 'Diagrams and rich content',
+    tags: ['guide', 'diagrams'],
+    blocks: [
+      h(1, 'Diagrams render inline'),
+      p(
+        'Write a Mermaid code block and it renders as a diagram right in the note — flowcharts, sequence diagrams, and more. The source stays editable, and it exports cleanly as Markdown.',
+      ),
+      mermaid(
+        'flowchart TD\n  Idea([Idea]) --> Note[Capture as a note]\n  Note --> Tag[Tag & file it]\n  Tag --> Find[Find it later by meaning]',
+      ),
+      p('Type “/mermaid” in the editor to drop in a starter diagram.'),
+    ],
+  },
+  {
+    path: 'Ideas/Why local-first and private by default.note.json',
+    title: 'Why local-first and private by default',
+    tags: ['ideas', 'principles'],
+    blocks: [
+      h(1, 'Principles'),
+      p(
+        'Your notes are the source of truth, not a cloud service. They are documented JSON files in folders you control, so the vault stays usable even with the app uninstalled — and a whole-vault Markdown export always works.',
+      ),
+      li('Local-first: everything works offline; nothing is sent anywhere by default.'),
+      li(
+        'Files-first: search indexes and embeddings are derived and rebuildable — never the only copy of anything.',
+      ),
+      li('No lock-in: open formats, Markdown export at every surface.'),
+      p(
+        'Privacy is a default, not a setting you have to discover: semantic search ships with an on-device model, and any hosted provider is an explicit opt-in.',
+      ),
+    ],
+  },
+  {
+    path: 'Journal/Example daily note.note.json',
+    title: 'Example daily note',
+    tags: ['journal'],
+    blocks: [
+      h(1, 'A day with your second brain'),
+      p(
+        'Daily notes are a nice home for quick capture — meetings, ideas, links, and small wins. Give them a consistent place (like this Journal folder) and an agent can roll them up for you later.',
+      ),
+      h(3, 'Today'),
+      li('Set up my vault and read the guide.'),
+      li('Tried ⌘K search and moved a few notes around.'),
+      li('Idea: keep a running list of book highlights to revisit.'),
     ],
   },
 ];
 
-async function seedWelcomeNote(vault: Vault): Promise<void> {
-  try {
-    await createNote(vault, 'Welcome.note.json', { title: 'Welcome', blocks: WELCOME_BLOCKS });
-  } catch {
-    // Non-fatal: a seed failure must not block opening the vault.
+async function seedStarterVault(vault: Vault): Promise<void> {
+  for (const note of SEED_NOTES) {
+    try {
+      await createNote(vault, note.path, {
+        title: note.title,
+        tags: note.tags,
+        blocks: note.blocks,
+      });
+    } catch {
+      // Non-fatal: a seed failure must not block opening the vault.
+    }
   }
 }
 
@@ -416,7 +536,7 @@ function registerHandlers(): void {
 
   ipcMain.handle(IPC.createVault, async (): Promise<VaultInfo> => {
     const info = await activateVault(suggestedNewVaultPath());
-    await seedWelcomeNote(requireVault());
+    await seedStarterVault(requireVault());
     return info;
   });
 
