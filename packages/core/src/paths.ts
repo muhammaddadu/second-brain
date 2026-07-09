@@ -36,6 +36,12 @@ export const AGENT_GUIDE_FILE = 'AGENTS.md';
 export const ORDER_FILE = '.order.json';
 
 /**
+ * Database descriptor: a folder containing this file is a database — its notes are rows, the file
+ * holds the typed property schema and saved views (ADR 0004). Documented in data-model § Databases.
+ */
+export const DATABASE_FILE = 'database.json';
+
+/**
  * Markers FTS5 wraps around matched terms in a search snippet. Private-use-area code points, so
  * they never collide with literal text in a note (unlike `[`/`]`). The renderer highlights runs
  * between them; the CLI strips them. One contract, defined here only.

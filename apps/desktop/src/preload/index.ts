@@ -38,7 +38,7 @@ const vault: VaultApi = {
   setTags: (path, tags) => ipcRenderer.invoke(IPC.setTags, path, tags),
   setTitle: (path, title) => ipcRenderer.invoke(IPC.setTitle, path, title),
   newNote: (folder) => ipcRenderer.invoke(IPC.newNote, folder),
-  newFolder: (parent) => ipcRenderer.invoke(IPC.newFolder, parent),
+  newFolder: (parent, base) => ipcRenderer.invoke(IPC.newFolder, parent, base),
   rename: (path, newName) => ipcRenderer.invoke(IPC.rename, path, newName),
   move: (fromPath, toPath) => ipcRenderer.invoke(IPC.move, fromPath, toPath),
   trash: (path) => ipcRenderer.invoke(IPC.trash, path),
@@ -48,6 +48,14 @@ const vault: VaultApi = {
   setOrder: (folder, orderedNames) => ipcRenderer.invoke(IPC.setOrder, folder, orderedNames),
   search: (query, limit) => ipcRenderer.invoke(IPC.search, query, limit),
   graph: (threshold) => ipcRenderer.invoke(IPC.graph, threshold),
+  getDatabase: (folder) => ipcRenderer.invoke(IPC.getDatabase, folder),
+  createDatabase: (folder) => ipcRenderer.invoke(IPC.createDatabase, folder),
+  addProperty: (folder, name, type, options) =>
+    ipcRenderer.invoke(IPC.addProperty, folder, name, type, options),
+  setRowProperty: (folder, path, propertyId, value) =>
+    ipcRenderer.invoke(IPC.setRowProperty, folder, path, propertyId, value),
+  listRows: (folder) => ipcRenderer.invoke(IPC.listRows, folder),
+  listDatabases: () => ipcRenderer.invoke(IPC.listDatabases),
   onVaultChange: (listener) => {
     const handler = (_event: unknown, change: VaultChangePayload) => listener(change);
     ipcRenderer.on(IPC.changed, handler);

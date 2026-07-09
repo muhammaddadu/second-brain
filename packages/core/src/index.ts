@@ -11,6 +11,23 @@ export {
   syncAgentGuide,
 } from './agent-guide.js';
 export {
+  addProperty,
+  createDatabase,
+  type DatabaseRow,
+  type DatabaseSchema,
+  type DatabaseViewDef,
+  listDatabases,
+  listRows,
+  PROPERTY_TYPES,
+  type PropertyDef,
+  type PropertyType,
+  readDatabase,
+  renameProperty,
+  setRowProperty,
+  validateValue,
+  writeDatabase,
+} from './database.js';
+export {
   BUILTIN_EMBEDDING_MODEL,
   cosineSimilarity,
   createEmbeddingAdapter,
@@ -63,6 +80,7 @@ export { blocksToMarkdown, markdownToBlocks } from './markdown.js';
 export {
   AGENT_GUIDE_FILE,
   BRAIN_DIR,
+  DATABASE_FILE,
   entryName,
   INDEX_DB,
   NOTE_EXTENSION,

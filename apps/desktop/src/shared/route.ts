@@ -10,11 +10,13 @@
  *   graph                      → the knowledge-graph view
  *   note                       → the "no note selected" state
  *   note/<uri-encoded path>    → open a specific note
+ *   database/<uri-encoded path> → open a folder as a database (table/board)
  */
 export type Route =
   | { name: 'note'; path: string | null }
   | { name: 'settings' }
-  | { name: 'graph' };
+  | { name: 'graph' }
+  | { name: 'database'; path: string };
 
 /** Custom protocol used for deep links, e.g. `secondbrain://note/Journal%2F2026-07-07.note.json`. */
 export const APP_SCHEME = 'secondbrain';
@@ -25,6 +27,7 @@ export const DEFAULT_ROUTE: Route = { name: 'note', path: null };
 export function routeToUrl(route: Route): string {
   if (route.name === 'settings') return 'settings';
   if (route.name === 'graph') return 'graph';
+  if (route.name === 'database') return `database/${encodeURIComponent(route.path)}`;
   return route.path ? `note/${encodeURIComponent(route.path)}` : 'note';
 }
 
@@ -38,6 +41,14 @@ export function routeFromUrl(url: string): Route {
   if (trimmed === 'settings') return { name: 'settings' };
   if (trimmed === 'graph') return { name: 'graph' };
   if (trimmed === '' || trimmed === 'note') return { name: 'note', path: null };
+  const dbMatch = /^database\/(.+)$/.exec(trimmed);
+  if (dbMatch?.[1]) {
+    try {
+      return { name: 'database', path: decodeURIComponent(dbMatch[1]) };
+    } catch {
+      return DEFAULT_ROUTE;
+    }
+  }
   const noteMatch = /^note\/(.+)$/.exec(trimmed);
   if (noteMatch?.[1]) {
     try {

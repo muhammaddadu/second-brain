@@ -9,6 +9,7 @@ import { Loader2, Network, Search, Settings as SettingsIcon } from 'lucide-react
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Appearance, IndexStatus, VaultInfo } from '../../shared/ipc';
 import { DEFAULT_ROUTE, type Route, routeFromUrl } from '../../shared/route';
+import { DatabaseView } from './database/DatabaseView';
 import { NoteView } from './editor/NoteView';
 import { GraphView } from './search/GraphView';
 import { SearchPalette } from './search/SearchPalette';
@@ -89,6 +90,7 @@ function Workspace({
   onSwitch: (info: VaultInfo) => void;
 }) {
   const [tree, setTree] = useState<TreeNode[]>([]);
+  const [databases, setDatabases] = useState<ReadonlySet<string>>(new Set());
   const [route, setRoute] = useState<Route>(() =>
     initialRoute ? routeFromUrl(initialRoute) : DEFAULT_ROUTE,
   );
@@ -99,6 +101,7 @@ function Workspace({
   const refreshTree = useCallback(async () => {
     try {
       setTree(await window.vault.tree());
+      setDatabases(new Set(await window.vault.listDatabases()));
     } catch (error) {
       // e.g. the vault directory was removed out from under us; keep the last known tree.
       console.error(error);
@@ -186,7 +189,9 @@ function Workspace({
             <FolderTree
               nodes={tree}
               selectedPath={selectedPath}
+              databases={databases}
               onSelect={(path) => setRoute({ name: 'note', path })}
+              onOpenDatabase={(path) => setRoute({ name: 'database', path })}
               onRefresh={refreshTree}
             />
           </div>
@@ -209,6 +214,11 @@ function Workspace({
             <SettingsPage />
           ) : route.name === 'graph' ? (
             <GraphView onOpenNote={(path) => setRoute({ name: 'note', path })} />
+          ) : route.name === 'database' ? (
+            <DatabaseView
+              folder={route.path}
+              onOpenNote={(path) => setRoute({ name: 'note', path })}
+            />
           ) : (
             <NoteView
               path={selectedPath}

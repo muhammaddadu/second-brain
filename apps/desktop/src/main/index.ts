@@ -6,13 +6,17 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  addProperty,
   buildGraph,
+  createDatabase,
   createFolderWithUniqueName,
   createNoteWithUniqueName,
   hashNote,
   indexPath,
   initVault,
   isVault,
+  listDatabases,
+  listRows,
   listTree,
   moveFolder,
   moveNote,
@@ -20,7 +24,9 @@ import {
   NoteConflictError,
   openSearchIndex,
   openVault,
+  type PropertyType,
   type ProviderKind,
+  readDatabase,
   readNote,
   readRules,
   reindexNote,
@@ -29,6 +35,7 @@ import {
   type SearchIndex,
   setFolderOrder,
   setNoteTitle,
+  setRowProperty,
   syncAgentGuide,
   trashFolder,
   trashNote,
@@ -286,8 +293,8 @@ function registerHandlers(): void {
   ipcMain.handle(IPC.newNote, (_event, folder: string) =>
     createNoteWithUniqueName(requireVault(), folder, 'Untitled'),
   );
-  ipcMain.handle(IPC.newFolder, (_event, parent: string) =>
-    createFolderWithUniqueName(requireVault(), parent, 'New folder'),
+  ipcMain.handle(IPC.newFolder, (_event, parent: string, base?: string) =>
+    createFolderWithUniqueName(requireVault(), parent, base ?? 'New folder'),
   );
   ipcMain.handle(IPC.rename, (_event, path: string, newName: string) =>
     renameNote(requireVault(), path, newName),
@@ -313,6 +320,26 @@ function registerHandlers(): void {
   ipcMain.handle(IPC.search, (_event, query: string, limit?: number) =>
     searchIndex ? embeddings.search(searchIndex, query, limit) : [],
   );
+  // Databases (E8) — one-line forwards into core.
+  ipcMain.handle(IPC.getDatabase, (_event, folder: string) => readDatabase(requireVault(), folder));
+  ipcMain.handle(IPC.createDatabase, (_event, folder: string) =>
+    createDatabase(requireVault(), folder),
+  );
+  ipcMain.handle(
+    IPC.addProperty,
+    async (_event, folder: string, name: string, type: PropertyType, options?: string[]) => {
+      await addProperty(requireVault(), folder, { name, type, ...(options ? { options } : {}) });
+      return readDatabase(requireVault(), folder);
+    },
+  );
+  ipcMain.handle(
+    IPC.setRowProperty,
+    (_event, folder: string, path: string, propertyId: string, value: unknown) =>
+      setRowProperty(requireVault(), folder, path, propertyId, value),
+  );
+  ipcMain.handle(IPC.listRows, (_event, folder: string) => listRows(requireVault(), folder));
+  ipcMain.handle(IPC.listDatabases, () => listDatabases(requireVault()));
+
   ipcMain.handle(IPC.graph, (_event, threshold?: number) => {
     if (!searchIndex) return { nodes: [], edges: [] };
     const model = embeddings.provider()?.model;

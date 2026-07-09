@@ -6,6 +6,7 @@
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { propertiesToMarkdownHeader, readDatabase } from './database.js';
 import type { NoteEnvelope } from './envelope.js';
 import { blocksToMarkdown, markdownToBlocks } from './markdown.js';
 import { NOTE_EXTENSION } from './paths.js';
@@ -23,10 +24,18 @@ export async function importMarkdownAsNote(
   return createNote(vault, relPath, { ...meta, blocks });
 }
 
-/** Export one note to a Markdown string (lossy view; the JSON file stays canonical). */
+/**
+ * Export one note to a Markdown string (lossy view; the JSON file stays canonical). A database
+ * row's properties render as a small header block above the body (PRD §4.4, ADR 0004) so exported
+ * rows stay readable with the app gone.
+ */
 export async function exportNoteToMarkdown(vault: Vault, relPath: string): Promise<string> {
   const note = await readNote(vault, relPath);
-  return blocksToMarkdown(note.blocks);
+  const body = await blocksToMarkdown(note.blocks);
+  if (!note.meta.properties || Object.keys(note.meta.properties).length === 0) return body;
+  const dir = dirname(relPath);
+  const schema = await readDatabase(vault, dir === '.' ? '' : dir);
+  return propertiesToMarkdownHeader(schema, note.meta.properties) + body;
 }
 
 /**

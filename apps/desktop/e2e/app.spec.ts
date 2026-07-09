@@ -428,6 +428,72 @@ test('⌘K search finds a note by its text and opens it', async () => {
   await expect(window.getByTestId('note-title')).toHaveValue('Findable');
 });
 
+test('databases: create a database, add property/rows, edit a cell, move a board card', async () => {
+  // Create a database inside Journal via the context menu (inline rename, like New folder).
+  await ensureExpanded('Journal');
+  await window.getByRole('button', { name: 'Journal', exact: true }).click({ button: 'right' });
+  await window.getByTestId('context-menu').getByRole('button', { name: 'New database' }).click();
+  const createInput = window.getByRole('textbox', { name: 'Rename' });
+  await createInput.fill('Tasks');
+  await createInput.press('Enter');
+
+  // Opening it shows the table view; database.json exists on disk.
+  await window.getByRole('button', { name: 'Tasks', exact: true }).click();
+  await expect(window.getByTestId('database-view')).toBeVisible();
+  await expect
+    .poll(async () =>
+      readFile(join(vaultRoot, 'Journal/Tasks/database.json'), 'utf8').catch(() => ''),
+    )
+    .toContain('"views"');
+
+  // Add two rows and a select property.
+  await window.getByTestId('add-row').click();
+  await window.getByTestId('add-row').click();
+  await window.getByTestId('add-property').click();
+  await window.getByTestId('property-name').fill('Status');
+  await window.getByTestId('property-type').selectOption('select');
+  await window.getByTestId('property-options').fill('Todo, Done');
+  await window.getByTestId('property-save').click();
+  await expect(window.getByTestId('database-table')).toContainText('Status');
+
+  // Edit the first row's Status cell → the row note file gains the property value.
+  await window.getByTestId('cell-Status').first().selectOption('Todo');
+  const rowFile = join(vaultRoot, 'Journal/Tasks/Untitled.note.json');
+  await expect
+    .poll(async () => readFile(rowFile, 'utf8').catch(() => ''), { timeout: 8000 })
+    .toContain('"Todo"');
+
+  // Board view: the card sits in the Todo column; drag it to Done → file updates.
+  await window.getByTestId('board-toggle').click();
+  const card = window
+    .getByTestId('board-column-Todo')
+    .getByRole('button', { name: 'Untitled', exact: true });
+  await expect(card).toBeVisible();
+  const dataTransfer = await window.evaluateHandle(() => new DataTransfer());
+  await card.dispatchEvent('dragstart', { dataTransfer });
+  await window.getByTestId('board-column-Done').dispatchEvent('drop', { dataTransfer });
+  await expect
+    .poll(async () => readFile(rowFile, 'utf8').catch(() => ''), { timeout: 8000 })
+    .toContain('"Done"');
+  await expect(
+    window.getByTestId('board-column-Done').getByRole('button', { name: 'Untitled', exact: true }),
+  ).toBeVisible();
+});
+
+test('databases: "New database" creates a schema-backed folder with inline rename', async () => {
+  await ensureExpanded('Journal');
+  await window.getByRole('button', { name: 'Journal', exact: true }).click({ button: 'right' });
+  await window.getByTestId('context-menu').getByRole('button', { name: 'New database' }).click();
+  const renameInput = window.getByRole('textbox', { name: 'Rename' });
+  await renameInput.fill('Projects DB');
+  await renameInput.press('Enter');
+  await expect
+    .poll(async () =>
+      readFile(join(vaultRoot, 'Journal/Projects DB/database.json'), 'utf8').catch(() => ''),
+    )
+    .toContain('"views"');
+});
+
 test('opens the knowledge graph and can return to a note', async () => {
   await window.getByTestId('graph-button').click();
   await expect(window.getByRole('heading', { name: 'Knowledge graph' })).toBeVisible();

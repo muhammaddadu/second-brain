@@ -18,6 +18,8 @@ export interface NoteMeta {
   tags?: string[];
   created?: string;
   updated?: string;
+  /** Database row values, keyed by stable property id (ADR 0004). Absent on plain notes. */
+  properties?: Record<string, unknown>;
   [key: string]: unknown;
 }
 

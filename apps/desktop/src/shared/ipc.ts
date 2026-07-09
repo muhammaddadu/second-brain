@@ -5,10 +5,13 @@
  * process (AGENTS.md architecture rule; app-architecture.md boundary rules).
  */
 import type {
+  DatabaseRow,
+  DatabaseSchema,
   DiscoveredProvider,
   EmbeddingSettings,
   GraphData,
   NoteEnvelope,
+  PropertyType,
   ProviderKind,
   ProviderSecrets,
   SearchHit,
@@ -46,6 +49,13 @@ export const IPC = {
   setOrder: 'vault:set-order',
   search: 'vault:search',
   graph: 'vault:graph',
+  // Databases (E8, ADR 0004).
+  getDatabase: 'db:get',
+  createDatabase: 'db:create',
+  addProperty: 'db:add-property',
+  setRowProperty: 'db:set-row-property',
+  listRows: 'db:list-rows',
+  listDatabases: 'db:list',
   // Embeddings / semantic-search provider management (ADR 0008).
   scanProviders: 'embed:scan-providers',
   listModels: 'embed:list-models',
@@ -207,7 +217,7 @@ export interface VaultApi {
   /** Create a new note in `folder` (vault-relative, '' for root); returns the created path. */
   newNote(folder: string): Promise<string>;
   /** Create a new folder under `parent` (vault-relative, '' for root); returns the created path. */
-  newFolder(parent: string): Promise<string>;
+  newFolder(parent: string, base?: string): Promise<string>;
   /** Rename a note in place; `newName` includes the extension. Returns the new path. */
   rename(path: string, newName: string): Promise<string>;
   /** Move a note to a new vault-relative path. */
@@ -229,6 +239,25 @@ export interface VaultApi {
   search(query: string, limit?: number): Promise<SearchHit[]>;
   /** The knowledge graph derived from the index — notes as nodes, tag + semantic edges. */
   graph(threshold?: number): Promise<GraphData>;
+
+  // --- Databases (E8, ADR 0004) ---
+  /** A folder's database schema, or null when the folder isn't a database. */
+  getDatabase(folder: string): Promise<DatabaseSchema | null>;
+  /** Turn a folder into a database (writes a default schema; idempotent). */
+  createDatabase(folder: string): Promise<DatabaseSchema>;
+  /** Add a typed property; returns the updated schema. */
+  addProperty(
+    folder: string,
+    name: string,
+    type: PropertyType,
+    options?: string[],
+  ): Promise<DatabaseSchema>;
+  /** Set (or clear with null) one property value on a row note. */
+  setRowProperty(folder: string, path: string, propertyId: string, value: unknown): Promise<void>;
+  /** The database's rows (folder notes with title + property values). */
+  listRows(folder: string): Promise<DatabaseRow[]>;
+  /** Every database folder in the vault (for tree badges). */
+  listDatabases(): Promise<string[]>;
   /** Subscribe to vault change events; returns an unsubscribe function. */
   onVaultChange(listener: (change: VaultChangePayload) => void): () => void;
   /** Subscribe to indexing status (progress of the embedding pass); returns an unsubscribe function. */

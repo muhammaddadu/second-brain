@@ -7,7 +7,7 @@
  */
 import type { TreeNode } from '@brain/core';
 import { NOTE_EXTENSION } from '@brain/core/paths';
-import { ChevronDown, ChevronRight, FileText, FolderPlus } from 'lucide-react';
+import { ChevronDown, ChevronRight, Database, FileText, FolderPlus } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { ContextMenu, type MenuItem } from './ContextMenu';
 import {
@@ -25,7 +25,10 @@ import { MoveDialog } from './MoveDialog';
 interface FolderTreeProps {
   nodes: TreeNode[];
   selectedPath: string | null;
+  /** Folder paths that are databases (contain a database.json) — badged and open as a table. */
+  databases: ReadonlySet<string>;
   onSelect: (path: string | null) => void;
+  onOpenDatabase: (path: string) => void;
   onRefresh: () => Promise<void>;
 }
 
@@ -35,7 +38,14 @@ interface MenuState {
   y: number;
 }
 
-export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderTreeProps) {
+export function FolderTree({
+  nodes,
+  selectedPath,
+  databases,
+  onSelect,
+  onOpenDatabase,
+  onRefresh,
+}: FolderTreeProps) {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [moving, setMoving] = useState<TreeNode | null>(null);
@@ -91,6 +101,16 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
       if (parent) setExpandedFor(parent, true);
       await onRefresh();
       setRenamingPath(path); // let the user name it right away, inline
+    });
+  }
+  /** Create a fresh database: a new folder with a schema, named inline like New folder. */
+  function newDatabase(parent: string) {
+    return guard(async () => {
+      const path = await window.vault.newFolder(parent, 'New database');
+      await window.vault.createDatabase(path);
+      if (parent) setExpandedFor(parent, true);
+      await onRefresh();
+      setRenamingPath(path);
     });
   }
   function trash(node: TreeNode) {
@@ -189,12 +209,17 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
       return [
         { label: 'New note', onClick: () => void newNote('') },
         { label: 'New folder', onClick: () => void newFolder('') },
+        { label: 'New database', onClick: () => void newDatabase('') },
       ];
     }
     if (node.type === 'folder') {
       return [
         { label: 'New note', onClick: () => void newNote(node.path) },
         { label: 'New folder', onClick: () => void newFolder(node.path) },
+        { label: 'New database', onClick: () => void newDatabase(node.path) },
+        ...(databases.has(node.path)
+          ? [{ label: 'Open as database', onClick: () => onOpenDatabase(node.path) } as MenuItem]
+          : []),
         { label: 'Rename', onClick: () => setRenamingPath(node.path) },
         { label: 'Move to…', onClick: () => setMoving(node) },
         { label: 'Delete', danger: true, onClick: () => void trash(node) },
@@ -250,6 +275,8 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
               renamingPath={renamingPath}
               expanded={expanded}
               dropHint={dropHint}
+              databases={databases}
+              onOpenDatabase={onOpenDatabase}
               onToggleExpand={setExpandedFor}
               onSelect={onSelect}
               onOpenMenu={(n, x, y) => setMenu({ node: n, x, y })}
@@ -296,6 +323,8 @@ interface TreeItemProps {
   renamingPath: string | null;
   expanded: ReadonlySet<string>;
   dropHint: DropHint | null;
+  databases: ReadonlySet<string>;
+  onOpenDatabase: (path: string) => void;
   onToggleExpand: (path: string, open: boolean) => void;
   onSelect: (path: string | null) => void;
   onOpenMenu: (node: TreeNode, x: number, y: number) => void;
@@ -379,6 +408,7 @@ function TreeItem(props: TreeItemProps) {
 
   if (node.type === 'folder') {
     const children = node.children ?? [];
+    const isDatabase = props.databases.has(node.path);
     return (
       <li className="relative">
         {insertLines}
@@ -386,7 +416,15 @@ function TreeItem(props: TreeItemProps) {
           type="button"
           style={indent}
           {...dragProps}
-          onClick={() => onToggleExpand(node.path, !isOpen)}
+          onClick={() => {
+            // A database folder opens its table view; a plain folder just expands/collapses.
+            if (isDatabase) {
+              props.onOpenDatabase(node.path);
+              onToggleExpand(node.path, true);
+            } else {
+              onToggleExpand(node.path, !isOpen);
+            }
+          }}
           onContextMenu={openMenu}
           aria-expanded={isOpen}
           className={`${rowClass} text-ink ${hint === 'into' ? 'bg-accent/15 ring-accent/40 ring-1' : 'hover:bg-edge/50'}`}
@@ -396,6 +434,7 @@ function TreeItem(props: TreeItemProps) {
           ) : (
             <ChevronRight size={14} className="text-faint shrink-0" aria-hidden />
           )}
+          {isDatabase && <Database size={13} className="text-accent shrink-0" aria-hidden />}
           <span className="truncate font-medium">{node.name}</span>
         </button>
         {isOpen && children.length > 0 && (

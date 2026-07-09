@@ -75,7 +75,7 @@ Owner-defined agent conventions ([PRD §3.6](../product/prd.md)) live in `RULES.
 
 Distinct from that, `AGENTS.md` (also plain Markdown at the root) is the **app-maintained agent guide** — the filesystem *contract* (note envelope, folders/tags, reserved `.brain/`, `.order.json`, safe writes) that orients any agent working the folder directly. The app writes and version-refreshes it on vault open but never clobbers owner edits (a `<!-- second-brain:agent-guide vN managed:HASH -->` marker distinguishes an untouched app copy from one the owner changed). The same body is installable as a global Claude Code skill from Settings → Agent access ([ADR 0009](../adr/0009-agent-guide-and-installable-skill.md)). So: `AGENTS.md` = *how the vault works* (app owns), `RULES.md` = *the owner's conventions* (owner owns).
 
-## Databases (planned — E8)
+## Databases (E8 ✓)
 
 A **database** is a folder that also contains a `database.json` descriptor; each note in that folder is a **row**. Storage rationale is [ADR 0004](../adr/0004-databases-as-folders-of-notes-with-schema.md); this is the format E8 builds to.
 
