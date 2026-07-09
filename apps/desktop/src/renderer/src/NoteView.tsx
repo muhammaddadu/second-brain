@@ -8,7 +8,13 @@ import { NotebookPen } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NoteEditor } from './NoteEditor';
 
-export function NoteView({ path }: { path: string | null }) {
+export function NoteView({
+  path,
+  onRenamed,
+}: {
+  path: string | null;
+  onRenamed: (newPath: string) => void;
+}) {
   const [loaded, setLoaded] = useState<{ note: NoteEnvelope; hash: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -58,6 +64,7 @@ export function NoteView({ path }: { path: string | null }) {
       note={loaded.note}
       initialHash={loaded.hash}
       onReload={() => setReloadKey((k) => k + 1)}
+      onRenamed={onRenamed}
     />
   );
 }

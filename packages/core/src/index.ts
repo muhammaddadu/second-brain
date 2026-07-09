@@ -52,6 +52,7 @@ export {
   updateNoteBlocks,
   updateNoteBlocksGuarded,
   updateNoteTags,
+  updateNoteTitle,
   type Vault,
   type VaultOptions,
   writeNote,

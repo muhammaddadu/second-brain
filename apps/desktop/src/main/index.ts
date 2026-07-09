@@ -4,7 +4,7 @@
  * never touches the filesystem — it talks only through the preload bridge (app-architecture.md).
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import {
   createFolder,
   createNote,
@@ -25,6 +25,7 @@ import {
   trashNote,
   updateNoteBlocksGuarded,
   updateNoteTags,
+  updateNoteTitle,
   type Vault,
   type VaultWatcher,
   watchVault,
@@ -37,6 +38,7 @@ import {
   type RecentVault,
   type SaveResult,
   type SetTagsResult,
+  type SetTitleResult,
   type Settings,
   type StartupState,
   type VaultChangePayload,
@@ -342,6 +344,30 @@ function registerHandlers(): void {
       const vault = requireVault();
       const note = await updateNoteTags(vault, path, tags);
       return { tags: note.meta.tags ?? [], hash: await hashNote(vault, path) };
+    },
+  );
+  ipcMain.handle(
+    IPC.setTitle,
+    async (_event, path: string, title: string): Promise<SetTitleResult> => {
+      const vault = requireVault();
+      const trimmed = title.trim();
+      if (!trimmed) return { path, title: '' };
+      await updateNoteTitle(vault, path, trimmed);
+      // Keep the filename in step with the title (sanitized, de-duplicated in the same folder).
+      const base = trimmed.replace(/[\\/]/g, '-').replace(/^\.+/, '').replace(/\s+/g, ' ').trim();
+      const currentBase = basename(path, NOTE_EXTENSION);
+      if (!base || base === currentBase) return { path, title: trimmed };
+      const dir = dirname(path);
+      for (let n = 0; ; n += 1) {
+        const name = `${base}${n === 0 ? '' : ` ${n}`}${NOTE_EXTENSION}`;
+        if (dir !== '.' && `${dir}/${name}` === path) return { path, title: trimmed };
+        try {
+          return { path: await renameNote(vault, path, name), title: trimmed };
+        } catch (error) {
+          if (error instanceof NoteExistsError) continue;
+          throw error;
+        }
+      }
     },
   );
   ipcMain.handle(IPC.newNote, (_event, folder: string) =>

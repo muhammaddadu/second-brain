@@ -158,7 +158,17 @@ function Workspace({
           </button>
         </nav>
         <main className="content-surface min-w-0 flex-1 overflow-y-auto">
-          {route.name === 'settings' ? <SettingsPage /> : <NoteView path={selectedPath} />}
+          {route.name === 'settings' ? (
+            <SettingsPage />
+          ) : (
+            <NoteView
+              path={selectedPath}
+              onRenamed={(newPath) => {
+                setRoute({ name: 'note', path: newPath });
+                void refreshTree();
+              }}
+            />
+          )}
         </main>
       </div>
     </div>

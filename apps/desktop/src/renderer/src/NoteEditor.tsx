@@ -39,9 +39,11 @@ interface NoteEditorProps {
   note: NoteEnvelope;
   initialHash: string;
   onReload: () => void;
+  /** Called with the new path when editing the title renamed the note's file. */
+  onRenamed: (newPath: string) => void;
 }
 
-export function NoteEditor({ path, note, initialHash, onReload }: NoteEditorProps) {
+export function NoteEditor({ path, note, initialHash, onReload, onRenamed }: NoteEditorProps) {
   const initialContent =
     Array.isArray(note.blocks) && note.blocks.length > 0
       ? (note.blocks as PartialBlock[])
@@ -96,11 +98,32 @@ export function NoteEditor({ path, note, initialHash, onReload }: NoteEditorProp
     }
   }
 
-  const title =
+  const initialTitle =
     typeof note.meta.title === 'string' && note.meta.title ? note.meta.title : filenameTitle(path);
+  const [titleValue, setTitleValue] = useState(initialTitle);
   const initialTags = Array.isArray(note.meta.tags)
     ? note.meta.tags.filter((t): t is string => typeof t === 'string')
     : [];
+
+  async function commitTitle() {
+    const next = titleValue.trim();
+    if (!next || next === initialTitle) {
+      setTitleValue(initialTitle);
+      return;
+    }
+    try {
+      const result = await window.vault.setTitle(path, next);
+      if (result.path !== path) {
+        onRenamed(result.path); // remount at the new path (fresh hash baseline there)
+      } else {
+        // Same file, but writing meta.title changed its bytes — refresh our conflict-guard baseline.
+        hashRef.current = (await window.vault.readNote(path)).hash;
+      }
+    } catch (error) {
+      console.error(error);
+      setTitleValue(initialTitle);
+    }
+  }
 
   return (
     <article className="mx-auto max-w-3xl px-10 py-8">
@@ -131,9 +154,25 @@ export function NoteEditor({ path, note, initialHash, onReload }: NoteEditorProp
           </span>
         </div>
       )}
-      <h1 className="font-serif text-3xl font-semibold" data-testid="note-title">
-        {title}
-      </h1>
+      <input
+        data-testid="note-title"
+        aria-label="Note title"
+        value={titleValue}
+        onChange={(e) => setTitleValue(e.target.value)}
+        onBlur={() => void commitTitle()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
+          if (e.key === 'Escape') {
+            setTitleValue(initialTitle);
+            e.currentTarget.blur();
+          }
+        }}
+        placeholder="Untitled"
+        className="text-ink placeholder:text-faint w-full border-none bg-transparent font-serif text-3xl font-semibold outline-none"
+      />
       <TagEditor
         path={path}
         initial={initialTags}

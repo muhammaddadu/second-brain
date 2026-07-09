@@ -3,7 +3,7 @@
  * renderer→preload→IPC→core→disk path — navigate the tree, open a note, then edit it in BlockNote
  * and assert the edit persisted to the note file with metadata intact.
  */
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -96,7 +96,7 @@ test('opens the vault, navigates the tree, and shows a note', async () => {
   await window.getByRole('button', { name: 'Journal', exact: true }).click();
   await window.getByRole('button', { name: '2026-07-07' }).click();
 
-  await expect(window.getByTestId('note-title')).toHaveText('Daily log');
+  await expect(window.getByTestId('note-title')).toHaveValue('Daily log');
   await expect(window.getByText('Shipped the vault core.')).toBeVisible();
 });
 
@@ -170,7 +170,7 @@ test('creates and renames a note via the context menu, and reflects external cha
   // Create via the folder's context menu.
   await window.getByRole('button', { name: 'Journal', exact: true }).click({ button: 'right' });
   await window.getByTestId('context-menu').getByRole('button', { name: 'New note' }).click();
-  await expect(window.getByTestId('note-title')).toHaveText('Untitled');
+  await expect(window.getByTestId('note-title')).toHaveValue('Untitled');
 
   // Rename via context menu → inline input.
   await window.getByRole('button', { name: 'Untitled' }).click({ button: 'right' });
@@ -257,4 +257,29 @@ test('an external edit to the OPEN note surfaces a conflict, never a silent clob
   );
 
   await expect(window.getByTestId('conflict-banner')).toBeVisible({ timeout: 8000 });
+});
+
+test('editing the note title renames its file on disk', async () => {
+  await openNote('Code', 'snippet');
+  const titleInput = window.getByTestId('note-title');
+  await titleInput.fill('Python snippet');
+  await titleInput.press('Enter');
+
+  // The file is renamed to match the title (same folder), and the tree shows the new name.
+  const renamed = join(vaultRoot, 'Code/Python snippet.note.json');
+  await expect
+    .poll(
+      async () => {
+        try {
+          await stat(renamed);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { timeout: 8000 },
+    )
+    .toBe(true);
+  await expect(window.getByRole('button', { name: 'Python snippet' })).toBeVisible();
+  expect(JSON.parse(await readFile(renamed, 'utf8')).meta.title).toBe('Python snippet');
 });

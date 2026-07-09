@@ -30,6 +30,7 @@ const vault: VaultApi = {
   saveBlocks: (path, blocks, baseHash) =>
     ipcRenderer.invoke(IPC.saveBlocks, path, blocks, baseHash),
   setTags: (path, tags) => ipcRenderer.invoke(IPC.setTags, path, tags),
+  setTitle: (path, title) => ipcRenderer.invoke(IPC.setTitle, path, title),
   newNote: (folder) => ipcRenderer.invoke(IPC.newNote, folder),
   newFolder: (parent) => ipcRenderer.invoke(IPC.newFolder, parent),
   rename: (path, newName) => ipcRenderer.invoke(IPC.rename, path, newName),

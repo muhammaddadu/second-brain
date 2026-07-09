@@ -23,6 +23,7 @@ export const IPC = {
   readNote: 'vault:read-note',
   saveBlocks: 'vault:save-blocks',
   setTags: 'vault:set-tags',
+  setTitle: 'vault:set-title',
   newNote: 'vault:new-note',
   newFolder: 'vault:new-folder',
   rename: 'vault:rename',
@@ -90,6 +91,12 @@ export interface SetTagsResult {
   hash: string;
 }
 
+/** Result of a title edit: the note's (possibly renamed) path and the applied title. */
+export interface SetTitleResult {
+  path: string;
+  title: string;
+}
+
 /** A watcher change pushed to the renderer; `hash` is present for note add/change events. */
 export interface VaultChangePayload {
   type: VaultEventType;
@@ -125,6 +132,8 @@ export interface VaultApi {
   /** Save blocks only if the file still matches `baseHash`; otherwise reports a conflict. */
   saveBlocks(path: string, blocks: unknown[], baseHash: string): Promise<SaveResult>;
   setTags(path: string, tags: string[]): Promise<SetTagsResult>;
+  /** Set the note's title and rename its file to match; returns the (possibly new) path. */
+  setTitle(path: string, title: string): Promise<SetTitleResult>;
   /** Create a new note in `folder` (vault-relative, '' for root); returns the created path. */
   newNote(folder: string): Promise<string>;
   /** Create a new folder under `parent` (vault-relative, '' for root); returns the created path. */

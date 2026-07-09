@@ -180,6 +180,16 @@ export async function updateNoteTags(
   return writeNote(vault, relPath, setTags(note, tags));
 }
 
+/** Set a note's display title (in metadata), preserving body and other metadata. */
+export async function updateNoteTitle(
+  vault: Vault,
+  relPath: string,
+  title: string,
+): Promise<NoteEnvelope> {
+  const note = await readNote(vault, relPath);
+  return writeNote(vault, relPath, { ...note, meta: { ...note.meta, title } });
+}
+
 /** Content hash of a note file's bytes — the baseline for the conflict guard (ADR 0002). */
 export async function hashNote(vault: Vault, relPath: string): Promise<string> {
   const abs = resolveNotePath(vault, relPath);
