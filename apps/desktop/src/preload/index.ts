@@ -69,6 +69,9 @@ const vault: VaultApi = {
   pauseIndexing: (paused) => ipcRenderer.invoke(IPC.pauseIndexing, paused),
   builtinModelReady: () => ipcRenderer.invoke(IPC.builtinModelReady),
   downloadBuiltinModel: () => ipcRenderer.invoke(IPC.downloadBuiltinModel),
+  agentSkillStatus: () => ipcRenderer.invoke(IPC.agentSkillStatus),
+  installAgentSkill: () => ipcRenderer.invoke(IPC.installAgentSkill),
+  removeAgentSkill: () => ipcRenderer.invoke(IPC.removeAgentSkill),
 };
 
 contextBridge.exposeInMainWorld('vault', vault);

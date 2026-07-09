@@ -21,6 +21,9 @@ export const VAULT_MARKER_FILE = 'vault.json';
 /** Owner-defined agent rules — plain Markdown at the vault root (deliberate exception to the note format). */
 export const RULES_FILE = 'RULES.md';
 
+/** App-maintained guide telling an AI agent how to work with this vault directly (plain Markdown at the root). */
+export const AGENT_GUIDE_FILE = 'AGENTS.md';
+
 /**
  * Per-folder manual-order sidecar (a JSON array of child entry names in display order). Lives inside
  * the folder it orders so the order travels with the content on move/copy. Advisory: missing or

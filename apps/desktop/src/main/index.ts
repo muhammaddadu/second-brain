@@ -4,8 +4,11 @@
  * never touches the filesystem — it talks only through the preload bridge (app-architecture.md).
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import {
+  AGENT_GUIDE_VERSION,
+  agentGuideBody,
   createFolder,
   createNote,
   DEFAULT_EMBEDDING_SETTINGS,
@@ -29,6 +32,7 @@ import {
   renameNote,
   type SearchIndex,
   setFolderOrder,
+  syncAgentGuide,
   trashFolder,
   trashNote,
   updateNoteBlocksGuarded,
@@ -40,6 +44,7 @@ import {
 } from '@brain/core';
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage } from 'electron';
 import {
+  type AgentSkillStatus,
   type Appearance,
   type IndexStats,
   type IndexStatus,
@@ -176,6 +181,42 @@ function writeSecret(kind: ProviderKind, input: ProviderSecretInput): void {
   writeConfig(config);
 }
 
+// --- Global agent skill (Claude Code) ---------------------------------------
+// The same vault contract as AGENTS.md, packaged as an installable skill so any Claude Code agent
+// can work with a Second Brain vault anywhere — not just one that already has the guide file.
+
+const AGENT_SKILL_NAME = 'second-brain-vault';
+
+function agentSkillDir(): string {
+  return join(app.getPath('home'), '.claude', 'skills', AGENT_SKILL_NAME);
+}
+
+function renderAgentSkill(): string {
+  const description =
+    'How to read, search, create, and update notes in a Second Brain vault directly through the filesystem. Use when working in a folder that contains a .brain/vault.json marker.';
+  return `---\nname: ${AGENT_SKILL_NAME}\ndescription: ${description}\nversion: ${AGENT_GUIDE_VERSION}\n---\n\n${agentGuideBody()}`;
+}
+
+async function agentSkillStatus(): Promise<AgentSkillStatus> {
+  try {
+    const text = await readFile(join(agentSkillDir(), 'SKILL.md'), 'utf8');
+    const m = text.match(/^version:\s*(\d+)/m);
+    const version = m ? Number(m[1]) : 0;
+    return { installed: true, outdated: version < AGENT_GUIDE_VERSION, path: agentSkillDir() };
+  } catch {
+    return { installed: false, outdated: false, path: agentSkillDir() };
+  }
+}
+
+async function installAgentSkill(): Promise<void> {
+  await mkdir(agentSkillDir(), { recursive: true });
+  await writeFile(join(agentSkillDir(), 'SKILL.md'), renderAgentSkill(), 'utf8');
+}
+
+async function removeAgentSkill(): Promise<void> {
+  await rm(agentSkillDir(), { recursive: true, force: true });
+}
+
 /** The embedding/semantic-search service — owns provider state + indexing; see ./embedding-service. */
 const embeddings = createEmbeddingService({
   getIndex: () => searchIndex,
@@ -246,6 +287,8 @@ async function activateVault(vaultPath: string): Promise<VaultInfo> {
   }
   // The derived search index (E4): open it, then bring it in line with the files incrementally
   // (cheap on reopen — the hash gate skips unchanged notes). It stays live via the watcher below.
+  // Keep the vault's agent guide (AGENTS.md) present and current, without clobbering owner edits.
+  void syncAgentGuide(vault).catch((error) => console.error('agent guide sync failed', error));
   searchIndex?.close();
   const index = openSearchIndex(indexPath(vault));
   searchIndex = index;
@@ -662,6 +705,11 @@ function registerHandlers(): void {
   ipcMain.handle(IPC.pauseIndexing, (_event, paused: boolean) => embeddings.setPaused(paused));
   ipcMain.handle(IPC.builtinModelReady, (): boolean => embeddings.builtinReady());
   ipcMain.handle(IPC.downloadBuiltinModel, () => embeddings.downloadBuiltin());
+
+  // Global agent skill (ADR 0009).
+  ipcMain.handle(IPC.agentSkillStatus, () => agentSkillStatus());
+  ipcMain.handle(IPC.installAgentSkill, () => installAgentSkill());
+  ipcMain.handle(IPC.removeAgentSkill, () => removeAgentSkill());
 }
 
 // --- Appearance (native theme + translucency) --------------------------------

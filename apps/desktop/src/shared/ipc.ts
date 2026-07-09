@@ -56,6 +56,9 @@ export const IPC = {
   pauseIndexing: 'embed:pause-indexing',
   builtinModelReady: 'embed:builtin-ready',
   downloadBuiltinModel: 'embed:builtin-download',
+  agentSkillStatus: 'agent:skill-status',
+  installAgentSkill: 'agent:skill-install',
+  removeAgentSkill: 'agent:skill-remove',
   /** Main → renderer push: a file changed in the vault (watcher). */
   changed: 'vault:changed',
   /** Main → renderer push: indexing status (idle / indexing progress). */
@@ -110,6 +113,14 @@ export interface IndexStatus {
   state: 'idle' | 'indexing' | 'downloading';
   done: number;
   total: number;
+}
+
+/** Whether the global agent skill (Claude Code) is installed and current. */
+export interface AgentSkillStatus {
+  installed: boolean;
+  outdated: boolean;
+  /** Absolute install directory (shown so the owner knows where it lives). */
+  path: string;
 }
 
 /** Snapshot of the index for the settings screen. */
@@ -242,4 +253,12 @@ export interface VaultApi {
   builtinModelReady(): Promise<boolean>;
   /** Download + warm up the built-in on-device model (progress via onIndexStatus), then index. */
   downloadBuiltinModel(): Promise<void>;
+
+  // --- Global agent skill (ADR 0009) ---
+  /** Whether the global Claude Code agent skill is installed / needs updating. */
+  agentSkillStatus(): Promise<AgentSkillStatus>;
+  /** Install (or update) the global agent skill so any Claude Code agent can work with a vault. */
+  installAgentSkill(): Promise<void>;
+  /** Remove the global agent skill. */
+  removeAgentSkill(): Promise<void>;
 }

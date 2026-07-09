@@ -7,6 +7,7 @@ import type { EmbeddingSettings } from '@brain/core';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { Settings } from '../../shared/ipc';
+import { AgentAccessSettings } from './AgentAccessSettings';
 import { SemanticSearchSettings } from './SemanticSearchSettings';
 
 const THEME_OPTIONS = [
@@ -88,6 +89,8 @@ export function SettingsPage() {
           onChange={(embedding: EmbeddingSettings) => void update({ embedding })}
         />
       )}
+
+      {settings && <AgentAccessSettings />}
     </div>
   );
 }

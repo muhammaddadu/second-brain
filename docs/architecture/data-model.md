@@ -13,7 +13,8 @@ A vault is a plain directory the owner chooses. Its folder hierarchy **is** the 
   Journal/2026-07-07.note.json   # notes: BlockNote JSON envelope, anywhere, any depth
   Journal/.order.json            # optional per-folder manual order (see Manual order)
   Projects/…/index.note.json
-  RULES.md                       # vault rules — plain Markdown (deliberate exception, see Rules)
+  AGENTS.md                      # app-maintained agent guide — the filesystem contract (ADR 0009)
+  RULES.md                       # owner's vault rules — plain Markdown (deliberate exception, see Rules)
   .brain/
     vault.json                   # marker identifying this folder as a vault (created on first open)
     index.db                     # derived SQLite index — safe to delete, rebuildable
@@ -71,6 +72,8 @@ First-class in the UI, plain text content on disk ([PRD §3.7](../product/prd.md
 ## Rules
 
 Owner-defined agent conventions ([PRD §3.6](../product/prd.md)) live in `RULES.md` at the vault root — **plain Markdown, a deliberate exception to the note format**: its consumers are agents reading instructions verbatim, so it must stay directly readable without conversion. It is versioned with the vault and editable in the app (as raw text or via Markdown import/export). E6 may extend this to a `rules/` folder if one file gets unwieldy; record that change here first. How agents receive rules is owned by [agent-integration](../guides/agent-integration.md).
+
+Distinct from that, `AGENTS.md` (also plain Markdown at the root) is the **app-maintained agent guide** — the filesystem *contract* (note envelope, folders/tags, reserved `.brain/`, `.order.json`, safe writes) that orients any agent working the folder directly. The app writes and version-refreshes it on vault open but never clobbers owner edits (a `<!-- second-brain:agent-guide vN managed:HASH -->` marker distinguishes an untouched app copy from one the owner changed). The same body is installable as a global Claude Code skill from Settings → Agent access ([ADR 0009](../adr/0009-agent-guide-and-installable-skill.md)). So: `AGENTS.md` = *how the vault works* (app owns), `RULES.md` = *the owner's conventions* (owner owns).
 
 ## Databases (planned — E8)
 

@@ -1,5 +1,11 @@
 /** Public surface of @brain/core — the only entry point shells import. */
 
+export {
+  AGENT_GUIDE_VERSION,
+  agentGuideBody,
+  renderAgentGuide,
+  syncAgentGuide,
+} from './agent-guide.js';
 export { atomicWriteFile } from './atomic.js';
 export {
   BUILTIN_EMBEDDING_MODEL,
@@ -41,6 +47,7 @@ export {
 } from './import-export.js';
 export { blocksToMarkdown, markdownToBlocks } from './markdown.js';
 export {
+  AGENT_GUIDE_FILE,
   BRAIN_DIR,
   INDEX_DB,
   NOTE_EXTENSION,
