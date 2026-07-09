@@ -17,7 +17,13 @@ import {
   setTags,
 } from './envelope.js';
 import { InvalidPathError, NoteConflictError, NoteExistsError } from './errors.js';
-import { BRAIN_DIR, NOTE_EXTENSION, TRASH_DIRNAME, VAULT_MARKER_FILE } from './paths.js';
+import {
+  BRAIN_DIR,
+  NOTE_EXTENSION,
+  ORDER_FILE,
+  TRASH_DIRNAME,
+  VAULT_MARKER_FILE,
+} from './paths.js';
 
 /** A clock returning an ISO-8601 timestamp; injected for deterministic tests. */
 export type Clock = () => string;
@@ -219,6 +225,26 @@ export async function updateNoteBlocksGuarded(
 /** Create an empty folder at a vault-relative path (for the tree's "new folder" action). */
 export async function createFolder(vault: Vault, relPath: string): Promise<void> {
   await mkdir(resolveInVault(vault, relPath), { recursive: true });
+}
+
+/**
+ * Persist a folder's manual child order by writing its {@link ORDER_FILE} sidecar (ADR 0005).
+ * `folderRel` is `''` for the vault root. `orderedNames` are on-disk entry names (a folder's dir
+ * name, a note's `.note.json` filename); the tree treats them as advisory, so callers needn't list
+ * every child. Rejects names with path separators — the sidecar orders one folder, never reaches out.
+ */
+export async function setFolderOrder(
+  vault: Vault,
+  folderRel: string,
+  orderedNames: readonly string[],
+): Promise<void> {
+  for (const name of orderedNames) {
+    if (name.includes('/') || name.includes('\\') || name === '..') {
+      throw new InvalidPathError(`order entry must be a bare child name: ${name}`);
+    }
+  }
+  const dir = folderRel === '' ? vault.root : resolveInVault(vault, folderRel);
+  await atomicWriteFile(join(dir, ORDER_FILE), `${JSON.stringify(orderedNames, null, 2)}\n`);
 }
 
 /** Move a note to a new vault-relative path (across folders). Refuses to overwrite a target. */

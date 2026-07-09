@@ -20,3 +20,11 @@ export const VAULT_MARKER_FILE = 'vault.json';
 
 /** Owner-defined agent rules — plain Markdown at the vault root (deliberate exception to the note format). */
 export const RULES_FILE = 'RULES.md';
+
+/**
+ * Per-folder manual-order sidecar (a JSON array of child entry names in display order). Lives inside
+ * the folder it orders so the order travels with the content on move/copy. Advisory: missing or
+ * partial → unlisted children fall back to the default folders-first, alphabetical sort.
+ * See docs/adr/0005-manual-ordering-per-folder-sidecar.md and docs/architecture/data-model.md.
+ */
+export const ORDER_FILE = '.order.json';

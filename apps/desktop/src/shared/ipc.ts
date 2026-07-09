@@ -32,6 +32,7 @@ export const IPC = {
   renameFolder: 'vault:rename-folder',
   moveFolder: 'vault:move-folder',
   trashFolder: 'vault:trash-folder',
+  setOrder: 'vault:set-order',
   /** Main → renderer push: a file changed in the vault (watcher). */
   changed: 'vault:changed',
 } as const;
@@ -150,6 +151,11 @@ export interface VaultApi {
   moveFolder(fromPath: string, toPath: string): Promise<void>;
   /** Delete a folder (and contents) to trash (recoverable). */
   trashFolder(path: string): Promise<void>;
+  /**
+   * Persist a folder's manual child order (ADR 0005). `folder` is '' for the vault root;
+   * `orderedNames` are on-disk entry names (a folder's dir name, a note's `.note.json` filename).
+   */
+  setOrder(folder: string, orderedNames: string[]): Promise<void>;
   /** Subscribe to vault change events; returns an unsubscribe function. */
   onVaultChange(listener: (change: VaultChangePayload) => void): () => void;
 }

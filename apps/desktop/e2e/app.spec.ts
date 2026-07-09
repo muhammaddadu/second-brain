@@ -226,10 +226,14 @@ test('drags a note into a folder to move it on disk', async () => {
 
   // HTML5 drag-and-drop: Playwright's mouse-based dragTo doesn't fire native drag events in
   // Chromium, so dispatch the DnD sequence directly (sharing one DataTransfer, as a real drag does).
+  // clientY at the folder row's middle → "move into" (its edges would mean reorder).
+  const box = await target.boundingBox();
+  if (!box) throw new Error('target not visible');
+  const midY = Math.round(box.y + box.height / 2);
   const dataTransfer = await window.evaluateHandle(() => new DataTransfer());
   await source.dispatchEvent('dragstart', { dataTransfer });
-  await target.dispatchEvent('dragover', { dataTransfer });
-  await target.dispatchEvent('drop', { dataTransfer });
+  await target.dispatchEvent('dragover', { dataTransfer, clientY: midY });
+  await target.dispatchEvent('drop', { dataTransfer, clientY: midY });
 
   const moved = join(vaultRoot, 'Journal/Reading/external.note.json');
   await expect
@@ -238,6 +242,39 @@ test('drags a note into a folder to move it on disk', async () => {
         stat(moved)
           .then(() => true)
           .catch(() => false),
+      { timeout: 8000 },
+    )
+    .toBe(true);
+});
+
+test('drags a note above a sibling to reorder it, persisting a .order.json', async () => {
+  await ensureExpanded('Journal');
+  // Default order in Journal: folders first (Reading), then notes alpha ('2026-07-07','Renamed note').
+  const dragged = window.getByRole('button', { name: 'Renamed note' });
+  const target = window.getByRole('button', { name: '2026-07-07' });
+  const box = await target.boundingBox();
+  if (!box) throw new Error('target not visible');
+  const topY = Math.round(box.y + box.height * 0.1); // top region → insert before
+
+  const dataTransfer = await window.evaluateHandle(() => new DataTransfer());
+  await dragged.dispatchEvent('dragstart', { dataTransfer });
+  await target.dispatchEvent('dragover', { dataTransfer, clientY: topY });
+  await target.dispatchEvent('drop', { dataTransfer, clientY: topY });
+
+  // The order sidecar lands with 'Renamed note' ahead of '2026-07-07'; no files moved.
+  const orderFile = join(vaultRoot, 'Journal/.order.json');
+  await expect
+    .poll(
+      async () => {
+        try {
+          const order: string[] = JSON.parse(await readFile(orderFile, 'utf8'));
+          return order.indexOf('Renamed note.note.json') < order.indexOf('2026-07-07.note.json')
+            ? order.indexOf('Renamed note.note.json') >= 0
+            : false;
+        } catch {
+          return false;
+        }
+      },
       { timeout: 8000 },
     )
     .toBe(true);

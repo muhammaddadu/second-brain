@@ -27,11 +27,12 @@ export {
   BRAIN_DIR,
   INDEX_DB,
   NOTE_EXTENSION,
+  ORDER_FILE,
   RULES_FILE,
   TRASH_DIRNAME,
   VAULT_MARKER_FILE,
 } from './paths.js';
-export { listTree, type TreeNode, type TreeNodeType } from './tree.js';
+export { entryName, listTree, type TreeNode, type TreeNodeType } from './tree.js';
 export {
   type Clock,
   type CreateNoteInput,
@@ -47,6 +48,7 @@ export {
   readNote,
   renameFolder,
   renameNote,
+  setFolderOrder,
   trashFolder,
   trashNote,
   updateNoteBlocks,

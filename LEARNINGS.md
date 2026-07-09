@@ -35,3 +35,9 @@ Append-only log of mistakes made in this project and how they were corrected. Re
 **What went wrong:** Dropping a note/folder onto a target did nothing — `move()` was never called, with no error.
 **Why:** `dropInto()` set `draggingRef.current = null` (drag-end cleanup) *before* calling `canDropInto(target)`, and `canDropInto` re-read the dragged node from that same ref — so it always saw `null` and returned `false`. The local `dragged` variable held the value, but the guard ignored it.
 **Fix / Correct approach:** Pass the dragged node into `canDropInto(dragged, target)` explicitly instead of reading the ref inside it; null the ref only after the decision. General rule: a predicate must take its inputs as parameters, not re-read mutable state the caller is in the middle of tearing down.
+
+## Position-aware drop E2E fired the wrong intent because dispatched drop events had no clientY (2026-07-09)
+
+**What went wrong:** After making the folder-tree drop position-aware (row middle = move-into, edges = reorder), the "drag into folder" E2E started failing — the drop landed as a *reorder* instead of a *move*.
+**Why:** The tree computes intent from the pointer's vertical fraction of the target row (`(clientY - rect.top) / rect.height`). The E2E dispatched `drop` via `dispatchEvent` without a `clientY`, so it defaulted to `0`; with a row ~100px down the sidebar that yields a large *negative* fraction, which read as "top edge" → reorder-before. It looked like a code bug but was a test that didn't supply the coordinate the feature depends on.
+**Fix / Correct approach:** For synthetic HTML5-DnD tests of position-aware drops, get the target's `boundingBox()` and pass an explicit `clientY` (row middle for into, `y + height*0.1` for before) to both `dragover` and `drop`. General rule: when behavior depends on pointer coordinates, a `dispatchEvent` test must set them — an omitted `clientY`/`clientX` is `0`, not "the middle".

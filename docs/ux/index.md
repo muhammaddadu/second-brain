@@ -45,6 +45,7 @@ Two panels plus a global search overlay (ASCII wireframe — permitted exception
 - Mirrors the vault's directory structure exactly ([data-model](../architecture/data-model.md)); `.brain/` internals hidden.
 - Click a note → opens it on the right. Expand/collapse folders; state remembered per session (renderer-only, never written to the vault).
 - **Right-click context menu (E3 ✓)**: on a note — Rename (inline) · Move to… · Edit tags · Delete (to trash); on a folder — New note · New folder · Rename (inline) · Move to… · Delete (to trash); on the root — New note · New folder. Creating a folder drops straight into inline rename, and creating inside a folder keeps it open. Traces to [PRD §3.1–§3.3](../product/prd.md).
+- **Drag to sort (E3 ✓)**: drop an item onto a folder's **middle** (or the empty sidebar) to *move* it there — the folder highlights; drop onto a sibling's **top/bottom edge** to *reorder* — a thin accent line shows where it lands. Reordering persists per-folder (a `.order.json` sidecar, [ADR 0005](../adr/0005-manual-ordering-per-folder-sidecar.md)) and is offered only between current siblings, so a reorder never silently moves a file.
 - External changes (agent/CLI/git) appear live via a file watcher — no refresh button as a crutch (E3 ✓).
 
 ## Right panel — note view/editor (E1 read-only, E2 editable)

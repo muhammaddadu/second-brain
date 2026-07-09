@@ -11,6 +11,7 @@ A vault is a plain directory the owner chooses. Its folder hierarchy **is** the 
 ```
 <vault>/
   Journal/2026-07-07.note.json   # notes: BlockNote JSON envelope, anywhere, any depth
+  Journal/.order.json            # optional per-folder manual order (see Manual order)
   Projects/…/index.note.json
   RULES.md                       # vault rules — plain Markdown (deliberate exception, see Rules)
   .brain/
@@ -20,6 +21,12 @@ A vault is a plain directory the owner chooses. Its folder hierarchy **is** the 
 ```
 
 The presence of `.brain/vault.json` is what makes a folder a *vault* (`core.isVault`); `core.initVault` creates it. This lets first-run setup create a fresh, dedicated vault in one click and recognise previously-used folders, instead of dropping the owner into a raw folder picker over an arbitrary directory.
+
+### Manual order
+
+A folder's children are shown folders-first, then alphabetical — **unless** the folder holds an `.order.json` sidecar, in which case listed children come first in that order and the rest fall back to the default sort. The file is a JSON array of on-disk entry names (a folder's directory name, a note's full `.note.json` filename), e.g. `["Ideas", "b.note.json", "a.note.json"]`. It is written by `core.setFolderOrder` (atomic write) when the user drags to reorder, and read by `core.listTree`.
+
+It is **advisory and self-healing**: missing, partial, or malformed → default sort; unknown/stale entries are ignored and pruned on the next reorder; it never causes a note to disappear. Order lives inside the folder so it travels with the content on move/copy, and is intentionally *not* preserved by Markdown export (order is a presentation preference, not note content). Rationale and alternatives: [ADR 0005](../adr/0005-manual-ordering-per-folder-sidecar.md).
 
 ## Note format
 

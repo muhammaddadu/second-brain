@@ -21,6 +21,7 @@ import {
   readNote,
   renameFolder,
   renameNote,
+  setFolderOrder,
   trashFolder,
   trashNote,
   updateNoteBlocksGuarded,
@@ -393,6 +394,9 @@ function registerHandlers(): void {
   });
   ipcMain.handle(IPC.trashFolder, async (_event, path: string) => {
     await trashFolder(requireVault(), path);
+  });
+  ipcMain.handle(IPC.setOrder, async (_event, folder: string, orderedNames: string[]) => {
+    await setFolderOrder(requireVault(), folder, orderedNames);
   });
 }
 

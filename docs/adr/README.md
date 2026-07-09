@@ -10,3 +10,4 @@ Significant architecture decisions, one per file, append-only. A decision is nev
 | [0002](0002-vault-concurrency-atomic-write-rename.md) | Coordinate concurrent vault writes with atomic write-then-rename + watcher, not locking or a daemon | accepted |
 | [0003](0003-headless-markdown-conversion-server-util.md) | Convert Markdown in headless core via @blocknote/server-util | accepted |
 | [0004](0004-databases-as-folders-of-notes-with-schema.md) | Model databases as a folder of notes plus a schema descriptor, values in note metadata | accepted |
+| [0005](0005-manual-ordering-per-folder-sidecar.md) | Persist manual folder/note order in a per-folder `.order.json` sidecar | accepted |
