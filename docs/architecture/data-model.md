@@ -91,13 +91,13 @@ Projects/                     # a database folder
 
 ## Index schema (derived)
 
-SQLite database at `.brain/index.db`, WAL mode. Entirely derived — deleting it and rebuilding must reproduce equivalent search results (E4 acceptance criterion). Planned shape, to be refined in E4:
+SQLite database at `.brain/index.db`, WAL mode, on WASM SQLite (`node-sqlite3-wasm`, [ADR 0006](../adr/0006-wasm-sqlite-for-derived-index.md)). Entirely derived — deleting it and rebuilding reproduces equivalent search results (an E4 acceptance criterion, proven by test). Owned by `packages/core` (`openSearchIndex`, `reindexNote`, `syncIndex`, `rebuildIndex`, `search`).
 
 | Table | Holds | Notes |
 |-------|-------|-------|
-| `notes` | path, title, tags, mtime, content hash | one row per note; hash drives incremental reindex |
-| `chunks` | note id, chunk text, position | plain text extracted from blocks, split for retrieval granularity |
-| `chunks_fts` | FTS5 over chunk text | keyword/full-text leg of hybrid search |
-| `embeddings` | chunk id, vector | semantic leg; provider pluggable, local default ([PRD §7.2](../product/prd.md#7-open-questions)) |
+| `notes` | path, title, tags, content hash | one row per note; hash drives incremental reindex | ✓ |
+| `chunks` | id, path, position, text | plain text extracted from blocks (no jsdom), split for retrieval granularity | ✓ |
+| `chunks_fts` | FTS5 over chunk text (rowid = `chunks.id`) | keyword leg; `bm25()` rank + `snippet()` | ✓ |
+| `embeddings` | chunk id, vector | semantic leg; provider pluggable, local default ([PRD §7.2](../product/prd.md#7-open-questions)) | planned |
 
-Hybrid query = FTS match ∪ vector nearest-neighbours, merged and ranked in core ([PRD §3.4](../product/prd.md)).
+The FTS (keyword) leg has shipped: text is extracted from block JSON directly (so the index runs in the Electron main process without jsdom), chunked to ≤ ~1000 chars, and searched with prefix-matched, ANDed tokens; results are distinct notes ranked by `bm25`, each with a highlighted `snippet`. The **embeddings** table and the semantic leg are the next E4 slice; the eventual hybrid query = FTS match ∪ vector nearest-neighbours, merged and ranked in core ([PRD §3.4](../product/prd.md)).

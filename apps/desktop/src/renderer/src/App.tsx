@@ -12,6 +12,7 @@ import { DEFAULT_ROUTE, type Route, routeFromUrl } from '../../shared/route';
 import { FolderTree } from './FolderTree';
 import { NoteView } from './NoteView';
 import { Onboarding } from './Onboarding';
+import { SearchPalette } from './SearchPalette';
 import { SettingsPage } from './SettingsPage';
 import { VaultSwitcher } from './VaultSwitcher';
 
@@ -90,6 +91,7 @@ function Workspace({
   const [route, setRoute] = useState<Route>(() =>
     initialRoute ? routeFromUrl(initialRoute) : DEFAULT_ROUTE,
   );
+  const [searchOpen, setSearchOpen] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshTree = useCallback(async () => {
@@ -109,9 +111,18 @@ function Workspace({
     });
     // Deep links / CLI "open to page" navigate the workspace.
     const unsubscribeNav = window.vault.onNavigate((url) => setRoute(routeFromUrl(url)));
+    // ⌘K / Ctrl+K toggles search from anywhere.
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen((open) => !open);
+      }
+    };
+    window.addEventListener('keydown', onKey);
     return () => {
       unsubscribeChange();
       unsubscribeNav();
+      window.removeEventListener('keydown', onKey);
       if (debounce.current) clearTimeout(debounce.current);
     };
   }, [refreshTree]);
@@ -124,9 +135,10 @@ function Workspace({
         <VaultSwitcher current={info} onSwitch={onSwitch} />
         <button
           type="button"
-          disabled
-          title="Search arrives in E4"
-          className="app-no-drag border-edge text-faint hover:text-muted flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs"
+          onClick={() => setSearchOpen(true)}
+          title="Search your notes"
+          data-testid="search-button"
+          className="app-no-drag border-edge text-muted hover:text-ink hover:border-accent/40 flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs"
         >
           <Search size={14} strokeWidth={2} />
           <span>Search</span>
@@ -171,6 +183,12 @@ function Workspace({
           )}
         </main>
       </div>
+      {searchOpen && (
+        <SearchPalette
+          onClose={() => setSearchOpen(false)}
+          onOpenNote={(path) => setRoute({ name: 'note', path })}
+        />
+      )}
     </div>
   );
 }

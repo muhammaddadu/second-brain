@@ -11,3 +11,4 @@ Significant architecture decisions, one per file, append-only. A decision is nev
 | [0003](0003-headless-markdown-conversion-server-util.md) | Convert Markdown in headless core via @blocknote/server-util | accepted |
 | [0004](0004-databases-as-folders-of-notes-with-schema.md) | Model databases as a folder of notes plus a schema descriptor, values in note metadata | accepted |
 | [0005](0005-manual-ordering-per-folder-sidecar.md) | Persist manual folder/note order in a per-folder `.order.json` sidecar | accepted |
+| [0006](0006-wasm-sqlite-for-derived-index.md) | Build the derived search index on WASM SQLite (`node-sqlite3-wasm`), not a native binding | accepted |

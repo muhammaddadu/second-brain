@@ -59,10 +59,10 @@ Two panels plus a global search overlay (ASCII wireframe — permitted exception
 
 A **Settings** entry pinned at the bottom of the sidebar opens a small preferences panel — the seam for user preferences over time. Today it exposes what is genuinely configurable: **Appearance → Theme** (System / Light / Dark, applied live via `nativeTheme`) and **Reduce transparency** (turns off the vibrancy/Mica effect). Preferences persist in the app config and apply immediately. Future settings (default editor behaviour, embedding provider for E4, agent rules shortcuts) slot into this same panel.
 
-## Search (⌘K, E4)
+## Search (⌘K, E4 — keyword shipped)
 
-- Overlay from anywhere: type → hybrid results (keyword + semantic) with snippet and path → Enter opens the note.
-- One search implementation for the owner and agents alike ([PRD §3.4](../product/prd.md)); this overlay is just its UI.
+- Overlay from anywhere (⌘K/Ctrl+K, or the header Search button): type → results with a highlighted snippet and folder → ↑/↓ to move, Enter or click to open, Esc to dismiss. **Keyword (full-text) search has shipped**; semantic results merge into the same list when the embeddings slice lands.
+- One search implementation for the owner and agents alike ([PRD §3.4](../product/prd.md)); this overlay is just its UI over the derived index in core ([data-model](../architecture/data-model.md) § Index schema, [ADR 0006](../adr/0006-wasm-sqlite-for-derived-index.md)).
 
 ## Principles
 

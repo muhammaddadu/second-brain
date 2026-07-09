@@ -41,6 +41,9 @@ importers:
       mermaid:
         specifier: ^11.0.0
         version: 11.16.0
+      node-sqlite3-wasm:
+        specifier: ^0.8.59
+        version: 0.8.59
       react:
         specifier: ^19.0.0
         version: 19.2.7
@@ -96,6 +99,9 @@ importers:
       chokidar:
         specifier: ^4.0.0
         version: 4.0.3
+      node-sqlite3-wasm:
+        specifier: ^0.8.59
+        version: 0.8.59
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -1969,6 +1975,9 @@ packages:
   node-releases@2.0.51:
     resolution: {integrity: sha512-wRNIrw4DmVLKQlbgOMdkMx27Wrpzes2hh5Jtbi2bjPd+4wJstWIqP5A+lscnqbm0xxmT5Bpg8Lec5ItEBwx6BQ==}
     engines: {node: '>=18'}
+
+  node-sqlite3-wasm@0.8.59:
+    resolution: {integrity: sha512-BsVATSCxLzgpdj6Ey6bZ72MzhkXTCPmb9aVCqyptiwRojo/hzCCoXILoU0SiU7av+iiSyLCTLsCrV96yNUf2/w==}
 
   normalize-url@6.1.0:
     resolution: {integrity: sha512-DlL+XwOy3NxAQ8xuC0okPgK46iuVNAK01YN7RueYBqqFeGsBjV9XmCAzAdgt+667bCl5kPh9EqKKDwnaPG1I7A==}
@@ -4473,6 +4482,8 @@ snapshots:
   nanoid@3.3.15: {}
 
   node-releases@2.0.51: {}
+
+  node-sqlite3-wasm@0.8.59: {}
 
   normalize-url@6.1.0: {}
 

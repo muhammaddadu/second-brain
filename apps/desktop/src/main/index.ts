@@ -9,6 +9,7 @@ import {
   createFolder,
   createNote,
   hashNote,
+  indexPath,
   initVault,
   isVault,
   listTree,
@@ -17,11 +18,15 @@ import {
   NOTE_EXTENSION,
   NoteConflictError,
   NoteExistsError,
+  openSearchIndex,
   openVault,
   readNote,
+  reindexNote,
   renameFolder,
   renameNote,
+  type SearchIndex,
   setFolderOrder,
+  syncIndex,
   trashFolder,
   trashNote,
   updateNoteBlocksGuarded,
@@ -61,6 +66,7 @@ app.setName(APP_NAME);
 
 let currentVault: Vault | null = null;
 let watcher: VaultWatcher | null = null;
+let searchIndex: SearchIndex | null = null;
 
 // --- Config (remembered vaults) ---------------------------------------------
 
@@ -150,13 +156,27 @@ async function activateVault(vaultPath: string): Promise<VaultInfo> {
   if (watcher) {
     await watcher.close();
   }
+  // The derived search index (E4): open it, then bring it in line with the files incrementally
+  // (cheap on reopen — the hash gate skips unchanged notes). It stays live via the watcher below.
+  searchIndex?.close();
+  const index = openSearchIndex(indexPath(vault));
+  searchIndex = index;
+  void syncIndex(vault, index).catch((error) => console.error('index sync failed', error));
   watcher = watchVault(vault, async (change) => {
     let hash: string | undefined;
-    if (change.type !== 'unlink' && change.path.endsWith(NOTE_EXTENSION)) {
-      try {
-        hash = await hashNote(vault, change.path);
-      } catch {
-        // File may have vanished between event and hash; leave hash undefined.
+    // Bind reindex to the index opened for *this* vault (captured), not the module-level handle: a
+    // vault switch reassigns `searchIndex`, and an in-flight callback must never write this vault's
+    // note into a different vault's index. The old index is closed on switch → its writes no-op.
+    if (change.path.endsWith(NOTE_EXTENSION)) {
+      if (change.type === 'unlink') {
+        index.remove(change.path);
+      } else {
+        try {
+          hash = await hashNote(vault, change.path);
+          await reindexNote(vault, index, change.path);
+        } catch {
+          // File may have vanished between event and read; leave hash undefined.
+        }
       }
     }
     const payload: VaultChangePayload = {
@@ -398,6 +418,9 @@ function registerHandlers(): void {
   ipcMain.handle(IPC.setOrder, async (_event, folder: string, orderedNames: string[]) => {
     await setFolderOrder(requireVault(), folder, orderedNames);
   });
+  ipcMain.handle(IPC.search, (_event, query: string, limit?: number) =>
+    searchIndex ? searchIndex.search(query, limit) : [],
+  );
 }
 
 // --- Appearance (native theme + translucency) --------------------------------
@@ -573,4 +596,10 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+// Release the derived index (and its WAL) cleanly on shutdown.
+app.on('will-quit', () => {
+  searchIndex?.close();
+  searchIndex = null;
 });

@@ -2,7 +2,7 @@
 
 > **This doc owns:** dependency and technology choices with their rationale. **For how they compose see** [system-architecture](system-architecture.md) and [app-architecture](app-architecture.md).
 
-**Status: partly adopted** — choices below were proposed at docs time (2026-07-07); those adopted by shipped epics (pnpm/Vitest/Biome/TS in E0, Electron/React/Tailwind/Playwright in E1, BlockNote in E2, chokidar in E3, Mermaid in E7) are now in use, while SQLite/embeddings (E4) and the MCP SDK (E6) remain proposed. Record reversals here with a dated note, don't erase the original rationale.
+**Status: partly adopted** — choices below were proposed at docs time (2026-07-07); those adopted by shipped epics (pnpm/Vitest/Biome/TS in E0, Electron/React/Tailwind/Playwright in E1, BlockNote in E2, chokidar in E3, Mermaid in E7, SQLite index in E4) are now in use, while embeddings (E4 semantic slice) and the MCP SDK (E6) remain proposed. Record reversals here with a dated note, don't erase the original rationale.
 
 ## Decisions
 
@@ -11,7 +11,7 @@
 | **TypeScript everywhere, strict** | one language across UI, core, CLI, MCP | BlockNote and the MCP SDK are TypeScript; one language keeps core shared, not reimplemented | E0 |
 | **Electron** (+ React + Vite) | desktop shell | Node main process natively runs core (fs, SQLite, watcher, embeddings) in-process — the whole app stays one stack. Chief alternative **Tauri** is lighter but splits the codebase into Rust + TS and complicates sharing core with CLI/MCP. Weight cost accepted for a personal tool | E1 |
 | **BlockNote** | rich block editor **and note storage format** | user-chosen requirement ([PRD §3.3](../product/prd.md)); its native JSON document is the canonical on-disk format ([ADR 0001](../adr/0001-blocknote-json-canonical-note-format.md)), with its Markdown import/export used at the boundaries. Adopted E2: `@blocknote/react` + `@blocknote/mantine` in the renderer; `@blocknote/server-util` for headless conversion in core ([ADR 0003](../adr/0003-headless-markdown-conversion-server-util.md)) | E2 ✓ |
-| **SQLite** (FTS5 + vector extension) | derived search index | single-file, zero-server, fits local-first; FTS5 built in; vector search via extension (e.g. sqlite-vec — confirm in E4) | E4 |
+| **WASM SQLite** (`node-sqlite3-wasm`, FTS5) | derived search index | single-file, zero-server, fits local-first; FTS5 built in. **Resolved E4 to WASM (not a native binding)** so there's no `node-gyp`/Electron-rebuild and the same core runs in a future cloud sync server ([ADR 0006](../adr/0006-wasm-sqlite-for-derived-index.md)); vector search rides on the same DB (semantic slice) | E4 ✓ (keyword) |
 | **Local embedding model** | semantic search default | privacy default ([PRD §4.1](../product/prd.md)); specific model/runtime is **open — [PRD §7.2](../product/prd.md#7-open-questions)**, decided in E4; provider interface stays pluggable for opt-in remote | E4 |
 | **MCP TypeScript SDK** (stdio) | agent surface | official SDK; stdio transport is what Claude Code / desktop clients spawn | E6 |
 

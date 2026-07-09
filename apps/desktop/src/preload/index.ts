@@ -40,6 +40,7 @@ const vault: VaultApi = {
   moveFolder: (fromPath, toPath) => ipcRenderer.invoke(IPC.moveFolder, fromPath, toPath),
   trashFolder: (path) => ipcRenderer.invoke(IPC.trashFolder, path),
   setOrder: (folder, orderedNames) => ipcRenderer.invoke(IPC.setOrder, folder, orderedNames),
+  search: (query, limit) => ipcRenderer.invoke(IPC.search, query, limit),
   onVaultChange: (listener) => {
     const handler = (_event: unknown, change: VaultChangePayload) => listener(change);
     ipcRenderer.on(IPC.changed, handler);

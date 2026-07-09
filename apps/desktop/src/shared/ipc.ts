@@ -4,7 +4,7 @@
  * @brain/core (erased at build), never `fs` or core itself: all vault I/O happens in the main
  * process (AGENTS.md architecture rule; app-architecture.md boundary rules).
  */
-import type { NoteEnvelope, TreeNode, VaultEventType } from '@brain/core';
+import type { NoteEnvelope, SearchHit, TreeNode, VaultEventType } from '@brain/core';
 
 export const IPC = {
   startup: 'app:startup',
@@ -33,6 +33,7 @@ export const IPC = {
   moveFolder: 'vault:move-folder',
   trashFolder: 'vault:trash-folder',
   setOrder: 'vault:set-order',
+  search: 'vault:search',
   /** Main → renderer push: a file changed in the vault (watcher). */
   changed: 'vault:changed',
 } as const;
@@ -156,6 +157,8 @@ export interface VaultApi {
    * `orderedNames` are on-disk entry names (a folder's dir name, a note's `.note.json` filename).
    */
   setOrder(folder: string, orderedNames: string[]): Promise<void>;
+  /** Full-text search the vault; returns notes ranked best-first with a highlighted snippet. */
+  search(query: string, limit?: number): Promise<SearchHit[]>;
   /** Subscribe to vault change events; returns an unsubscribe function. */
   onVaultChange(listener: (change: VaultChangePayload) => void): () => void;
 }

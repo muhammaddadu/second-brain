@@ -362,3 +362,31 @@ test('editing the note title renames its file on disk', async () => {
   await expect(window.getByRole('button', { name: 'Python snippet' })).toBeVisible();
   expect(JSON.parse(await readFile(renamed, 'utf8')).meta.title).toBe('Python snippet');
 });
+
+test('⌘K search finds a note by its text and opens it', async () => {
+  // Seed a note with a distinctive term; the watcher reindexes it before the tree row appears.
+  await writeFile(
+    join(vaultRoot, 'Journal/searchable.note.json'),
+    serializeNote({
+      version: 1,
+      meta: { title: 'Findable' },
+      blocks: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'xylophone gadgets', styles: {} }] },
+      ],
+    }),
+    'utf8',
+  );
+  await expect(window.getByRole('button', { name: 'searchable' })).toBeVisible({ timeout: 8000 });
+
+  // Open the palette (button), query, and open the result.
+  await window.getByTestId('search-button').click();
+  await expect(window.getByTestId('search-palette')).toBeVisible();
+  await window.getByTestId('search-input').fill('xylophone');
+
+  const result = window.getByTestId('search-results').getByRole('button', { name: /Findable/ });
+  await expect(result).toBeVisible({ timeout: 8000 });
+  await result.click();
+
+  await expect(window.getByTestId('search-palette')).toHaveCount(0);
+  await expect(window.getByTestId('note-title')).toHaveValue('Findable');
+});

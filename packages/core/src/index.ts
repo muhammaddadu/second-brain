@@ -32,6 +32,19 @@ export {
   TRASH_DIRNAME,
   VAULT_MARKER_FILE,
 } from './paths.js';
+export {
+  blocksToText,
+  buildMatchQuery,
+  chunkText,
+  type IndexEntry,
+  indexPath,
+  openSearchIndex,
+  rebuildIndex,
+  reindexNote,
+  type SearchHit,
+  type SearchIndex,
+  syncIndex,
+} from './search.js';
 export { entryName, listTree, type TreeNode, type TreeNodeType } from './tree.js';
 export {
   type Clock,
