@@ -25,7 +25,7 @@ Epic IDs are stable (never renumbered); **table order is the build order**.
 | [E7](E7-diagrams.md) | Diagrams as first-class blocks | ✅ Done | E2 |
 | [E3](E3-file-actions.md) | File actions & live vault updates | ✅ Done | E2 |
 | [E4](E4-search-rag.md) | Search index, RAG & knowledge graph | Done ✓ | E0 (UI parts: E1) |
-| [E5](E5-cli.md) | CLI surface | Planned | E0, E4 |
+| [E5](E5-cli.md) | CLI surface | Done ✓ | E0, E4 |
 | [E6](E6-mcp-rules.md) | MCP server & vault rules | Planned | E5 |
 | [E8](E8-databases.md) | Databases | Planned | E2, E3 |
 

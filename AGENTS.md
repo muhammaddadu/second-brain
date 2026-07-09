@@ -6,7 +6,7 @@ Guide for any AI agent (or human) working in this repository. Read this fully, t
 
 **note-agent-second-brain** is a local-first, cross-platform desktop "second brain": a notes vault of BlockNote-JSON note files organised in user-chosen folders and tags (Markdown importable/exportable at every surface — [ADR 0001](docs/adr/0001-blocknote-json-canonical-note-format.md)), edited in a React UI with a [BlockNote](https://www.blocknotejs.org/docs) rich editor (folder tree on the left, rich note view/editor on the right — including first-class diagram rendering (Mermaid, extensible) — right-click file actions). Its defining purpose is **agent access**: any AI agent can read, search, and update the vault via an MCP server or a CLI, following rules the owner defines — e.g. "summarise my last 24 hours, find the best existing docs to insert the updates into, or create new ones." Built-in RAG (full-text + vector search) makes the vault findable for both agents and the human owner. The vault grows over time; nothing leaves the machine by default.
 
-**Stack:** TypeScript throughout. Electron + React + Vite for the desktop app; BlockNote for editing; a shared core library for all vault operations; WASM SQLite (FTS5 + vector embeddings) for the derived search index; a CLI and an MCP server as headless agent surfaces. **Shipped so far:** E0 (core), E1 (desktop shell), E2 (editor), E7 (Mermaid), E3 (file actions + watcher + conflict guard), E4 (keyword + semantic hybrid search with a pluggable embedding-provider config). Still to come: the E4 knowledge-graph view, E5 CLI, E6 MCP, E8 databases. See [tech-stack](docs/architecture/tech-stack.md) for rationale and alternatives considered.
+**Stack:** TypeScript throughout. Electron + React + Vite for the desktop app; BlockNote for editing; a shared core library for all vault operations; WASM SQLite (FTS5 + vector embeddings) for the derived search index; a CLI and an MCP server as headless agent surfaces. **Shipped so far:** E0 (core), E1 (desktop shell), E2 (editor), E7 (Mermaid), E3 (file actions + watcher + conflict guard), E4 (keyword + semantic hybrid search, multi-provider embeddings, knowledge graph), E5 (`brain` CLI). Still to come: E6 MCP server, E8 databases. See [tech-stack](docs/architecture/tech-stack.md) for rationale and alternatives considered.
 
 ## Before Building Anything
 
@@ -40,7 +40,7 @@ Point the app at a scratch vault with `BRAIN_VAULT=/path/to/vault pnpm dev` (oth
 
 ## Repo Layout
 
-Traces to [app-architecture](docs/architecture/app-architecture.md). `packages/core` (E0) and `apps/desktop` (E1) have landed; the rest are planned.
+Traces to [app-architecture](docs/architecture/app-architecture.md). `packages/core` (E0), `apps/desktop` (E1–E4, E7), and `packages/cli` (E5) have landed; `packages/mcp` (E6) is planned.
 
 ```
 AGENTS.md, CLAUDE.md, LEARNINGS.md   # agent guidance (this methodology)
@@ -49,7 +49,7 @@ tsconfig.base.json, biome.json       # shared TS config; Biome lint+format
 docs/                # project documentation — routing index at docs/README.md
 packages/core/       # (E0 ✓) vault library: note envelope/metadata, tree, mutations, trash — ALL vault I/O lives here
 apps/desktop/        # (E1 ✓) Electron + React + Vite shell: main (hosts core), preload (IPC bridge), renderer (React UI)
-packages/cli/        # (planned, E5) `brain` CLI — headless agent/human surface
+packages/cli/        # (E5 ✓) `brain` CLI — headless agent/human surface, thin shell over core
 packages/mcp/        # (planned, E6) MCP server exposing vault tools to agents
 ```
 
