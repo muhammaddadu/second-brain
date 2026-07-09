@@ -1,4 +1,5 @@
 /** Add/remove tags on the open note; each change persists to note metadata via the vault bridge. */
+import { X } from 'lucide-react';
 import { useState } from 'react';
 
 export function TagEditor({
@@ -32,16 +33,16 @@ export function TagEditor({
       {tags.map((tag) => (
         <span
           key={tag}
-          className="bg-surface text-muted flex items-center gap-1 rounded-full px-2 py-0.5 text-xs"
+          className="bg-surface text-muted flex items-center gap-1 rounded-full py-0.5 pr-1 pl-2.5 text-xs"
         >
           #{tag}
           <button
             type="button"
             aria-label={`Remove tag ${tag}`}
             onClick={() => void commit(tags.filter((t) => t !== tag))}
-            className="hover:text-accent"
+            className="hover:bg-edge hover:text-ink flex h-4 w-4 items-center justify-center rounded-full"
           >
-            ×
+            <X size={11} strokeWidth={2.5} />
           </button>
         </span>
       ))}

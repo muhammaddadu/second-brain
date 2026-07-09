@@ -104,6 +104,22 @@ describe('vault operations', () => {
     expect(getTags(reread)).toEqual(['renamed']);
   });
 
+  it('initVault marks a plain directory as a vault (idempotent)', async () => {
+    const { mkdtemp, rm } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const dir = await mkdtemp(join(tmpdir(), 'brain-init-'));
+    try {
+      const { initVault, isVault } = await import('./vault.js');
+      expect(await isVault(dir)).toBe(false);
+      await initVault(dir, () => FIXTURE_TIMESTAMP);
+      expect(await isVault(dir)).toBe(true);
+      await initVault(dir, () => FIXTURE_TIMESTAMP); // idempotent — no throw
+      expect(await isVault(dir)).toBe(true);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it('createFolder makes an empty directory in the vault', async () => {
     await createFolder(vault, 'Archive/2026');
     expect(await exists(join(fixture.root, 'Archive/2026'))).toBe(true);

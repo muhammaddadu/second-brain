@@ -34,7 +34,7 @@ Run from the repo root. Package manager is **pnpm** (`pnpm install` first). Scri
 | `pnpm test:e2e` | Desktop Playwright E2E — builds the app, drives real Electron (needs a display) |
 | `pnpm build` | Build every package (core → `dist/` via `tsc`; desktop → `out/` via electron-vite) |
 
-Point the app at a scratch vault with `BRAIN_VAULT=/path/to/vault pnpm dev` (otherwise it shows a folder picker).
+Point the app at a scratch vault with `BRAIN_VAULT=/path/to/vault pnpm dev` (otherwise it shows the first-run welcome screen: create a fresh vault, open a folder, or reopen a recent one).
 
 **Before declaring any change done:** `pnpm lint && pnpm typecheck && pnpm test && pnpm build` must all pass (plus `pnpm test:e2e` when desktop behaviour changed), and the docs cross-links in `docs/README.md` must resolve.
 

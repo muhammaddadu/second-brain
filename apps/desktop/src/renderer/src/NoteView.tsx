@@ -4,6 +4,7 @@
  * the editor request a fresh read after an external-change conflict is resolved (E3).
  */
 import type { NoteEnvelope } from '@brain/core';
+import { NotebookPen } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NoteEditor } from './NoteEditor';
 
@@ -36,8 +37,9 @@ export function NoteView({ path }: { path: string | null }) {
 
   if (!path) {
     return (
-      <div className="text-muted flex h-full items-center justify-center px-8 text-center">
-        <p>Select a note from the tree to open it.</p>
+      <div className="text-muted flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
+        <NotebookPen size={28} strokeWidth={1.5} className="text-faint" aria-hidden />
+        <p className="text-sm">Select a note from the tree to open it.</p>
       </div>
     );
   }

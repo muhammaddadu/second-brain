@@ -17,7 +17,7 @@ import {
   setTags,
 } from './envelope.js';
 import { InvalidPathError, NoteConflictError, NoteExistsError } from './errors.js';
-import { BRAIN_DIR, NOTE_EXTENSION, TRASH_DIRNAME } from './paths.js';
+import { BRAIN_DIR, NOTE_EXTENSION, TRASH_DIRNAME, VAULT_MARKER_FILE } from './paths.js';
 
 /** A clock returning an ISO-8601 timestamp; injected for deterministic tests. */
 export type Clock = () => string;
@@ -45,6 +45,28 @@ export function openVault(root: string, options: VaultOptions = {}): Vault {
     root: resolve(root),
     now: options.now ?? (() => new Date().toISOString()),
   };
+}
+
+/**
+ * Create the directory (if needed) and mark it as a vault by writing the {@link VAULT_MARKER_FILE}
+ * under {@link BRAIN_DIR}. Idempotent — safe to call on an existing vault. This is what makes
+ * first-run setup "create a folder and go" without the user hand-building anything.
+ */
+export async function initVault(
+  root: string,
+  now: Clock = () => new Date().toISOString(),
+): Promise<void> {
+  const abs = resolve(root);
+  await mkdir(join(abs, BRAIN_DIR), { recursive: true });
+  const marker = join(abs, BRAIN_DIR, VAULT_MARKER_FILE);
+  if (!(await pathExists(marker))) {
+    await atomicWriteFile(marker, `${JSON.stringify({ version: 1, created: now() }, null, 2)}\n`);
+  }
+}
+
+/** Whether a directory is a Second Brain vault (has the marker under {@link BRAIN_DIR}). */
+export async function isVault(root: string): Promise<boolean> {
+  return pathExists(join(resolve(root), BRAIN_DIR, VAULT_MARKER_FILE));
 }
 
 /**

@@ -20,7 +20,7 @@ All four must pass before any change is done ([AGENTS.md → Commands](../../AGE
 
 ## Dev loop
 
-- `pnpm dev` — launches the desktop app with HMR. On first run it shows a folder picker; to skip that, point it at a scratch vault: `BRAIN_VAULT=/path/to/vault pnpm dev`.
+- `pnpm dev` — launches the desktop app with HMR. On first run it shows the welcome screen (create a fresh vault in one click, open a folder, or reopen a recent one). To skip setup and point at a specific vault: `BRAIN_VAULT=/path/to/vault pnpm dev`.
 - `pnpm test` — one-shot Vitest run across the workspace (core unit tests).
 - `pnpm test:e2e` — builds the app and drives real Electron with Playwright (needs a display).
 - `pnpm format` — apply Biome formatting fixes.

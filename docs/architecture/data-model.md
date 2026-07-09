@@ -14,9 +14,12 @@ A vault is a plain directory the owner chooses. Its folder hierarchy **is** the 
   Projects/…/index.note.json
   RULES.md                       # vault rules — plain Markdown (deliberate exception, see Rules)
   .brain/
+    vault.json                   # marker identifying this folder as a vault (created on first open)
     index.db                     # derived SQLite index — safe to delete, rebuildable
     trash/                       # soft-deleted notes (PRD §4.2)
 ```
+
+The presence of `.brain/vault.json` is what makes a folder a *vault* (`core.isVault`); `core.initVault` creates it. This lets first-run setup create a fresh, dedicated vault in one click and recognise previously-used folders, instead of dropping the owner into a raw folder picker over an arbitrary directory.
 
 ## Note format
 

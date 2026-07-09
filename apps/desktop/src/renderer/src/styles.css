@@ -1,38 +1,48 @@
 @import "tailwindcss";
 
 /*
- * Warm / paper theme (ux/index.md § Visual design). Tokens map Tailwind color/font utilities to
- * CSS variables that flip with the OS light/dark preference — so `bg-paper`, `text-ink`,
- * `text-muted`, `border-edge`, `text-accent`, `font-serif` all stay theme-aware.
+ * Warm / paper theme (ux/index.md § Visual design). An editorial, low-contrast surface that gets
+ * out of the way of note content. Tokens map Tailwind color/font utilities to CSS variables that
+ * flip with the OS light/dark preference — so `bg-paper`, `text-ink`, `text-muted`, `border-edge`,
+ * `text-accent`, `font-serif` all stay theme-aware.
  */
 @theme {
   --color-paper: var(--paper);
   --color-surface: var(--surface);
+  --color-raised: var(--raised);
   --color-ink: var(--ink);
   --color-muted: var(--muted);
+  --color-faint: var(--faint);
   --color-edge: var(--edge);
   --color-accent: var(--accent);
-  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-serif: Georgia, "Times New Roman", serif;
+  --color-accent-ink: var(--accent-ink);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
 }
 
 :root {
-  --paper: #faf7f2;
-  --surface: #f4efe7;
-  --ink: #2b2723;
-  --muted: #8a8175;
-  --edge: #e7ddcf;
-  --accent: #b5744a;
+  --paper: #f6f1e7;
+  --surface: #efe8da;
+  --raised: #fbf8f1;
+  --ink: #2c2822;
+  --muted: #857c6d;
+  --faint: #b4ab99;
+  --edge: #e2d8c6;
+  --accent: #b5623a;
+  --accent-ink: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #1c1a17;
-    --surface: #23201b;
-    --ink: #e8e3da;
-    --muted: #9a9184;
-    --edge: #332e27;
-    --accent: #d08a5e;
+    --paper: #1a1815;
+    --surface: #221f1a;
+    --raised: #26221a;
+    --ink: #ece5d8;
+    --muted: #9c9384;
+    --faint: #6a6250;
+    --edge: #332e26;
+    --accent: #d68a5c;
+    --accent-ink: #1a1815;
   }
 }
 
@@ -48,4 +58,43 @@ body {
   color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Quiet, warm scrollbars that suit the paper surface. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--edge) transparent;
+}
+
+/*
+ * Blend the BlockNote editor into the paper surface — by default its Mantine theme paints a stark
+ * white card. Map its CSS variables to our tokens so the editor reads as part of the page, and
+ * inherit our font so headings and body match the app.
+ */
+.bn-container {
+  --bn-colors-editor-background: transparent;
+  --bn-colors-editor-text: var(--ink);
+  --bn-colors-side-menu: var(--faint);
+  --bn-colors-menu-text: var(--ink);
+  --bn-colors-menu-background: var(--raised);
+  --bn-colors-hovered-background: var(--surface);
+  --bn-colors-selected-background: color-mix(in oklab, var(--accent) 18%, transparent);
+  --bn-colors-border: var(--edge);
+  --bn-font-family: var(--font-sans);
+  background-color: transparent;
+}
+
+.bn-editor {
+  padding-inline: 0;
+}
+
+/*
+ * Our custom code block draws its own chrome (diagram preview + source strip, or a paper code
+ * box). Drop Mantine's default dark code-block fill/padding so it doesn't show through as a black
+ * canvas behind our content.
+ */
+.bn-block-content[data-content-type="codeBlock"] {
+  background-color: transparent !important;
+  padding: 0 !important;
 }

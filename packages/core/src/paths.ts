@@ -15,5 +15,8 @@ export const TRASH_DIRNAME = 'trash';
 /** Derived SQLite index, under {@link BRAIN_DIR}. Safe to delete; rebuildable. */
 export const INDEX_DB = 'index.db';
 
+/** Marker file (under {@link BRAIN_DIR}) that identifies a directory as a Second Brain vault. */
+export const VAULT_MARKER_FILE = 'vault.json';
+
 /** Owner-defined agent rules — plain Markdown at the vault root (deliberate exception to the note format). */
 export const RULES_FILE = 'RULES.md';

@@ -31,6 +31,7 @@ The first runnable app: an Electron + React shell that opens a vault, shows the 
 
 ## Notes
 
+- **Vault setup refined (2026-07-09):** replaced the bare folder picker with a first-run welcome screen — create a fresh dedicated vault in one click, open an existing folder, or reopen a recent one. A `.brain/vault.json` marker (`core.initVault`/`isVault`) identifies vaults; `BRAIN_VAULT` still bypasses setup for dev/E2E. Flow spec in [ux/index.md § First run](../../ux/index.md); marker in [data-model](../../architecture/data-model.md). Icons via lucide-react; warm-paper visual system tuned across the app.
 - IPC seam: channels + the `VaultApi` type live in one place, `apps/desktop/src/shared/ipc.ts`, imported by main, preload, and (type-only) the renderer.
 - Electron tooling (electron-vite) and styling (Tailwind v4, warm-paper theme) decided in E1 — recorded in [tech-stack](../../architecture/tech-stack.md#fixed-in-e1-2026-07-09) and [ux/index.md § Visual design](../../ux/index.md).
 - Cross-platform packaging for all three OSes is *not* gated here — it builds and runs on the dev machine; full packaging is revisited after E6 (see epics index → out of scope).

@@ -6,6 +6,10 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { IPC, type VaultApi, type VaultChangePayload } from '../shared/ipc.js';
 
 const vault: VaultApi = {
+  startup: () => ipcRenderer.invoke(IPC.startup),
+  createVault: () => ipcRenderer.invoke(IPC.createVault),
+  pickVault: () => ipcRenderer.invoke(IPC.pickVault),
+  openRecent: (path) => ipcRenderer.invoke(IPC.openRecent, path),
   info: () => ipcRenderer.invoke(IPC.vaultInfo),
   tree: () => ipcRenderer.invoke(IPC.vaultTree),
   readNote: (path) => ipcRenderer.invoke(IPC.readNote, path),

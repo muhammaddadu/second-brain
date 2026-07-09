@@ -11,6 +11,7 @@ import type { PartialBlock } from '@blocknote/core';
 import { BlockNoteView } from '@blocknote/mantine';
 import { useCreateBlockNote } from '@blocknote/react';
 import type { NoteEnvelope } from '@brain/core';
+import { AlertTriangle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { editorSchema } from './editorSchema';
 import { TagEditor } from './TagEditor';
@@ -88,22 +89,25 @@ export function NoteEditor({ path, note, initialHash, onReload }: NoteEditorProp
     <article className="mx-auto max-w-3xl px-10 py-8">
       {conflict && (
         <div
-          className="border-edge bg-surface mb-4 flex items-center justify-between rounded border px-3 py-2 text-sm"
+          className="border-edge bg-surface mb-4 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm"
           data-testid="conflict-banner"
         >
-          <span>This note changed on disk.</span>
-          <span className="flex gap-2">
+          <span className="flex items-center gap-2">
+            <AlertTriangle size={15} className="text-accent shrink-0" aria-hidden />
+            This note changed on disk.
+          </span>
+          <span className="flex shrink-0 gap-2">
             <button
               type="button"
               onClick={onReload}
-              className="border-edge rounded border px-2 py-0.5"
+              className="border-edge hover:bg-edge/50 rounded-lg border px-2.5 py-1 text-xs"
             >
               Reload
             </button>
             <button
               type="button"
               onClick={() => void keepMine()}
-              className="bg-accent rounded px-2 py-0.5 text-white"
+              className="bg-accent text-accent-ink rounded-lg px-2.5 py-1 text-xs"
             >
               Keep mine
             </button>

@@ -7,6 +7,10 @@
 import type { NoteEnvelope, TreeNode, VaultEventType } from '@brain/core';
 
 export const IPC = {
+  startup: 'app:startup',
+  createVault: 'app:create-vault',
+  pickVault: 'app:pick-vault',
+  openRecent: 'app:open-recent',
   vaultInfo: 'vault:info',
   vaultTree: 'vault:tree',
   readNote: 'vault:read-note',
@@ -26,6 +30,21 @@ export interface VaultInfo {
   name: string;
   root: string;
 }
+
+/** A previously-used vault, shown on the welcome screen. */
+export interface RecentVault {
+  name: string;
+  path: string;
+}
+
+/**
+ * What the app should show at launch. `ready` — a vault is open (BRAIN_VAULT was set); go straight
+ * in. `setup` — show the welcome screen: create a fresh vault at `suggestedPath`, open an existing
+ * folder, or reopen one of `recent`.
+ */
+export type StartupState =
+  | { mode: 'ready'; info: VaultInfo }
+  | { mode: 'setup'; recent: RecentVault[]; suggestedPath: string };
 
 /** A note plus the content hash it was read at — the baseline for the conflict guard. */
 export interface ReadNoteResult {
@@ -51,6 +70,14 @@ export interface VaultChangePayload {
 
 /** The surface exposed to the renderer as `window.vault`. Thin — each call forwards to core. */
 export interface VaultApi {
+  /** What to show at launch (ready vs. first-run setup). */
+  startup(): Promise<StartupState>;
+  /** Create and open a fresh vault at the suggested path; returns the opened vault. */
+  createVault(): Promise<VaultInfo>;
+  /** Open a folder chosen via the OS picker as a vault; null if the user cancels. */
+  pickVault(): Promise<VaultInfo | null>;
+  /** Reopen a previously-used vault by path; null if it's no longer a valid vault. */
+  openRecent(path: string): Promise<VaultInfo | null>;
   info(): Promise<VaultInfo>;
   tree(): Promise<TreeNode[]>;
   readNote(path: string): Promise<ReadNoteResult>;

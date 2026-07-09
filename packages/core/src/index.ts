@@ -23,7 +23,14 @@ export {
   importMarkdownAsNote,
 } from './import-export.js';
 export { blocksToMarkdown, markdownToBlocks } from './markdown.js';
-export { BRAIN_DIR, INDEX_DB, NOTE_EXTENSION, RULES_FILE, TRASH_DIRNAME } from './paths.js';
+export {
+  BRAIN_DIR,
+  INDEX_DB,
+  NOTE_EXTENSION,
+  RULES_FILE,
+  TRASH_DIRNAME,
+  VAULT_MARKER_FILE,
+} from './paths.js';
 export { listTree, type TreeNode, type TreeNodeType } from './tree.js';
 export {
   type Clock,
@@ -32,6 +39,8 @@ export {
   createNote,
   emptyTrash,
   hashNote,
+  initVault,
+  isVault,
   moveNote,
   openVault,
   readNote,

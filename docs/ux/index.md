@@ -2,7 +2,17 @@
 
 > **This doc owns:** the app's information architecture, layout, and interactions. **For requirements see** [PRD §3.3](../product/prd.md); **for the component/code side see** [app-architecture](../architecture/app-architecture.md).
 
-**Status: planned** — the spec E1–E4 build to. One surface: the main window. No routes, no onboarding flow beyond the vault picker.
+**Status: planned** — the spec E1–E4 build to. Two surfaces: a first-run welcome screen and the main window.
+
+## First run — vault setup (E1 ✓)
+
+Instead of opening a raw OS folder picker (which invites pointing the app at a huge existing directory), the welcome screen offers, in order:
+
+- **Create a new vault** (primary) — makes a fresh, dedicated folder at a sensible default (`~/Documents/Second Brain`, de-duplicated) and opens it. One click, no decisions.
+- **Open an existing folder…** — the OS picker, for power users who want a specific location.
+- **Recent** — previously-used vaults, shown when any exist, so returning owners reopen with one click rather than re-choosing.
+
+**What makes a folder a vault:** the presence of a `.brain/vault.json` marker ([data-model](../architecture/data-model.md)). Creating or opening a folder writes it; recent entries are validated against it, so stale/deleted paths silently drop off. Setup is bypassed when a vault is provided explicitly (the `BRAIN_VAULT` env var, used by dev and tests).
 
 ## Layout
 

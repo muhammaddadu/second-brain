@@ -5,6 +5,7 @@
  * refreshes the tree immediately (and the watcher keeps it live for external changes).
  */
 import type { TreeNode } from '@brain/core';
+import { ChevronDown, ChevronRight, FileText, FolderPlus } from 'lucide-react';
 import { useState } from 'react';
 import { ContextMenu, type MenuItem } from './ContextMenu';
 import { MoveDialog } from './MoveDialog';
@@ -101,11 +102,19 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
       }}
     >
       {nodes.length === 0 ? (
-        <p className="text-muted px-3 py-2 text-xs italic">
-          Empty vault — right-click to add a note.
-        </p>
+        <div className="text-muted flex flex-col items-start gap-3 px-3 py-6">
+          <p className="text-xs leading-relaxed">Your vault is empty.</p>
+          <button
+            type="button"
+            onClick={() => void newNote('')}
+            className="border-edge hover:border-accent/50 hover:text-ink flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs"
+          >
+            <FolderPlus size={14} strokeWidth={1.75} />
+            New note
+          </button>
+        </div>
       ) : (
-        <ul className="flex flex-col">
+        <ul className="flex flex-col px-1">
           {nodes.map((node) => (
             <TreeItem
               key={node.path}
@@ -156,7 +165,7 @@ interface TreeItemProps {
 function TreeItem(props: TreeItemProps) {
   const { node, depth, selectedPath, renamingPath, onSelect, onOpenMenu } = props;
   const [expanded, setExpanded] = useState(false);
-  const indent = { paddingLeft: `${depth * 14 + 10}px` };
+  const indent = { paddingLeft: `${depth * 14 + 8}px` };
 
   function openMenu(e: React.MouseEvent) {
     e.preventDefault();
@@ -177,6 +186,9 @@ function TreeItem(props: TreeItemProps) {
     );
   }
 
+  const rowClass =
+    'group flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left text-sm transition-colors';
+
   if (node.type === 'folder') {
     const children = node.children ?? [];
     return (
@@ -187,11 +199,13 @@ function TreeItem(props: TreeItemProps) {
           onClick={() => setExpanded((e) => !e)}
           onContextMenu={openMenu}
           aria-expanded={expanded}
-          className="hover:bg-edge/50 flex w-full items-center gap-1.5 py-1 pr-2 text-left"
+          className={`${rowClass} text-ink hover:bg-edge/50`}
         >
-          <span aria-hidden className="text-muted w-3 text-xs">
-            {expanded ? '▾' : '▸'}
-          </span>
+          {expanded ? (
+            <ChevronDown size={14} className="text-faint shrink-0" aria-hidden />
+          ) : (
+            <ChevronRight size={14} className="text-faint shrink-0" aria-hidden />
+          )}
           <span className="truncate font-medium">{node.name}</span>
         </button>
         {expanded && children.length > 0 && (
@@ -214,11 +228,16 @@ function TreeItem(props: TreeItemProps) {
         onClick={() => onSelect(node.path)}
         onContextMenu={openMenu}
         aria-current={selected}
-        className={`flex w-full items-center gap-1.5 py-1 pr-2 text-left ${
-          selected ? 'bg-accent/15 text-accent' : 'hover:bg-edge/50'
+        className={`${rowClass} ${
+          selected ? 'bg-accent/15 text-accent' : 'text-ink hover:bg-edge/50'
         }`}
       >
-        <span aria-hidden className="w-3" />
+        <FileText
+          size={14}
+          strokeWidth={1.75}
+          className={`ml-0.5 shrink-0 ${selected ? 'text-accent' : 'text-faint'}`}
+          aria-hidden
+        />
         <span className="truncate">{node.name}</span>
       </button>
     </li>
@@ -250,7 +269,7 @@ function RenameInput({
         if (e.key === 'Enter') onCommit(value);
         if (e.key === 'Escape') onCancel();
       }}
-      className="text-ink border-edge my-0.5 w-[90%] rounded border bg-transparent px-1 py-0.5 text-sm outline-none"
+      className="text-ink border-accent/60 bg-raised my-0.5 w-[92%] rounded-md border px-1.5 py-0.5 text-sm outline-none"
     />
   );
 }

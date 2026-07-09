@@ -6,14 +6,24 @@
 import mermaid from 'mermaid';
 import { type DiagramRenderer, registerDiagramRenderer } from './registry';
 
-const prefersDark =
-  typeof window.matchMedia === 'function' &&
-  window.matchMedia('(prefers-color-scheme: dark)').matches;
-
+// Theme the diagram to the warm-paper palette (transparent canvas, warm node fills) so it reads as
+// part of the note rather than a black box. Uses the "base" theme with explicit variables so it is
+// consistent regardless of OS light/dark.
 mermaid.initialize({
   startOnLoad: false,
-  theme: prefersDark ? 'dark' : 'neutral',
+  theme: 'base',
   securityLevel: 'strict',
+  themeVariables: {
+    background: 'transparent',
+    primaryColor: '#efe8da',
+    primaryTextColor: '#2c2822',
+    primaryBorderColor: '#b5623a',
+    secondaryColor: '#f6f1e7',
+    tertiaryColor: '#fbf8f1',
+    lineColor: '#857c6d',
+    fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+    fontSize: '15px',
+  },
 });
 
 let renderCount = 0;

@@ -14,7 +14,7 @@ export function MoveDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
       <div
-        className="border-edge bg-paper w-80 rounded-lg border p-4 shadow-xl"
+        className="border-edge bg-raised w-80 rounded-xl border p-4 shadow-md"
         data-testid="move-dialog"
       >
         <h2 className="font-serif text-lg font-semibold">Move “{noteName}”</h2>
