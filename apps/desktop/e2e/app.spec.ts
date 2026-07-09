@@ -79,11 +79,12 @@ test.afterAll(async () => {
 // then open a note under it.
 async function openNote(folder: string, note: string) {
   await ensureExpanded(folder);
-  await window.getByRole('button', { name: note }).click();
+  await window.getByRole('button', { name: note, exact: true }).click();
 }
 
 async function ensureExpanded(folder: string) {
-  const folderButton = window.getByRole('button', { name: folder });
+  // exact: a tag chip's "Remove tag <folder>" button would otherwise also match by substring.
+  const folderButton = window.getByRole('button', { name: folder, exact: true });
   if ((await folderButton.getAttribute('aria-expanded')) !== 'true') {
     await folderButton.click();
   }
@@ -92,7 +93,7 @@ async function ensureExpanded(folder: string) {
 test('opens the vault, navigates the tree, and shows a note', async () => {
   await expect(window.getByTestId('vault-name')).toHaveText(/brain-e2e-/);
 
-  await window.getByRole('button', { name: 'Journal' }).click();
+  await window.getByRole('button', { name: 'Journal', exact: true }).click();
   await window.getByRole('button', { name: '2026-07-07' }).click();
 
   await expect(window.getByTestId('note-title')).toHaveText('Daily log');
@@ -167,7 +168,7 @@ test('creates and renames a note via the context menu, and reflects external cha
   await ensureExpanded('Journal');
 
   // Create via the folder's context menu.
-  await window.getByRole('button', { name: 'Journal' }).click({ button: 'right' });
+  await window.getByRole('button', { name: 'Journal', exact: true }).click({ button: 'right' });
   await window.getByTestId('context-menu').getByRole('button', { name: 'New note' }).click();
   await expect(window.getByTestId('note-title')).toHaveText('Untitled');
 
@@ -203,9 +204,11 @@ test('inserts a Mermaid diagram from the slash menu', async () => {
   });
 });
 
-test('settings: switching theme applies live', async () => {
+test('settings page: switching theme applies live, sidebar intact', async () => {
   await window.getByRole('button', { name: 'Settings' }).click();
-  await expect(window.getByTestId('settings-dialog')).toBeVisible();
+  await expect(window.getByTestId('settings-page')).toBeVisible();
+  // The sidebar stays in place — it's a page, not a modal.
+  await expect(window.getByRole('button', { name: 'Journal', exact: true })).toBeVisible();
 
   await window.getByRole('button', { name: 'Dark' }).click();
   await expect(window.locator('html')).toHaveAttribute('data-theme', 'dark', { timeout: 5000 });
@@ -213,8 +216,9 @@ test('settings: switching theme applies live', async () => {
   await window.getByRole('button', { name: 'Light' }).click();
   await expect(window.locator('html')).toHaveAttribute('data-theme', 'light', { timeout: 5000 });
 
-  await window.getByRole('button', { name: 'Close settings' }).click();
-  await expect(window.getByTestId('settings-dialog')).toHaveCount(0);
+  // Opening a note leaves settings (router navigation).
+  await openNote('Journal', '2026-07-07');
+  await expect(window.getByTestId('settings-page')).toHaveCount(0);
 });
 
 test('an external edit to the OPEN note surfaces a conflict, never a silent clobber', async () => {

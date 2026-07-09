@@ -69,7 +69,7 @@ A **Settings** entry pinned at the bottom of the sidebar opens a small preferenc
 - Keyboard-first for the frequent loop: ⌘K → open → edit → done.
 ## Visual design (decided E1, 2026-07-09)
 
-**Warm / paper direction** — a calm, Notion-like reading surface that gets out of the way of note content.
+**Warm / paper direction** — a calm, paper-like reading surface that gets out of the way of note content.
 
 - **Palette:** warm off-white paper background (not stark white), soft warm-gray borders and secondary text, a single restrained accent. Light and dark are both first-class (the app respects OS theme); dark is a warm charcoal, not pure black.
 - **Typography:** a humanist sans for body/UI; titles may take a serif accent for the "paper" feel. Generous line-height and comfortable measure for long-form reading.

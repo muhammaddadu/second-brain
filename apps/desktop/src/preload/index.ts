@@ -19,6 +19,11 @@ const vault: VaultApi = {
   recentVaults: () => ipcRenderer.invoke(IPC.recentVaults),
   getSettings: () => ipcRenderer.invoke(IPC.getSettings),
   setSettings: (patch) => ipcRenderer.invoke(IPC.setSettings, patch),
+  onNavigate: (listener) => {
+    const handler = (_event: unknown, routeUrl: string) => listener(routeUrl);
+    ipcRenderer.on(IPC.navigate, handler);
+    return () => ipcRenderer.removeListener(IPC.navigate, handler);
+  },
   info: () => ipcRenderer.invoke(IPC.vaultInfo),
   tree: () => ipcRenderer.invoke(IPC.vaultTree),
   readNote: (path) => ipcRenderer.invoke(IPC.readNote, path),

@@ -16,6 +16,8 @@ export const IPC = {
   recentVaults: 'app:recent-vaults',
   getSettings: 'app:get-settings',
   setSettings: 'app:set-settings',
+  /** Main → renderer push: navigate to a route (deep link / CLI open-to-page). */
+  navigate: 'app:navigate',
   vaultInfo: 'vault:info',
   vaultTree: 'vault:tree',
   readNote: 'vault:read-note',
@@ -67,7 +69,7 @@ export interface Settings {
  * folder, or reopen one of `recent`.
  */
 export type StartupState =
-  | { mode: 'ready'; info: VaultInfo }
+  | { mode: 'ready'; info: VaultInfo; route?: string }
   | { mode: 'setup'; recent: RecentVault[]; suggestedPath: string };
 
 /** A note plus the content hash it was read at — the baseline for the conflict guard. */
@@ -112,6 +114,8 @@ export interface VaultApi {
   getSettings(): Promise<Settings>;
   /** Merge and persist preferences; applies immediately. Returns the full settings. */
   setSettings(patch: Partial<Settings>): Promise<Settings>;
+  /** Subscribe to navigation pushed from main (deep links / CLI open-to-page). Returns unsubscribe. */
+  onNavigate(listener: (routeUrl: string) => void): () => void;
   info(): Promise<VaultInfo>;
   tree(): Promise<TreeNode[]>;
   readNote(path: string): Promise<ReadNoteResult>;

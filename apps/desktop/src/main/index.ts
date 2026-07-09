@@ -39,6 +39,7 @@ import {
   type VaultChangePayload,
   type VaultInfo,
 } from '../shared/ipc.js';
+import { APP_SCHEME } from '../shared/route.js';
 
 const MAX_RECENT = 8;
 // No spaces in the folder name (shell/path-friendly); the display name stays "Second Brain".
@@ -262,16 +263,19 @@ async function createFolderWithFreeName(
 
 function registerHandlers(): void {
   ipcMain.handle(IPC.startup, async (): Promise<StartupState> => {
+    // Consume any launch-time deep link (e.g. --route=settings) as the initial route.
+    const route = pendingRoute ?? undefined;
+    pendingRoute = null;
     const fromEnv = process.env.BRAIN_VAULT;
     if (fromEnv) {
-      return { mode: 'ready', info: await activateVault(fromEnv) };
+      return { mode: 'ready', info: await activateVault(fromEnv), ...(route ? { route } : {}) };
     }
     // Remember the last vault and reopen it automatically (org/tenant model); the welcome screen
     // only appears on a true first run. Switching later goes through the in-app vault switcher.
     const recent = await validRecentVaults();
     const last = recent[0];
     if (last) {
-      return { mode: 'ready', info: await activateVault(last.path) };
+      return { mode: 'ready', info: await activateVault(last.path), ...(route ? { route } : {}) };
     }
     return { mode: 'setup', recent, suggestedPath: suggestedNewVaultPath() };
   });
@@ -454,6 +458,36 @@ function buildAppMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+// --- Deep links / open-to-page (secondbrain://…, --route=…) ------------------
+
+let pendingRoute: string | null = null;
+
+/** Pull a route URL from argv: `--route=<url>` or a `secondbrain://…` argument. */
+function extractRouteArg(argv: string[]): string | null {
+  for (const arg of argv) {
+    if (arg.startsWith('--route=')) return arg.slice('--route='.length);
+    if (arg.startsWith(`${APP_SCHEME}://`)) return arg;
+  }
+  return null;
+}
+
+/** Send a route to open windows, or hold it until one exists. */
+function navigateTo(routeUrl: string): void {
+  const windows = BrowserWindow.getAllWindows();
+  if (windows.length === 0) {
+    pendingRoute = routeUrl;
+    return;
+  }
+  for (const win of windows) win.webContents.send(IPC.navigate, routeUrl);
+}
+
+app.setAsDefaultProtocolClient(APP_SCHEME);
+app.on('open-url', (event, url) => {
+  // macOS delivers `secondbrain://…` here (and to the already-running instance).
+  event.preventDefault();
+  navigateTo(url);
+});
+
 function createWindow(): void {
   const window = new BrowserWindow({
     width: 1160,
@@ -484,6 +518,7 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   nativeTheme.themeSource = readSettings().theme; // apply the saved theme preference before painting
+  pendingRoute = extractRouteArg(process.argv); // open-to-page from launch args (CLI/deep link)
   registerHandlers();
   buildAppMenu();
   createWindow();

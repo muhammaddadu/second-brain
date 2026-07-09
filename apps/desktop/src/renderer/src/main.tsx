@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { ErrorBoundary } from './ErrorBoundary';
 // Registers the mermaid diagram renderer into the registry before the editor mounts (E7).
 import './diagrams/mermaid';
 import './styles.css';
@@ -10,6 +11,8 @@ if (!container) throw new Error('root element not found');
 
 createRoot(container).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );

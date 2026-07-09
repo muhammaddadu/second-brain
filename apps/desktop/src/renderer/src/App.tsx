@@ -8,16 +8,17 @@ import type { TreeNode } from '@brain/core';
 import { Search, Settings as SettingsIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Appearance, VaultInfo } from '../../shared/ipc';
+import { DEFAULT_ROUTE, type Route, routeFromUrl } from '../../shared/route';
 import { FolderTree } from './FolderTree';
 import { NoteView } from './NoteView';
 import { Onboarding } from './Onboarding';
-import { SettingsDialog } from './SettingsDialog';
+import { SettingsPage } from './SettingsPage';
 import { VaultSwitcher } from './VaultSwitcher';
 
 type Phase =
   | { name: 'loading' }
   | { name: 'setup'; recent: { name: string; path: string }[]; suggestedPath: string }
-  | { name: 'ready'; info: VaultInfo };
+  | { name: 'ready'; info: VaultInfo; route?: string };
 
 /** Stamp the OS appearance onto <html> so CSS adapts (theme, translucency, platform layout). */
 function useAppearance() {
@@ -41,7 +42,12 @@ export function App() {
     window.vault
       .startup()
       .then((state) => {
-        if (state.mode === 'ready') setPhase({ name: 'ready', info: state.info });
+        if (state.mode === 'ready')
+          setPhase({
+            name: 'ready',
+            info: state.info,
+            ...(state.route ? { route: state.route } : {}),
+          });
         else setPhase({ name: 'setup', recent: state.recent, suggestedPath: state.suggestedPath });
       })
       .catch(console.error);
@@ -65,15 +71,25 @@ export function App() {
     <Workspace
       key={phase.info.root}
       info={phase.info}
+      initialRoute={phase.route}
       onSwitch={(info) => setPhase({ name: 'ready', info })}
     />
   );
 }
 
-function Workspace({ info, onSwitch }: { info: VaultInfo; onSwitch: (info: VaultInfo) => void }) {
+function Workspace({
+  info,
+  initialRoute,
+  onSwitch,
+}: {
+  info: VaultInfo;
+  initialRoute?: string;
+  onSwitch: (info: VaultInfo) => void;
+}) {
   const [tree, setTree] = useState<TreeNode[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [route, setRoute] = useState<Route>(() =>
+    initialRoute ? routeFromUrl(initialRoute) : DEFAULT_ROUTE,
+  );
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshTree = useCallback(async () => {
@@ -87,15 +103,20 @@ function Workspace({ info, onSwitch }: { info: VaultInfo; onSwitch: (info: Vault
 
   useEffect(() => {
     void refreshTree();
-    const unsubscribe = window.vault.onVaultChange(() => {
+    const unsubscribeChange = window.vault.onVaultChange(() => {
       if (debounce.current) clearTimeout(debounce.current);
       debounce.current = setTimeout(() => void refreshTree(), 150);
     });
+    // Deep links / CLI "open to page" navigate the workspace.
+    const unsubscribeNav = window.vault.onNavigate((url) => setRoute(routeFromUrl(url)));
     return () => {
-      unsubscribe();
+      unsubscribeChange();
+      unsubscribeNav();
       if (debounce.current) clearTimeout(debounce.current);
     };
   }, [refreshTree]);
+
+  const selectedPath = route.name === 'note' ? route.path : null;
 
   return (
     <div className="flex h-full flex-col">
@@ -117,25 +138,29 @@ function Workspace({ info, onSwitch }: { info: VaultInfo; onSwitch: (info: Vault
           <div className="min-h-0 flex-1 overflow-y-auto py-2">
             <FolderTree
               nodes={tree}
-              selectedPath={selected}
-              onSelect={setSelected}
+              selectedPath={selectedPath}
+              onSelect={(path) => setRoute({ name: 'note', path })}
               onRefresh={refreshTree}
             />
           </div>
           <button
             type="button"
-            onClick={() => setSettingsOpen(true)}
-            className="border-edge text-muted hover:bg-edge/50 hover:text-ink flex items-center gap-2 border-t px-3 py-2 text-left text-sm"
+            onClick={() => setRoute({ name: 'settings' })}
+            aria-current={route.name === 'settings'}
+            className={`border-edge flex items-center gap-2 border-t px-3 py-2 text-left text-sm ${
+              route.name === 'settings'
+                ? 'text-accent'
+                : 'text-muted hover:bg-edge/50 hover:text-ink'
+            }`}
           >
             <SettingsIcon size={15} strokeWidth={1.75} aria-hidden />
             Settings
           </button>
         </nav>
         <main className="content-surface min-w-0 flex-1 overflow-y-auto">
-          <NoteView path={selected} />
+          {route.name === 'settings' ? <SettingsPage /> : <NoteView path={selectedPath} />}
         </main>
       </div>
-      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }
