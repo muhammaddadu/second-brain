@@ -7,3 +7,4 @@ Significant architecture decisions, one per file, append-only. A decision is nev
 | ADR | Title | Status |
 |-----|-------|--------|
 | [0001](0001-blocknote-json-canonical-note-format.md) | Store notes as BlockNote JSON; Markdown becomes an export/input format | accepted |
+| [0002](0002-vault-concurrency-atomic-write-rename.md) | Coordinate concurrent vault writes with atomic write-then-rename + watcher, not locking or a daemon | accepted |

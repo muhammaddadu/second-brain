@@ -41,7 +41,7 @@ graph TD
 
 ## Concurrency
 
-Multiple processes (app + agent via CLI/MCP) can touch the vault at once. The mechanism is an **open decision — [PRD §7.3](../product/prd.md#7-open-questions)**, to be made in E0 and recorded here. Candidates: atomic write-then-rename with watcher-driven refresh (likely default — simple, fits files-first), advisory locking, or a single-writer daemon. Whatever is chosen must satisfy: no corrupted notes, no silent loss of either version of a concurrent edit (E3's conflict guard), and safe concurrent SQLite access (WAL).
+Multiple processes (app + agent via CLI/MCP) can touch the vault at once. The mechanism is **atomic write-then-rename with watcher-driven refresh, and SQLite in WAL mode** — decided in E0, rationale in [ADR 0002](../adr/0002-vault-concurrency-atomic-write-rename.md). Each note write goes to a same-directory temp file, is fsync'd, then renamed over the target (atomic → no torn reads); every surface watches the vault and refreshes its view on change; the index runs WAL for safe multi-process access. This primitive guarantees the integrity of each write and records mtime/content-hash so a concurrent edit is *detectable*; turning that into a never-clobber policy (surface both versions, lose neither) is E3's conflict guard. Advisory locking and a single-writer daemon were considered and rejected — see the ADR.
 
 ## What doesn't exist here
 
