@@ -6,11 +6,8 @@
  */
 import { ChevronRight, FolderOpen, FolderPlus } from 'lucide-react';
 import { useState } from 'react';
-import type { RecentVault, VaultInfo } from '../../shared/ipc';
-
-function prettyPath(path: string): string {
-  return path.replace(/^\/Users\/[^/]+/, '~').replace(/^\/home\/[^/]+/, '~');
-}
+import type { RecentVault, VaultInfo } from '../../../shared/ipc';
+import { tildify } from '../lib/format';
 
 /** A warm, minimal illustration: a floating note card resting on a second one — paper, not a flowchart. */
 function WelcomeArt() {
@@ -132,7 +129,7 @@ export function Onboarding({
             <FolderPlus size={20} strokeWidth={1.75} className="shrink-0" />
             <span className="min-w-0">
               <span className="block text-sm font-semibold">Create a new vault</span>
-              <span className="block truncate text-xs opacity-80">{prettyPath(suggestedPath)}</span>
+              <span className="block truncate text-xs opacity-80">{tildify(suggestedPath)}</span>
             </span>
           </button>
 
@@ -162,7 +159,7 @@ export function Onboarding({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">{vault.name}</span>
                       <span className="text-muted block truncate text-xs">
-                        {prettyPath(vault.path)}
+                        {tildify(vault.path)}
                       </span>
                     </span>
                     <ChevronRight size={16} className="text-faint shrink-0" />

@@ -5,7 +5,7 @@
  */
 import { Bot, Check } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import type { AgentSkillStatus } from '../../shared/ipc';
+import type { AgentSkillStatus } from '../../../shared/ipc';
 
 export function AgentAccessSettings() {
   const [status, setStatus] = useState<AgentSkillStatus | null>(null);

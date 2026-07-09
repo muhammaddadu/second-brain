@@ -15,6 +15,7 @@ import {
   useCreateBlockNote,
 } from '@blocknote/react';
 import type { NoteEnvelope } from '@brain/core';
+import { noteDisplayName } from '@brain/core/paths';
 import { AlertTriangle, Workflow } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ConflictDiff } from './ConflictDiff';
@@ -24,16 +25,10 @@ import { TagEditor } from './TagEditor';
 const STARTER_DIAGRAM = 'graph TD\n  A[Start] --> B[End]';
 
 const AUTOSAVE_MS = 600;
-const NOTE_EXTENSION = '.note.json';
 
 const prefersDark =
   typeof window.matchMedia === 'function' &&
   window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-function filenameTitle(path: string): string {
-  const base = path.split('/').pop() ?? path;
-  return base.endsWith(NOTE_EXTENSION) ? base.slice(0, -NOTE_EXTENSION.length) : base;
-}
 
 interface NoteEditorProps {
   path: string;
@@ -109,7 +104,9 @@ export function NoteEditor({ path, note, initialHash, onReload, onRenamed }: Not
   }
 
   const initialTitle =
-    typeof note.meta.title === 'string' && note.meta.title ? note.meta.title : filenameTitle(path);
+    typeof note.meta.title === 'string' && note.meta.title
+      ? note.meta.title
+      : noteDisplayName(path);
   const [titleValue, setTitleValue] = useState(initialTitle);
   const initialTags = Array.isArray(note.meta.tags)
     ? note.meta.tags.filter((t): t is string => typeof t === 'string')

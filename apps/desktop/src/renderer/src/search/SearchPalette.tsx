@@ -5,16 +5,13 @@
  * private-use markers from the core index and are rendered highlighted.
  */
 import type { SearchHit } from '@brain/core';
+import { noteDisplayName, SNIPPET_CLOSE, SNIPPET_OPEN } from '@brain/core/paths';
 import { FileText, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 const DEBOUNCE_MS = 120;
-const NOTE_EXTENSION = '.note.json';
 
-// Private-use-area markers the core index wraps matched terms in (SNIPPET_OPEN/CLOSE in
-// packages/core/src/search.ts) — chosen so they never collide with literal text like `[` in a note.
-const SNIPPET_OPEN = '\uE000';
-const SNIPPET_CLOSE = '\uE001';
+// Core wraps matched terms in the private-use snippet markers; split on them to highlight runs.
 const SNIPPET_SPLIT = new RegExp(`${SNIPPET_OPEN}(.*?)${SNIPPET_CLOSE}`, 'g');
 
 /** Split an FTS snippet on the match markers into highlighted / plain runs. */
@@ -188,7 +185,7 @@ export function SearchPalette({
                           aria-hidden
                         />
                         <span className="text-ink truncate font-medium">
-                          {hit.title || hit.path.replace(NOTE_EXTENSION, '')}
+                          {hit.title || noteDisplayName(hit.path)}
                         </span>
                         {folder && <span className="text-faint truncate text-xs">· {folder}</span>}
                       </span>

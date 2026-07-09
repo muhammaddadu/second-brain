@@ -1,9 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
-import { ErrorBoundary } from './ErrorBoundary';
+import { ErrorBoundary } from './shell/ErrorBoundary';
 // Registers the mermaid diagram renderer into the registry before the editor mounts (E7).
-import './diagrams/mermaid';
+import './editor/diagrams/mermaid';
 import './styles.css';
 
 const container = document.getElementById('root');

@@ -14,22 +14,21 @@ import { join } from 'node:path';
 import {
   createEmbeddingAdapter,
   type EmbeddingAdapter,
+  PROVIDER_KINDS,
   type ProviderConfig,
   type ProviderKind,
 } from '@brain/core';
 
-const KINDS: ProviderKind[] = [
-  'builtin',
-  'ollama',
-  'lmstudio',
-  'openai',
-  'openai-compatible',
-  'bedrock',
-];
+/** Validate an env value against core's provider-kind list (no cast-before-check). */
+function parseKind(value: string | undefined): ProviderKind | null {
+  return (PROVIDER_KINDS as readonly string[]).includes(value ?? '')
+    ? (value as ProviderKind)
+    : null;
+}
 
 export async function embedFromEnv(env: NodeJS.ProcessEnv): Promise<EmbeddingAdapter | null> {
-  const kind = env.BRAIN_EMBED as ProviderKind | undefined;
-  if (!kind || !KINDS.includes(kind)) return null;
+  const kind = parseKind(env.BRAIN_EMBED);
+  if (!kind) return null;
   const config: ProviderConfig = {
     kind,
     ...(env.BRAIN_EMBED_BASE_URL ? { baseUrl: env.BRAIN_EMBED_BASE_URL } : {}),

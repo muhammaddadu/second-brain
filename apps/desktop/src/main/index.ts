@@ -3,17 +3,12 @@
  * open, first-run setup) and answers the renderer's IPC by forwarding to @brain/core. The renderer
  * never touches the filesystem — it talks only through the preload bridge (app-architecture.md).
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { basename, dirname, join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import {
-  AGENT_GUIDE_VERSION,
-  agentGuideBody,
   buildGraph,
-  createFolder,
-  createNote,
-  DEFAULT_EMBEDDING_SETTINGS,
-  type EmbeddingSettings,
+  createFolderWithUniqueName,
+  createNoteWithUniqueName,
   hashNote,
   indexPath,
   initVault,
@@ -23,7 +18,6 @@ import {
   moveNote,
   NOTE_EXTENSION,
   NoteConflictError,
-  NoteExistsError,
   openSearchIndex,
   openVault,
   type ProviderKind,
@@ -34,20 +28,19 @@ import {
   renameNote,
   type SearchIndex,
   setFolderOrder,
+  setNoteTitle,
   syncAgentGuide,
   trashFolder,
   trashNote,
   updateNoteBlocksGuarded,
   updateNoteTags,
-  updateNoteTitle,
   type Vault,
   type VaultWatcher,
   watchVault,
   writeRules,
 } from '@brain/core';
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme } from 'electron';
 import {
-  type AgentSkillStatus,
   type Appearance,
   type IndexStats,
   type IndexStatus,
@@ -64,9 +57,19 @@ import {
   type VaultInfo,
 } from '../shared/ipc.js';
 import { APP_SCHEME } from '../shared/route.js';
+import { agentSkillStatus, installAgentSkill, removeAgentSkill } from './agent-skill.js';
+import {
+  readConfig,
+  readSecret,
+  readSettings,
+  rememberVault,
+  saveSettings,
+  secretStorageAvailable,
+  writeSecret,
+} from './config.js';
 import { createEmbeddingService } from './embedding-service.js';
+import { seedStarterVault } from './seed-notes.js';
 
-const MAX_RECENT = 8;
 // No spaces in the folder name (shell/path-friendly); the display name stays "Second Brain".
 const DEFAULT_VAULT_NAME = 'SecondBrain';
 const APP_NAME = 'Second Brain';
@@ -89,137 +92,6 @@ function pushIndexStatus(status: IndexStatus): void {
   }
 }
 
-// --- Config (remembered vaults) ---------------------------------------------
-
-interface Config {
-  recent: string[];
-  settings: Settings;
-  /** Per-provider-kind encrypted secret blobs (base64). Never sent to the renderer or the vault. */
-  secrets: Record<string, string>;
-}
-
-const DEFAULT_SETTINGS: Settings = {
-  theme: 'system',
-  reduceTransparency: false,
-  embedding: DEFAULT_EMBEDDING_SETTINGS,
-};
-
-function configPath(): string {
-  return join(app.getPath('userData'), 'config.json');
-}
-
-/**
- * Upgrade a persisted `embedding` value to the ADR-0008 shape. The ADR-0007 flat form
- * (`{ provider, baseUrl, model, apiKey }`) maps to a provider kind + per-kind config; any old apiKey
- * is dropped (the owner re-enters it, now stored in the keychain) rather than left in plaintext.
- */
-function migrateEmbedding(raw: unknown): EmbeddingSettings {
-  if (!raw || typeof raw !== 'object') return DEFAULT_EMBEDDING_SETTINGS;
-  if ('enabled' in raw && 'configs' in raw) return raw as EmbeddingSettings; // already ADR-0008
-  const old = raw as { provider?: string; baseUrl?: string; model?: string };
-  const kind: ProviderKind = (old.baseUrl ?? '').includes('11434') ? 'ollama' : 'openai-compatible';
-  const migrated: EmbeddingSettings = structuredClone(DEFAULT_EMBEDDING_SETTINGS);
-  migrated.enabled = old.provider === 'openai-compatible';
-  migrated.kind = kind;
-  if (old.baseUrl || old.model) {
-    migrated.configs[kind] = {
-      kind,
-      baseUrl: old.baseUrl ?? migrated.configs[kind]?.baseUrl ?? '',
-      model: old.model ?? '',
-    };
-  }
-  return migrated;
-}
-
-function readConfig(): Config {
-  try {
-    const raw = JSON.parse(readFileSync(configPath(), 'utf8')) as Partial<Config> & {
-      vaultPath?: unknown;
-    };
-    const recent = Array.isArray(raw.recent) ? raw.recent.filter((p) => typeof p === 'string') : [];
-    // Migrate the old single-path format.
-    if (typeof raw.vaultPath === 'string' && !recent.includes(raw.vaultPath)) {
-      recent.unshift(raw.vaultPath);
-    }
-    const settings: Settings = { ...DEFAULT_SETTINGS, ...(raw.settings ?? {}) };
-    settings.embedding = migrateEmbedding(
-      (raw.settings as { embedding?: unknown } | undefined)?.embedding,
-    );
-    const secrets =
-      raw.secrets && typeof raw.secrets === 'object' ? (raw.secrets as Record<string, string>) : {};
-    return { recent, settings, secrets };
-  } catch {
-    return { recent: [], settings: DEFAULT_SETTINGS, secrets: {} };
-  }
-}
-
-// --- Embedding provider secrets (OS keychain via safeStorage; ADR 0008) ------
-// Persistence lives here (config is this module's concern); the embedding *service* is injected
-// these accessors so its provider/indexing logic stays in one cohesive module.
-
-function secretStorageAvailable(): boolean {
-  return safeStorage.isEncryptionAvailable();
-}
-
-/** Decrypt a provider's stored secret, or `{}` if none / the keychain is unavailable. */
-function readSecret(kind: ProviderKind): ProviderSecretInput {
-  const enc = readConfig().secrets[kind];
-  if (!enc || !safeStorage.isEncryptionAvailable()) return {};
-  try {
-    return JSON.parse(safeStorage.decryptString(Buffer.from(enc, 'base64'))) as ProviderSecretInput;
-  } catch {
-    return {};
-  }
-}
-
-/** Encrypt and persist a provider's secret; a blank secret clears it. */
-function writeSecret(kind: ProviderKind, input: ProviderSecretInput): void {
-  const config = readConfig();
-  const hasAny = Object.values(input).some((v) => typeof v === 'string' && v.trim());
-  if (!hasAny) {
-    delete config.secrets[kind];
-  } else if (safeStorage.isEncryptionAvailable()) {
-    config.secrets[kind] = safeStorage.encryptString(JSON.stringify(input)).toString('base64');
-  }
-  writeConfig(config);
-}
-
-// --- Global agent skill (Claude Code) ---------------------------------------
-// The same vault contract as AGENTS.md, packaged as an installable skill so any Claude Code agent
-// can work with a Second Brain vault anywhere — not just one that already has the guide file.
-
-const AGENT_SKILL_NAME = 'second-brain-vault';
-
-function agentSkillDir(): string {
-  return join(app.getPath('home'), '.claude', 'skills', AGENT_SKILL_NAME);
-}
-
-function renderAgentSkill(): string {
-  const description =
-    'How to read, search, create, and update notes in a Second Brain vault directly through the filesystem. Use when working in a folder that contains a .brain/vault.json marker.';
-  return `---\nname: ${AGENT_SKILL_NAME}\ndescription: ${description}\nversion: ${AGENT_GUIDE_VERSION}\n---\n\n${agentGuideBody()}`;
-}
-
-async function agentSkillStatus(): Promise<AgentSkillStatus> {
-  try {
-    const text = await readFile(join(agentSkillDir(), 'SKILL.md'), 'utf8');
-    const m = text.match(/^version:\s*(\d+)/m);
-    const version = m ? Number(m[1]) : 0;
-    return { installed: true, outdated: version < AGENT_GUIDE_VERSION, path: agentSkillDir() };
-  } catch {
-    return { installed: false, outdated: false, path: agentSkillDir() };
-  }
-}
-
-async function installAgentSkill(): Promise<void> {
-  await mkdir(agentSkillDir(), { recursive: true });
-  await writeFile(join(agentSkillDir(), 'SKILL.md'), renderAgentSkill(), 'utf8');
-}
-
-async function removeAgentSkill(): Promise<void> {
-  await rm(agentSkillDir(), { recursive: true, force: true });
-}
-
 /** The embedding/semantic-search service — owns provider state + indexing; see ./embedding-service. */
 const embeddings = createEmbeddingService({
   getIndex: () => searchIndex,
@@ -228,31 +100,6 @@ const embeddings = createEmbeddingService({
   pushStatus: pushIndexStatus,
   builtinCacheDir: join(app.getPath('userData'), 'models'),
 });
-
-function writeConfig(config: Config): void {
-  try {
-    writeFileSync(configPath(), `${JSON.stringify(config, null, 2)}\n`, 'utf8');
-  } catch {
-    // Non-fatal: we just won't persist across launches.
-  }
-}
-
-function rememberVault(vaultPath: string): void {
-  const config = readConfig();
-  config.recent = [vaultPath, ...config.recent.filter((p) => p !== vaultPath)].slice(0, MAX_RECENT);
-  writeConfig(config);
-}
-
-function readSettings(): Settings {
-  return readConfig().settings;
-}
-
-function saveSettings(patch: Partial<Settings>): Settings {
-  const config = readConfig();
-  config.settings = { ...config.settings, ...patch };
-  writeConfig(config);
-  return config.settings;
-}
 
 // --- Vault activation --------------------------------------------------------
 
@@ -344,205 +191,6 @@ async function validRecentVaults(): Promise<RecentVault[]> {
   return result;
 }
 
-// A fresh vault opens onto a small, folder-organised starter set that explains the product and
-// gives search / RAG something real to work with — not an empty tree. Only seeded on create, never
-// when opening an existing folder. Authored as native block JSON directly so main never imports the
-// Markdown converter (jsdom can't be bundled into the Electron main process).
-const h = (level: 1 | 2 | 3, text: string): unknown => ({
-  type: 'heading',
-  props: { level },
-  content: [{ type: 'text', text, styles: {} }],
-});
-const p = (text: string): unknown => ({
-  type: 'paragraph',
-  content: [{ type: 'text', text, styles: {} }],
-});
-const li = (text: string): unknown => ({
-  type: 'bulletListItem',
-  content: [{ type: 'text', text, styles: {} }],
-});
-const mermaid = (src: string): unknown => ({
-  type: 'codeBlock',
-  props: { language: 'mermaid' },
-  content: [{ type: 'text', text: src, styles: {} }],
-});
-
-interface SeedNote {
-  path: string;
-  title: string;
-  tags: string[];
-  blocks: unknown[];
-}
-
-const SEED_NOTES: SeedNote[] = [
-  {
-    path: 'Welcome.note.json',
-    title: 'Welcome',
-    tags: ['guide'],
-    blocks: [
-      h(1, 'Welcome to your Second Brain'),
-      p(
-        'A local-first place to think, write, and find things again. Every note is a plain file in a folder you own — nothing leaves your machine unless you choose to connect a provider.',
-      ),
-      mermaid(
-        'graph LR\n  You["You"] --> Vault["Your vault (plain files)"]\n  Agents["AI agents"] --> Vault\n  Vault --> Search["Find by keyword or meaning"]',
-      ),
-      p(
-        'This starter set explains how everything works — edit or delete any of it. Right-click the sidebar to add your own notes and folders.',
-      ),
-      li('Guide — how folders, tags, search, agents, and diagrams work.'),
-      li('Ideas — the thinking behind the app.'),
-      li('Journal — an example daily note.'),
-    ],
-  },
-  {
-    path: 'Guide/Organising with folders and tags.note.json',
-    title: 'Organising with folders and tags',
-    tags: ['guide', 'organisation'],
-    blocks: [
-      h(1, 'Folders and tags'),
-      p(
-        'Your folder tree is the organisation — there is no hidden database mapping notes to places. Drag a note onto a folder to move it, or onto the gap between notes to reorder; the order is remembered.',
-      ),
-      p(
-        'Tags live in a note’s metadata and cut across folders, so a single note can belong to many themes at once. Use folders for where something lives and tags for what it is about.',
-      ),
-      li('Move: drop onto a folder’s middle.'),
-      li('Reorder: drop on a sibling’s top or bottom edge.'),
-      li('Rename a note by editing its title — the file is renamed to match.'),
-    ],
-  },
-  {
-    path: 'Guide/Finding anything — search and RAG.note.json',
-    title: 'Finding anything — search and RAG',
-    tags: ['guide', 'search'],
-    blocks: [
-      h(1, 'Search and retrieval'),
-      p(
-        'Press ⌘K anywhere to search. Keyword search is always on and fully local — it matches the exact words in your notes and highlights them in the results.',
-      ),
-      p(
-        'Semantic search is optional. When you turn it on in Settings, the app also finds notes by meaning, so a search for “staying focused” can surface a note about attention and deep work even if those exact words never appear. Keyword and semantic results are blended into one ranked list.',
-      ),
-      p(
-        'The recommended setup runs a small model (EmbeddingGemma) entirely on your device, so semantic search stays private and works offline. You can also point it at Ollama, OpenAI, or another provider.',
-      ),
-    ],
-  },
-  {
-    path: 'Guide/AI agents and your rules.note.json',
-    title: 'AI agents and your rules',
-    tags: ['guide', 'agents'],
-    blocks: [
-      h(1, 'Let agents work in your vault'),
-      p(
-        'The whole vault is designed to be readable and writable by AI agents through a CLI and an MCP server, so you can ask an assistant to “summarise my last 24 hours and file the notes where they belong.”',
-      ),
-      p(
-        'Agents follow rules you define — conventions for where things go and how they are named — so their edits fit your system instead of fighting it. Because everything is plain files, an agent’s changes are just ordinary note edits you can review, keep, or undo.',
-      ),
-      mermaid(
-        'sequenceDiagram\n  You->>Agent: Summarise today\n  Agent->>Vault: Search + read notes\n  Agent->>Vault: Write summary\n  Vault-->>You: New note, filed by your rules',
-      ),
-    ],
-  },
-  {
-    path: 'Guide/Diagrams and rich content.note.json',
-    title: 'Diagrams and rich content',
-    tags: ['guide', 'diagrams'],
-    blocks: [
-      h(1, 'Diagrams render inline'),
-      p(
-        'Write a Mermaid code block and it renders as a diagram right in the note — flowcharts, sequence diagrams, and more. The source stays editable, and it exports cleanly as Markdown.',
-      ),
-      mermaid(
-        'flowchart TD\n  Idea([Idea]) --> Note[Capture as a note]\n  Note --> Tag[Tag & file it]\n  Tag --> Find[Find it later by meaning]',
-      ),
-      p('Type “/mermaid” in the editor to drop in a starter diagram.'),
-    ],
-  },
-  {
-    path: 'Ideas/Why local-first and private by default.note.json',
-    title: 'Why local-first and private by default',
-    tags: ['ideas', 'principles'],
-    blocks: [
-      h(1, 'Principles'),
-      p(
-        'Your notes are the source of truth, not a cloud service. They are documented JSON files in folders you control, so the vault stays usable even with the app uninstalled — and a whole-vault Markdown export always works.',
-      ),
-      li('Local-first: everything works offline; nothing is sent anywhere by default.'),
-      li(
-        'Files-first: search indexes and embeddings are derived and rebuildable — never the only copy of anything.',
-      ),
-      li('No lock-in: open formats, Markdown export at every surface.'),
-      p(
-        'Privacy is a default, not a setting you have to discover: semantic search ships with an on-device model, and any hosted provider is an explicit opt-in.',
-      ),
-    ],
-  },
-  {
-    path: 'Journal/Example daily note.note.json',
-    title: 'Example daily note',
-    tags: ['journal'],
-    blocks: [
-      h(1, 'A day with your second brain'),
-      p(
-        'Daily notes are a nice home for quick capture — meetings, ideas, links, and small wins. Give them a consistent place (like this Journal folder) and an agent can roll them up for you later.',
-      ),
-      h(3, 'Today'),
-      li('Set up my vault and read the guide.'),
-      li('Tried ⌘K search and moved a few notes around.'),
-      li('Idea: keep a running list of book highlights to revisit.'),
-    ],
-  },
-];
-
-async function seedStarterVault(vault: Vault): Promise<void> {
-  for (const note of SEED_NOTES) {
-    try {
-      await createNote(vault, note.path, {
-        title: note.title,
-        tags: note.tags,
-        blocks: note.blocks,
-      });
-    } catch {
-      // Non-fatal: a seed failure must not block opening the vault.
-    }
-  }
-}
-
-// --- Free-name helpers for the tree's create actions -------------------------
-
-async function createNoteWithFreeName(vault: Vault, folder: string, base: string): Promise<string> {
-  for (let n = 0; ; n += 1) {
-    const name = `${base}${n === 0 ? '' : ` ${n}`}${NOTE_EXTENSION}`;
-    const relPath = folder ? `${folder}/${name}` : name;
-    try {
-      await createNote(vault, relPath, { title: base });
-      return relPath;
-    } catch (error) {
-      if (error instanceof NoteExistsError) continue;
-      throw error;
-    }
-  }
-}
-
-async function createFolderWithFreeName(
-  vault: Vault,
-  parent: string,
-  base: string,
-): Promise<string> {
-  const existing = new Set((await listTree(vault.root)).map((n) => n.path));
-  for (let n = 0; ; n += 1) {
-    const name = `${base}${n === 0 ? '' : ` ${n}`}`;
-    const relPath = parent ? `${parent}/${name}` : name;
-    if (!existing.has(relPath)) {
-      await createFolder(vault, relPath);
-      return relPath;
-    }
-  }
-}
-
 // --- IPC handlers ------------------------------------------------------------
 
 function registerHandlers(): void {
@@ -632,33 +280,14 @@ function registerHandlers(): void {
   );
   ipcMain.handle(
     IPC.setTitle,
-    async (_event, path: string, title: string): Promise<SetTitleResult> => {
-      const vault = requireVault();
-      const trimmed = title.trim();
-      if (!trimmed) return { path, title: '' };
-      await updateNoteTitle(vault, path, trimmed);
-      // Keep the filename in step with the title (sanitized, de-duplicated in the same folder).
-      const base = trimmed.replace(/[\\/]/g, '-').replace(/^\.+/, '').replace(/\s+/g, ' ').trim();
-      const currentBase = basename(path, NOTE_EXTENSION);
-      if (!base || base === currentBase) return { path, title: trimmed };
-      const dir = dirname(path);
-      for (let n = 0; ; n += 1) {
-        const name = `${base}${n === 0 ? '' : ` ${n}`}${NOTE_EXTENSION}`;
-        if (dir !== '.' && `${dir}/${name}` === path) return { path, title: trimmed };
-        try {
-          return { path: await renameNote(vault, path, name), title: trimmed };
-        } catch (error) {
-          if (error instanceof NoteExistsError) continue;
-          throw error;
-        }
-      }
-    },
+    (_event, path: string, title: string): Promise<SetTitleResult> =>
+      setNoteTitle(requireVault(), path, title),
   );
   ipcMain.handle(IPC.newNote, (_event, folder: string) =>
-    createNoteWithFreeName(requireVault(), folder, 'Untitled'),
+    createNoteWithUniqueName(requireVault(), folder, 'Untitled'),
   );
   ipcMain.handle(IPC.newFolder, (_event, parent: string) =>
-    createFolderWithFreeName(requireVault(), parent, 'New folder'),
+    createFolderWithUniqueName(requireVault(), parent, 'New folder'),
   );
   ipcMain.handle(IPC.rename, (_event, path: string, newName: string) =>
     renameNote(requireVault(), path, newName),

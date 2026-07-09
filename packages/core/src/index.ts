@@ -1,4 +1,8 @@
-/** Public surface of @brain/core — the only entry point shells import. */
+/**
+ * Public surface of @brain/core — the only entry point shells import. Internal helpers stay out
+ * (tests import module files directly). The renderer value-imports pure constants/helpers via the
+ * side-effect-free `@brain/core/paths` subexport instead of this barrel (which pulls in fs/sqlite).
+ */
 
 export {
   AGENT_GUIDE_VERSION,
@@ -6,7 +10,6 @@ export {
   renderAgentGuide,
   syncAgentGuide,
 } from './agent-guide.js';
-export { atomicWriteFile } from './atomic.js';
 export {
   BUILTIN_EMBEDDING_MODEL,
   cosineSimilarity,
@@ -17,6 +20,9 @@ export {
   type EmbeddingProvider,
   type EmbeddingSettings,
   fuseRankings,
+  LMSTUDIO_BASE_URL,
+  OLLAMA_BASE_URL,
+  PROVIDER_KINDS,
   type ProviderConfig,
   type ProviderKind,
   type ProviderSecrets,
@@ -56,17 +62,20 @@ export { blocksToMarkdown, markdownToBlocks } from './markdown.js';
 export {
   AGENT_GUIDE_FILE,
   BRAIN_DIR,
+  entryName,
   INDEX_DB,
   NOTE_EXTENSION,
+  noteDisplayName,
+  noteTitle,
   ORDER_FILE,
   RULES_FILE,
+  SNIPPET_CLOSE,
+  SNIPPET_OPEN,
   TRASH_DIRNAME,
   VAULT_MARKER_FILE,
 } from './paths.js';
 export {
   blocksToText,
-  buildMatchQuery,
-  chunkText,
   type EmbedProgress,
   embedPending,
   hybridSearch,
@@ -79,12 +88,14 @@ export {
   type SearchIndex,
   syncIndex,
 } from './search.js';
-export { entryName, listTree, type TreeNode, type TreeNodeType } from './tree.js';
+export { listTree, type TreeNode, type TreeNodeType } from './tree.js';
 export {
   type Clock,
   type CreateNoteInput,
   createFolder,
+  createFolderWithUniqueName,
   createNote,
+  createNoteWithUniqueName,
   emptyTrash,
   hashNote,
   initVault,
@@ -97,6 +108,8 @@ export {
   renameFolder,
   renameNote,
   setFolderOrder,
+  setNoteTitle,
+  titleToFilenameBase,
   trashFolder,
   trashNote,
   updateNoteBlocks,
@@ -109,8 +122,6 @@ export {
   writeRules,
 } from './vault.js';
 export {
-  isReservedPath,
-  toVaultRelative,
   type VaultChange,
   type VaultEventType,
   type VaultWatcher,

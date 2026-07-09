@@ -12,7 +12,7 @@ import type {
 } from '@brain/core';
 import { Check, Cloud, Cpu, HardDrive, Loader2, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import type { IndexStats } from '../../shared/ipc';
+import type { IndexStats } from '../../../shared/ipc';
 
 interface ProviderMeta {
   kind: ProviderKind;

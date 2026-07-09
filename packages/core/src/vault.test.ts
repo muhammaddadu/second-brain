@@ -11,12 +11,16 @@ import {
 } from './test-support/fixture-vault.js';
 import {
   createFolder,
+  createFolderWithUniqueName,
   createNote,
+  createNoteWithUniqueName,
   hashNote,
   moveNote,
   openVault,
   readNote,
   renameNote,
+  setNoteTitle,
+  titleToFilenameBase,
   trashNote,
   updateNoteBlocks,
   updateNoteBlocksGuarded,
@@ -178,5 +182,61 @@ describe('vault operations', () => {
       serializeNote({ ...note, meta: { ...note.meta, updated: FIXTURE_TIMESTAMP } }),
     );
     expect(bytes.endsWith('}\n')).toBe(true);
+  });
+});
+
+describe('naming policy (title → filename, unique names)', () => {
+  let fixture: FixtureVault;
+  let vault: Vault;
+
+  beforeEach(async () => {
+    fixture = await createFixtureVault();
+    vault = openVault(fixture.root);
+  });
+  afterEach(async () => {
+    await fixture.cleanup();
+  });
+
+  it('titleToFilenameBase strips separators/leading dots and collapses spaces', () => {
+    expect(titleToFilenameBase('a/b\\c')).toBe('a-b-c');
+    expect(titleToFilenameBase('..hidden')).toBe('hidden');
+    expect(titleToFilenameBase('  many   spaces  ')).toBe('many spaces');
+  });
+
+  it('createNoteWithUniqueName de-dupes with numeric suffixes', async () => {
+    expect(await createNoteWithUniqueName(vault, 'Inbox', 'Untitled')).toBe(
+      'Inbox/Untitled.note.json',
+    );
+    expect(await createNoteWithUniqueName(vault, 'Inbox', 'Untitled')).toBe(
+      'Inbox/Untitled 1.note.json',
+    );
+    expect(await createNoteWithUniqueName(vault, 'Inbox', 'Untitled')).toBe(
+      'Inbox/Untitled 2.note.json',
+    );
+  });
+
+  it('createFolderWithUniqueName de-dupes against existing tree entries', async () => {
+    expect(await createFolderWithUniqueName(vault, '', 'New folder')).toBe('New folder');
+    expect(await createFolderWithUniqueName(vault, '', 'New folder')).toBe('New folder 1');
+  });
+
+  it('setNoteTitle updates the title and renames the file to match (sanitized, de-duped)', async () => {
+    const path = await createNoteWithUniqueName(vault, 'Inbox', 'Untitled');
+    const result = await setNoteTitle(vault, path, 'My idea / draft');
+    expect(result).toEqual({ path: 'Inbox/My idea - draft.note.json', title: 'My idea / draft' });
+    const note = await readNote(vault, result.path);
+    expect(note.meta.title).toBe('My idea / draft');
+
+    // Colliding title → numeric suffix, never a clobber.
+    const other = await createNoteWithUniqueName(vault, 'Inbox', 'Other');
+    const collided = await setNoteTitle(vault, other, 'My idea / draft');
+    expect(collided.path).toBe('Inbox/My idea - draft 1.note.json');
+
+    // Blank title is a no-op; same-title rename is a no-op.
+    expect(await setNoteTitle(vault, collided.path, '   ')).toEqual({
+      path: collided.path,
+      title: '',
+    });
+    expect((await setNoteTitle(vault, collided.path, 'My idea / draft')).path).toBe(collided.path);
   });
 });

@@ -9,7 +9,7 @@
  */
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { BRAIN_DIR, NOTE_EXTENSION, ORDER_FILE } from './paths.js';
+import { BRAIN_DIR, entryName, NOTE_EXTENSION, noteDisplayName, ORDER_FILE } from './paths.js';
 
 export type TreeNodeType = 'folder' | 'note';
 
@@ -23,17 +23,8 @@ export interface TreeNode {
   children?: TreeNode[];
 }
 
-function noteName(fileName: string): string {
-  return fileName.slice(0, -NOTE_EXTENSION.length);
-}
-
 function byName(a: TreeNode, b: TreeNode): number {
   return a.name.localeCompare(b.name);
-}
-
-/** The on-disk entry name used as an order key: the dir name for a folder, the filename for a note. */
-export function entryName(node: TreeNode): string {
-  return node.type === 'folder' ? node.name : `${node.name}${NOTE_EXTENSION}`;
 }
 
 /** Read a folder's manual order, or null if it has none / the sidecar is unreadable or malformed. */
@@ -82,7 +73,7 @@ async function listDir(absDir: string, relDir: string): Promise<TreeNode[]> {
         children: await listDir(join(absDir, entry.name), relPath),
       });
     } else if (entry.isFile() && entry.name.endsWith(NOTE_EXTENSION)) {
-      notes.push({ name: noteName(entry.name), path: relPath, type: 'note' });
+      notes.push({ name: noteDisplayName(entry.name), path: relPath, type: 'note' });
     }
   }
 
@@ -94,4 +85,17 @@ async function listDir(absDir: string, relDir: string): Promise<TreeNode[]> {
 /** Return the vault's folder/note hierarchy as a sorted, deterministic tree. */
 export async function listTree(vaultRoot: string): Promise<TreeNode[]> {
   return listDir(vaultRoot, '');
+}
+
+/** Every note path in a tree, depth-first — the shared walk for indexing/export. */
+export function collectNotePaths(nodes: TreeNode[]): string[] {
+  const paths: string[] = [];
+  const collect = (list: TreeNode[]) => {
+    for (const node of list) {
+      if (node.type === 'note') paths.push(node.path);
+      else if (node.children) collect(node.children);
+    }
+  };
+  collect(nodes);
+  return paths;
 }

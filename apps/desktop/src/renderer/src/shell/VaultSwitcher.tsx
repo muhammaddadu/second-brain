@@ -5,11 +5,8 @@
  */
 import { Check, ChevronsUpDown, FolderOpen, FolderPlus, NotebookPen } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { RecentVault, VaultInfo } from '../../shared/ipc';
-
-function prettyPath(path: string): string {
-  return path.replace(/^\/Users\/[^/]+/, '~').replace(/^\/home\/[^/]+/, '~');
-}
+import type { RecentVault, VaultInfo } from '../../../shared/ipc';
+import { tildify } from '../lib/format';
 
 export function VaultSwitcher({
   current,
@@ -84,7 +81,7 @@ export function VaultSwitcher({
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-medium">{vault.name}</span>
                         <span className="text-muted block truncate text-xs">
-                          {prettyPath(vault.path)}
+                          {tildify(vault.path)}
                         </span>
                       </span>
                       {active && <Check size={15} className="text-accent shrink-0" aria-hidden />}

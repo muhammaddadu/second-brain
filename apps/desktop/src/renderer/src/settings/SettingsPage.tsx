@@ -6,7 +6,7 @@
 import type { EmbeddingSettings } from '@brain/core';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { Settings } from '../../shared/ipc';
+import type { Settings } from '../../../shared/ipc';
 import { AgentAccessSettings } from './AgentAccessSettings';
 import { SemanticSearchSettings } from './SemanticSearchSettings';
 

@@ -9,13 +9,13 @@ import { Loader2, Network, Search, Settings as SettingsIcon } from 'lucide-react
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Appearance, IndexStatus, VaultInfo } from '../../shared/ipc';
 import { DEFAULT_ROUTE, type Route, routeFromUrl } from '../../shared/route';
-import { FolderTree } from './FolderTree';
-import { GraphView } from './GraphView';
-import { NoteView } from './NoteView';
-import { Onboarding } from './Onboarding';
-import { SearchPalette } from './SearchPalette';
-import { SettingsPage } from './SettingsPage';
-import { VaultSwitcher } from './VaultSwitcher';
+import { NoteView } from './editor/NoteView';
+import { GraphView } from './search/GraphView';
+import { SearchPalette } from './search/SearchPalette';
+import { SettingsPage } from './settings/SettingsPage';
+import { Onboarding } from './shell/Onboarding';
+import { VaultSwitcher } from './shell/VaultSwitcher';
+import { FolderTree } from './sidebar/FolderTree';
 
 type Phase =
   | { name: 'loading' }

@@ -9,7 +9,7 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { basename, join } from 'node:path';
+import { join } from 'node:path';
 import {
   cosineSimilarity,
   decodeVector,
@@ -18,8 +18,8 @@ import {
   fuseRankings,
 } from './embeddings.js';
 import { parseNote } from './envelope.js';
-import { BRAIN_DIR, INDEX_DB, NOTE_EXTENSION } from './paths.js';
-import { listTree, type TreeNode } from './tree.js';
+import { BRAIN_DIR, INDEX_DB, noteTitle, SNIPPET_CLOSE, SNIPPET_OPEN } from './paths.js';
+import { collectNotePaths, listTree } from './tree.js';
 import type { Vault } from './vault.js';
 
 // node-sqlite3-wasm is CommonJS and its ambient .d.ts doesn't export cleanly under NodeNext ESM;
@@ -41,14 +41,6 @@ const require = createRequire(import.meta.url);
 
 /** Longest chunk we index; longer note text is split on line boundaries into pieces this size. */
 const MAX_CHUNK_CHARS = 1000;
-
-/**
- * Markers FTS5 wraps around matched terms in a snippet. Private-use-area code points, so they never
- * collide with literal brackets/text in a note (unlike `[`/`]`). The renderer splits on these exact
- * characters to highlight — see `SNIPPET_OPEN`/`SNIPPET_CLOSE` in apps/desktop SearchPalette.tsx.
- */
-const SNIPPET_OPEN = '\uE000';
-const SNIPPET_CLOSE = '\uE001';
 
 /** Upper bound on matching chunk rows scanned per query before de-duping to distinct notes. Far
  * above any sane result `limit`, so distinct-note count is not truncated, while bounding memory. */
@@ -189,11 +181,17 @@ export function buildMatchQuery(query: string): string | null {
   return tokens.map((t) => `${t}*`).join(' ');
 }
 
-/** Display title for a note: its metadata title, else the filename without the note extension. */
-function titleFor(path: string, metaTitle: unknown): string {
-  if (typeof metaTitle === 'string' && metaTitle.trim()) return metaTitle;
-  const base = basename(path);
-  return base.endsWith(NOTE_EXTENSION) ? base.slice(0, -NOTE_EXTENSION.length) : base;
+/** Keep each note's best (first) hit from a ranked list, up to `limit` distinct notes. */
+function dedupeByPath(ranked: SearchHit[], limit: number): SearchHit[] {
+  const seen = new Set<string>();
+  const hits: SearchHit[] = [];
+  for (const hit of ranked) {
+    if (!hit.path || seen.has(hit.path)) continue;
+    seen.add(hit.path);
+    hits.push(hit);
+    if (hits.length >= limit) break;
+  }
+  return hits;
 }
 
 /** Open (creating if needed) the derived index for a vault's `.brain/index.db`. */
@@ -291,22 +289,17 @@ export function openSearchIndex(dbPath: string): SearchIndex {
          LIMIT ?`,
         [SNIPPET_OPEN, SNIPPET_CLOSE, match, SCAN_CAP],
       );
-      const seen = new Set<string>();
-      const hits: SearchHit[] = [];
-      for (const row of rows) {
+      const candidates: SearchHit[] = rows.map((row) => {
         const path = typeof row.path === 'string' ? row.path : '';
-        if (!path || seen.has(path)) continue;
-        seen.add(path);
-        hits.push({
+        return {
           path,
-          title: typeof row.title === 'string' ? row.title : titleFor(path, undefined),
+          title: typeof row.title === 'string' ? row.title : noteTitle(path, undefined),
           snippet: typeof row.snippet === 'string' ? row.snippet : '',
           // bm25 is negative (lower = better); flip so higher = more relevant for callers.
           score: -(typeof row.rank === 'number' ? row.rank : 0),
-        });
-        if (hits.length >= limit) break;
-      }
-      return hits;
+        };
+      });
+      return dedupeByPath(candidates, limit);
     },
     pendingChunks(model: string, limit: number): Array<{ id: number; text: string }> {
       if (!open) return [];
@@ -359,21 +352,14 @@ export function openSearchIndex(dbPath: string): SearchIndex {
           };
         })
         .filter((s) => s.path)
-        .sort((a, b) => b.score - a.score);
-      const seen = new Set<string>();
-      const hits: SearchHit[] = [];
-      for (const s of scored) {
-        if (seen.has(s.path)) continue;
-        seen.add(s.path);
-        hits.push({
+        .sort((a, b) => b.score - a.score)
+        .map((s) => ({
           path: s.path,
-          title: s.title || titleFor(s.path, undefined),
+          title: s.title || noteTitle(s.path, undefined),
           snippet: s.text.slice(0, 160),
           score: s.score,
-        });
-        if (hits.length >= limit) break;
-      }
-      return hits;
+        }));
+      return dedupeByPath(scored, limit);
     },
     graphNotes(): Array<{ path: string; title: string; tags: string[] }> {
       if (!open) return [];
@@ -463,7 +449,7 @@ export async function reindexNote(
   const note = parseNote(raw);
   index.upsert({
     path: relPath,
-    title: titleFor(relPath, note.meta.title),
+    title: noteTitle(relPath, note.meta.title),
     tags: Array.isArray(note.meta.tags) ? note.meta.tags.filter((t) => typeof t === 'string') : [],
     hash,
     text: blocksToText(note.blocks),
@@ -471,17 +457,9 @@ export async function reindexNote(
   return true;
 }
 
-/** Every note path in the vault tree, depth-first. */
-async function collectNotePaths(vault: Vault): Promise<string[]> {
-  const paths: string[] = [];
-  const collect = (nodes: TreeNode[]) => {
-    for (const node of nodes) {
-      if (node.type === 'note') paths.push(node.path);
-      else if (node.children) collect(node.children);
-    }
-  };
-  collect(await listTree(vault.root));
-  return paths;
+/** Every note path in the vault, depth-first (the shared tree walk). */
+async function vaultNotePaths(vault: Vault): Promise<string[]> {
+  return collectNotePaths(await listTree(vault.root));
 }
 
 /** Reindex one note, swallowing (logging) a single bad note so it can't abort a whole-vault pass. */
@@ -497,7 +475,7 @@ async function reindexSafely(vault: Vault, index: SearchIndex, relPath: string):
 /** Fully rebuild the index from the note files — proves the index is derived (delete + rebuild). */
 export async function rebuildIndex(vault: Vault, index: SearchIndex): Promise<void> {
   index.clear();
-  const paths = await collectNotePaths(vault);
+  const paths = await vaultNotePaths(vault);
   // One transaction for the whole rebuild — turns thousands of auto-commits into a single commit.
   await index.transaction(async () => {
     for (const path of paths) {
@@ -515,7 +493,7 @@ export async function rebuildIndex(vault: Vault, index: SearchIndex): Promise<vo
  * newer one) mid-loop; it stops as soon as the index is closed, leaving the work to the newer index.
  */
 export async function syncIndex(vault: Vault, index: SearchIndex): Promise<void> {
-  const present = new Set(await collectNotePaths(vault));
+  const present = new Set(await vaultNotePaths(vault));
   // Batch the (re)index writes into one transaction — cheap when unchanged (hash gate skips), fast
   // when a large vault is indexed for the first time. Bails if the index is closed (vault switch).
   await index.transaction(async () => {

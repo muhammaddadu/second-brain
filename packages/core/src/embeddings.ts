@@ -10,14 +10,21 @@
 /**
  * Provider kinds shipped today. `builtin` runs a small model on-device (EmbeddingGemma via
  * Transformers.js); Azure/Vertex route to `openai-compatible` until native adapters land.
+ * The union derives from this list so validating callers (e.g. the CLI's env parsing) can't drift.
  */
-export type ProviderKind =
-  | 'builtin'
-  | 'ollama'
-  | 'lmstudio'
-  | 'openai'
-  | 'openai-compatible'
-  | 'bedrock';
+export const PROVIDER_KINDS = [
+  'builtin',
+  'ollama',
+  'lmstudio',
+  'openai',
+  'openai-compatible',
+  'bedrock',
+] as const;
+export type ProviderKind = (typeof PROVIDER_KINDS)[number];
+
+/** Default base URLs for the local runtimes — used by default configs, discovery, and UI placeholders. */
+export const OLLAMA_BASE_URL = 'http://localhost:11434/v1';
+export const LMSTUDIO_BASE_URL = 'http://localhost:1234/v1';
 
 /** Non-secret configuration for a single provider (secrets are passed separately at construction). */
 export interface ProviderConfig {
@@ -55,8 +62,8 @@ export const DEFAULT_EMBEDDING_SETTINGS: EmbeddingSettings = {
   kind: 'builtin',
   configs: {
     builtin: { kind: 'builtin', model: BUILTIN_EMBEDDING_MODEL },
-    ollama: { kind: 'ollama', baseUrl: 'http://localhost:11434/v1', model: 'nomic-embed-text' },
-    lmstudio: { kind: 'lmstudio', baseUrl: 'http://localhost:1234/v1', model: '' },
+    ollama: { kind: 'ollama', baseUrl: OLLAMA_BASE_URL, model: 'nomic-embed-text' },
+    lmstudio: { kind: 'lmstudio', baseUrl: LMSTUDIO_BASE_URL, model: '' },
     openai: {
       kind: 'openai',
       baseUrl: 'https://api.openai.com/v1',
@@ -251,8 +258,8 @@ export interface DiscoveredProvider {
 }
 
 const LOCAL_PROBES: Array<{ kind: ProviderKind; baseUrl: string }> = [
-  { kind: 'ollama', baseUrl: 'http://localhost:11434/v1' },
-  { kind: 'lmstudio', baseUrl: 'http://localhost:1234/v1' },
+  { kind: 'ollama', baseUrl: OLLAMA_BASE_URL },
+  { kind: 'lmstudio', baseUrl: LMSTUDIO_BASE_URL },
 ];
 
 /** Probe well-known local runtimes so setup is a click, not a manual URL (ADR 0008 self-discovery). */

@@ -25,6 +25,7 @@ import {
   TRASH_DIRNAME,
   VAULT_MARKER_FILE,
 } from './paths.js';
+import { listTree } from './tree.js';
 
 /** A clock returning an ISO-8601 timestamp; injected for deterministic tests. */
 export type Clock = () => string;
@@ -46,11 +47,14 @@ export interface CreateNoteInput {
   blocks?: unknown[];
 }
 
+/** The wall-clock ISO timestamp source used when no clock is injected. */
+const defaultClock: Clock = () => new Date().toISOString();
+
 /** Open a vault rooted at an absolute directory path. Does not touch the filesystem. */
 export function openVault(root: string, options: VaultOptions = {}): Vault {
   return {
     root: resolve(root),
-    now: options.now ?? (() => new Date().toISOString()),
+    now: options.now ?? defaultClock,
   };
 }
 
@@ -59,10 +63,7 @@ export function openVault(root: string, options: VaultOptions = {}): Vault {
  * under {@link BRAIN_DIR}. Idempotent — safe to call on an existing vault. This is what makes
  * first-run setup "create a folder and go" without the user hand-building anything.
  */
-export async function initVault(
-  root: string,
-  now: Clock = () => new Date().toISOString(),
-): Promise<void> {
+export async function initVault(root: string, now: Clock = defaultClock): Promise<void> {
   const abs = resolve(root);
   await mkdir(join(abs, BRAIN_DIR), { recursive: true });
   const marker = join(abs, BRAIN_DIR, VAULT_MARKER_FILE);
@@ -291,17 +292,101 @@ export async function renameNote(vault: Vault, relPath: string, newName: string)
   return toRel;
 }
 
+/** Sanitize a display title into a safe filename base: no separators or leading dots, spaces collapsed. */
+export function titleToFilenameBase(title: string): string {
+  return title.replace(/[\\/]/g, '-').replace(/^\.+/, '').replace(/\s+/g, ' ').trim();
+}
+
+/** The nth free-name candidate for `base`: "Base", "Base 1", "Base 2", … */
+function numberedName(base: string, n: number): string {
+  return `${base}${n === 0 ? '' : ` ${n}`}`;
+}
+
+/**
+ * Create a note in `folder` ('' = root) under the first free name derived from `base`
+ * ("Untitled", "Untitled 1", …). The naming policy lives here so every surface de-dupes identically.
+ */
+export async function createNoteWithUniqueName(
+  vault: Vault,
+  folder: string,
+  base: string,
+): Promise<string> {
+  for (let n = 0; ; n += 1) {
+    const name = `${numberedName(base, n)}${NOTE_EXTENSION}`;
+    const relPath = folder ? `${folder}/${name}` : name;
+    try {
+      await createNote(vault, relPath, { title: base });
+      return relPath;
+    } catch (error) {
+      if (error instanceof NoteExistsError) continue;
+      throw error;
+    }
+  }
+}
+
+/** Create a folder under `parent` ('' = root) with the first free name derived from `base`. */
+export async function createFolderWithUniqueName(
+  vault: Vault,
+  parent: string,
+  base: string,
+): Promise<string> {
+  const existing = new Set((await listTree(vault.root)).map((n) => n.path));
+  for (let n = 0; ; n += 1) {
+    const relPath = parent ? `${parent}/${numberedName(base, n)}` : numberedName(base, n);
+    if (!existing.has(relPath)) {
+      await createFolder(vault, relPath);
+      return relPath;
+    }
+  }
+}
+
+/**
+ * Set a note's display title and rename its file to match (sanitized via
+ * {@link titleToFilenameBase}, de-duplicated with a numeric suffix in the same folder). The one
+ * implementation of "title drives the filename" — app, CLI, and MCP all go through it.
+ * Returns the (possibly new) path and the applied title.
+ */
+export async function setNoteTitle(
+  vault: Vault,
+  relPath: string,
+  title: string,
+): Promise<{ path: string; title: string }> {
+  const trimmed = title.trim();
+  if (!trimmed) return { path: relPath, title: '' };
+  await updateNoteTitle(vault, relPath, trimmed);
+  const base = titleToFilenameBase(trimmed);
+  const currentBase = basename(relPath, NOTE_EXTENSION);
+  if (!base || base === currentBase) return { path: relPath, title: trimmed };
+  const dir = dirname(relPath);
+  for (let n = 0; ; n += 1) {
+    const name = `${numberedName(base, n)}${NOTE_EXTENSION}`;
+    if (dir !== '.' && `${dir}/${name}` === relPath) return { path: relPath, title: trimmed };
+    try {
+      return { path: await renameNote(vault, relPath, name), title: trimmed };
+    } catch (error) {
+      if (error instanceof NoteExistsError) continue;
+      throw error;
+    }
+  }
+}
+
+/**
+ * The vault-relative trash destination for an entry: a filesystem-safe timestamp prefix keeps
+ * repeated deletes of the same name from colliding. Shared by note and folder soft-deletes.
+ */
+function trashRelFor(vault: Vault, relPath: string): string {
+  const stamp = vault.now().replace(/[:.]/g, '-');
+  return `${BRAIN_DIR}/${TRASH_DIRNAME}/${stamp}__${basename(relPath)}`;
+}
+
 /**
  * Soft-delete a note: move it under {@link BRAIN_DIR}/{@link TRASH_DIRNAME} rather than removing
  * it (no silent data loss — PRD §4.2). Returns the vault-relative trash path it now lives at.
  */
 export async function trashNote(vault: Vault, relPath: string): Promise<string> {
   const fromAbs = resolveNotePath(vault, relPath);
-  // A filesystem-safe stamp keeps repeated deletes of the same name from colliding.
-  const stamp = vault.now().replace(/[:.]/g, '-');
-  const trashRel = `${BRAIN_DIR}/${TRASH_DIRNAME}/${stamp}__${basename(relPath)}`;
-  const trashAbs = join(vault.root, trashRel);
-  await atomicRename(fromAbs, trashAbs);
+  const trashRel = trashRelFor(vault, relPath);
+  await atomicRename(fromAbs, join(vault.root, trashRel));
   return trashRel;
 }
 
@@ -338,8 +423,7 @@ export async function moveFolder(vault: Vault, fromRel: string, toRel: string): 
 /** Soft-delete a folder (and its contents) to trash. Returns the trash path it now lives at. */
 export async function trashFolder(vault: Vault, relPath: string): Promise<string> {
   const fromAbs = resolveInVault(vault, relPath);
-  const stamp = vault.now().replace(/[:.]/g, '-');
-  const trashRel = `${BRAIN_DIR}/${TRASH_DIRNAME}/${stamp}__${basename(relPath)}`;
+  const trashRel = trashRelFor(vault, relPath);
   await atomicRename(fromAbs, join(vault.root, trashRel));
   return trashRel;
 }

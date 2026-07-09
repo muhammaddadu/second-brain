@@ -15,18 +15,21 @@ import {
   listTree,
   markdownToBlocks,
   moveNote,
+  noteTitle,
   openSearchIndex,
   openVault,
   readNote,
   readRules,
   rebuildIndex,
   type SearchHit,
+  SNIPPET_CLOSE,
+  SNIPPET_OPEN,
+  setNoteTitle,
   syncIndex,
   type TreeNode,
   trashNote,
   updateNoteBlocks,
   updateNoteTags,
-  updateNoteTitle,
   type Vault,
 } from '@brain/core';
 import { boolFlag, listFlag, type ParsedArgs, parseArgs, stringFlag } from './args.js';
@@ -56,9 +59,9 @@ Commands:
 
 Add --json to read/search/tree/tag/rules for machine-readable output.`;
 
-/** FTS snippet markers (private-use) → stripped for clean terminal/JSON output. */
+/** FTS snippet markers → stripped for clean terminal/JSON output. */
 function cleanSnippet(s: string): string {
-  return s.replaceAll('\uE000', '').replaceAll('\uE001', '');
+  return s.replaceAll(SNIPPET_OPEN, '').replaceAll(SNIPPET_CLOSE, '');
 }
 
 function printTree(nodes: TreeNode[], io: Io, depth = 0): void {
@@ -82,8 +85,7 @@ async function cmdRead(vault: Vault, args: ParsedArgs, io: Io): Promise<number> 
   if (boolFlag(args, 'json')) {
     io.out(JSON.stringify(note, null, 2));
   } else {
-    const title = typeof note.meta.title === 'string' ? note.meta.title : path;
-    io.out(`# ${title}\n\n${blocksToText(note.blocks)}`);
+    io.out(`# ${noteTitle(path, note.meta.title)}\n\n${blocksToText(note.blocks)}`);
   }
   return 0;
 }
@@ -96,9 +98,7 @@ async function cmdSearch(vault: Vault, args: ParsedArgs, io: Io): Promise<number
   try {
     await syncIndex(vault, index); // stand-alone: keep the index current before querying
     const provider = await embedFromEnv(io.env);
-    const hits: SearchHit[] = provider
-      ? await hybridSearch(index, query, provider, limit)
-      : index.search(query, limit);
+    const hits: SearchHit[] = await hybridSearch(index, query, provider, limit);
     if (boolFlag(args, 'json')) {
       io.out(
         JSON.stringify(
@@ -142,13 +142,15 @@ async function cmdUpdate(vault: Vault, args: ParsedArgs, io: Io): Promise<number
   const title = stringFlag(args, 'title');
   const tags = listFlag(args, 'tags');
   const content = stringFlag(args, 'content');
-  if (title !== undefined) await updateNoteTitle(vault, path, title);
-  if (tags !== undefined) await updateNoteTags(vault, path, tags);
-  if (content !== undefined) await updateNoteBlocks(vault, path, await markdownToBlocks(content));
   if (title === undefined && tags === undefined && content === undefined) {
     return fail(io, 'update: nothing to change (pass --title, --tags, and/or --content)');
   }
-  io.out(`Updated ${path}`);
+  // Same behaviour as the app: a title change also renames the file to match (core owns the policy).
+  const current = title !== undefined ? (await setNoteTitle(vault, path, title)).path : path;
+  if (tags !== undefined) await updateNoteTags(vault, current, tags);
+  if (content !== undefined)
+    await updateNoteBlocks(vault, current, await markdownToBlocks(content));
+  io.out(`Updated ${current}`);
   return 0;
 }
 

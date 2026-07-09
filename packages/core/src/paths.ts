@@ -1,5 +1,8 @@
 /**
- * Vault path conventions — one home for every reserved name and extension.
+ * Vault path & naming conventions — one home for every reserved name, extension, marker character,
+ * and the pure helpers that apply them. Deliberately **side-effect free with no Node imports** so
+ * the desktop renderer can value-import it via the `@brain/core/paths` subexport (the main core
+ * barrel pulls in fs/sqlite and is type-only from the renderer).
  * See docs/architecture/data-model.md § "The vault".
  */
 
@@ -31,3 +34,28 @@ export const AGENT_GUIDE_FILE = 'AGENTS.md';
  * See docs/adr/0005-manual-ordering-per-folder-sidecar.md and docs/architecture/data-model.md.
  */
 export const ORDER_FILE = '.order.json';
+
+/**
+ * Markers FTS5 wraps around matched terms in a search snippet. Private-use-area code points, so
+ * they never collide with literal text in a note (unlike `[`/`]`). The renderer highlights runs
+ * between them; the CLI strips them. One contract, defined here only.
+ */
+export const SNIPPET_OPEN = '\uE000';
+export const SNIPPET_CLOSE = '\uE001';
+
+/** The on-disk entry name used as an order key: the dir name for a folder, the filename for a note. */
+export function entryName(node: { name: string; type: 'folder' | 'note' }): string {
+  return node.type === 'folder' ? node.name : `${node.name}${NOTE_EXTENSION}`;
+}
+
+/** A note's display name from its path: the filename without {@link NOTE_EXTENSION}. */
+export function noteDisplayName(path: string): string {
+  const base = path.split('/').pop() ?? path;
+  return base.endsWith(NOTE_EXTENSION) ? base.slice(0, -NOTE_EXTENSION.length) : base;
+}
+
+/** A note's display title: its metadata title when set, else {@link noteDisplayName}. */
+export function noteTitle(path: string, metaTitle: unknown): string {
+  if (typeof metaTitle === 'string' && metaTitle.trim()) return metaTitle;
+  return noteDisplayName(path);
+}

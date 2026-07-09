@@ -10,6 +10,7 @@ import type {
   GraphData,
   NoteEnvelope,
   ProviderKind,
+  ProviderSecrets,
   SearchHit,
   TestResult,
   TreeNode,
@@ -102,12 +103,11 @@ export interface Settings {
   embedding: EmbeddingSettings;
 }
 
-/** Secret fields a provider may need; stored encrypted via the OS keychain, never in the vault. */
-export interface ProviderSecretInput {
-  apiKey?: string;
-  awsAccessKeyId?: string;
-  awsSecretAccessKey?: string;
-}
+/**
+ * Secret fields a provider may need; stored encrypted via the OS keychain, never in the vault.
+ * Same contract as core's {@link ProviderSecrets} — aliased so it can't drift.
+ */
+export type ProviderSecretInput = ProviderSecrets;
 
 /**
  * Indexing status pushed to the renderer for progress. `downloading` = fetching the built-in

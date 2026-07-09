@@ -2,7 +2,7 @@
 
 > **This doc owns:** the code layout — packages, module boundaries, and where logic lives. **For process/system shape see** [system-architecture](system-architecture.md); **for dependency choices see** [tech-stack](tech-stack.md).
 
-**Status: partial** — E0 scaffolded the workspace and `packages/core`; E1 added `apps/desktop` (Electron shell + IPC bridge); E2 added the BlockNote editor with autosave, tag editing, and core's Markdown import/export; E7 added inline Mermaid diagram rendering behind an app-layer renderer registry; E3 added the file-actions context menu, a core file watcher with live tree updates, and the conflict guard; E4 added the derived search index (WASM SQLite FTS + optional semantic embeddings via a pluggable provider) with a ⌘K palette and provider settings. The knowledge-graph view and the CLI/MCP packages are still planned. Keep this doc in lockstep as packages land.
+**Status: partial** — E0 scaffolded the workspace and `packages/core`; E1 added `apps/desktop` (Electron shell + IPC bridge); E2 added the BlockNote editor with autosave, tag editing, and core's Markdown import/export; E7 added inline Mermaid diagram rendering behind an app-layer renderer registry; E3 added the file-actions context menu, a core file watcher with live tree updates, and the conflict guard; E4 added the derived search index (WASM SQLite FTS + optional semantic embeddings via a pluggable provider) with a ⌘K palette, provider settings, and the knowledge-graph view; E5 added the `brain` CLI. The MCP package (E6) is still planned. Keep this doc in lockstep as packages land.
 
 ## Monorepo layout
 
@@ -11,9 +11,12 @@ pnpm workspace monorepo, TypeScript strict throughout (tooling fixed in E0 — s
 ```
 apps/
   desktop/          # E1 — Electron + React + Vite
-    src/main/       #   Electron main process: hosts core, IPC handlers, watcher wiring
+    src/main/       #   Electron main process: index.ts (shell + IPC) composes config.ts,
+                    #   embedding-service.ts, agent-skill.ts, seed-notes.ts
     src/preload/    #   typed IPC bridge (contextIsolation on)
-    src/renderer/   #   React UI: tree panel, BlockNote editor, ⌘K search
+    src/renderer/   #   React UI, grouped by feature: editor/ (BlockNote + diagrams),
+                    #   sidebar/ (tree + dnd logic), search/ (⌘K + graph), settings/,
+                    #   shell/ (onboarding, switcher), lib/ (shared display helpers)
 packages/
   core/             # E0/E4 — ALL vault logic: note envelope, tree, mutations, trash,
                     #   Markdown import/export, watcher, index (FTS + vectors), hybrid search

@@ -6,12 +6,21 @@
  * the tree immediately; the watcher keeps it live for external changes.
  */
 import type { TreeNode } from '@brain/core';
+import { NOTE_EXTENSION } from '@brain/core/paths';
 import { ChevronDown, ChevronRight, FileText, FolderPlus } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { ContextMenu, type MenuItem } from './ContextMenu';
+import {
+  canDropInto,
+  collectFolders,
+  currentParent,
+  type DropHint,
+  dropIntentFor,
+  findNode,
+  remapPath,
+  reorderedNames,
+} from './folder-tree-logic';
 import { MoveDialog } from './MoveDialog';
-
-const NOTE_EXTENSION = '.note.json';
 
 interface FolderTreeProps {
   nodes: TreeNode[];
@@ -24,46 +33,6 @@ interface MenuState {
   node: TreeNode | null; // null = vault root
   x: number;
   y: number;
-}
-
-/** Where a drop would land: inside a folder (or the root, path ''), or adjacent to a sibling row. */
-interface DropHint {
-  path: string;
-  pos: 'before' | 'after' | 'into';
-}
-
-/** The on-disk entry name used to order a child: the dir name for a folder, the filename for a note. */
-function entryNameOf(node: TreeNode): string {
-  return node.type === 'folder' ? node.name : `${node.name}${NOTE_EXTENSION}`;
-}
-
-/** Find a node anywhere in the tree by its vault-relative path. */
-function findNode(nodes: TreeNode[], path: string): TreeNode | null {
-  for (const node of nodes) {
-    if (node.path === path) return node;
-    const inChild = node.children ? findNode(node.children, path) : null;
-    if (inChild) return inChild;
-  }
-  return null;
-}
-
-function collectFolders(nodes: TreeNode[], acc: string[] = []): string[] {
-  for (const node of nodes) {
-    if (node.type === 'folder') {
-      acc.push(node.path);
-      if (node.children) collectFolders(node.children, acc);
-    }
-  }
-  return acc;
-}
-
-/** Rewrite paths at or under `oldPath` to `newPath` (or drop them if `newPath` is null). */
-function remapPath(value: string, oldPath: string, newPath: string | null): string | null {
-  if (value === oldPath) return newPath;
-  if (value.startsWith(`${oldPath}/`)) {
-    return newPath === null ? null : newPath + value.slice(oldPath.length);
-  }
-  return value;
 }
 
 export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderTreeProps) {
@@ -172,17 +141,6 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
   }
 
   // --- Drag to move (into a folder / the root) and reorder (before/after a sibling) ---
-  const currentParent = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
-
-  function canDropInto(dragged: TreeNode | null, target: TreeNode | null): boolean {
-    if (!dragged) return false;
-    const targetPath = target ? target.path : '';
-    if (targetPath === dragged.path) return false; // onto itself
-    if (targetPath === currentParent(dragged.path)) return false; // already there
-    // A folder can't move into itself or a descendant.
-    if (dragged.type === 'folder' && targetPath.startsWith(`${dragged.path}/`)) return false;
-    return true;
-  }
 
   /** The children of a folder (or the vault root when `parent` is ''), in current display order. */
   function childrenOf(parent: string): TreeNode[] {
@@ -190,31 +148,13 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
     return findNode(nodes, parent)?.children ?? [];
   }
 
-  /**
-   * What a drag over `target` at vertical position `frac` (0=top, 1=bottom) means: move `into` a
-   * folder, or reorder `before`/`after` the row. Edges of a folder reorder; its middle moves in.
-   * Reorder is offered only between current siblings, so a reorder never also has to move a file.
-   */
-  function dropIntentFor(target: TreeNode, frac: number): DropHint | null {
-    const dragged = draggingRef.current;
-    if (!dragged || dragged.path === target.path) return null;
-    const sameParent = currentParent(dragged.path) === currentParent(target.path);
-    if (canDropInto(dragged, target) && target.type === 'folder') {
-      if (sameParent && frac < 0.25) return { path: target.path, pos: 'before' };
-      if (sameParent && frac > 0.75) return { path: target.path, pos: 'after' };
-      return { path: target.path, pos: 'into' };
-    }
-    if (sameParent) return { path: target.path, pos: frac < 0.5 ? 'before' : 'after' };
-    return null;
-  }
-
   function hoverItem(target: TreeNode, frac: number) {
-    setDropHint(dropIntentFor(target, frac));
+    setDropHint(dropIntentFor(draggingRef.current, target, frac));
   }
 
   function dropOnItem(target: TreeNode, frac: number) {
     const dragged = draggingRef.current;
-    const intent = dropIntentFor(target, frac);
+    const intent = dropIntentFor(dragged, target, frac);
     setDropHint(null);
     draggingRef.current = null;
     if (!dragged || !intent) return;
@@ -236,13 +176,8 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
   /** Persist a manual order for `target`'s parent with `dragged` placed just before/after `target`. */
   function reorder(dragged: TreeNode, target: TreeNode, pos: 'before' | 'after') {
     const parent = currentParent(target.path);
-    const names = childrenOf(parent)
-      .map(entryNameOf)
-      .filter((n) => n !== entryNameOf(dragged));
-    let at = names.indexOf(entryNameOf(target));
-    if (at < 0) return;
-    if (pos === 'after') at += 1;
-    names.splice(at, 0, entryNameOf(dragged));
+    const names = reorderedNames(childrenOf(parent), dragged, target, pos);
+    if (!names) return;
     return guard(async () => {
       await window.vault.setOrder(parent, names);
       await onRefresh();

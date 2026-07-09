@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path';
 import type { NoteEnvelope } from './envelope.js';
 import { blocksToMarkdown, markdownToBlocks } from './markdown.js';
 import { NOTE_EXTENSION } from './paths.js';
-import { listTree } from './tree.js';
+import { collectNotePaths, listTree } from './tree.js';
 import { type CreateNoteInput, createNote, readNote, type Vault } from './vault.js';
 
 /** Create a new note from a Markdown string (converted to blocks on write). Refuses to clobber. */
@@ -27,16 +27,6 @@ export async function importMarkdownAsNote(
 export async function exportNoteToMarkdown(vault: Vault, relPath: string): Promise<string> {
   const note = await readNote(vault, relPath);
   return blocksToMarkdown(note.blocks);
-}
-
-/** Collect every note's vault-relative path by walking the tree. */
-function collectNotePaths(nodes: Awaited<ReturnType<typeof listTree>>): string[] {
-  const paths: string[] = [];
-  for (const node of nodes) {
-    if (node.type === 'note') paths.push(node.path);
-    else if (node.children) paths.push(...collectNotePaths(node.children));
-  }
-  return paths;
 }
 
 /**
