@@ -249,6 +249,45 @@ export async function trashNote(vault: Vault, relPath: string): Promise<string> 
   return trashRel;
 }
 
+/** Rename a folder in place (keeping its parent). Refuses to overwrite. Returns the new path. */
+export async function renameFolder(
+  vault: Vault,
+  relPath: string,
+  newName: string,
+): Promise<string> {
+  if (newName.includes('/') || newName.includes('\\')) {
+    throw new InvalidPathError(`new name must not contain path separators: ${newName}`);
+  }
+  const fromAbs = resolveInVault(vault, relPath);
+  const parent = dirname(relPath);
+  const toRel = parent === '.' ? newName : `${parent}/${newName}`;
+  const toAbs = resolveInVault(vault, toRel);
+  if (await pathExists(toAbs)) {
+    throw new NoteExistsError(`destination already exists: ${toRel}`);
+  }
+  await atomicRename(fromAbs, toAbs);
+  return toRel;
+}
+
+/** Move a folder (and its contents) to a new vault-relative path. Refuses to overwrite. */
+export async function moveFolder(vault: Vault, fromRel: string, toRel: string): Promise<void> {
+  const fromAbs = resolveInVault(vault, fromRel);
+  const toAbs = resolveInVault(vault, toRel);
+  if (await pathExists(toAbs)) {
+    throw new NoteExistsError(`destination already exists: ${toRel}`);
+  }
+  await atomicRename(fromAbs, toAbs);
+}
+
+/** Soft-delete a folder (and its contents) to trash. Returns the trash path it now lives at. */
+export async function trashFolder(vault: Vault, relPath: string): Promise<string> {
+  const fromAbs = resolveInVault(vault, relPath);
+  const stamp = vault.now().replace(/[:.]/g, '-');
+  const trashRel = `${BRAIN_DIR}/${TRASH_DIRNAME}/${stamp}__${basename(relPath)}`;
+  await atomicRename(fromAbs, join(vault.root, trashRel));
+  return trashRel;
+}
+
 /** rename that first ensures the destination directory exists. */
 async function atomicRename(fromAbs: string, toAbs: string): Promise<void> {
   await mkdir(dirname(toAbs), { recursive: true });

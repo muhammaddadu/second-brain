@@ -1,8 +1,9 @@
 /**
- * Left-panel folder tree and vault manager (E1 navigation + E3 actions). Folders expand/collapse
- * (session-only state); clicking a note selects it. Right-click opens a context menu wired to core
- * operations (new note/folder, rename, move, delete-to-trash, edit tags). After any action it
- * refreshes the tree immediately (and the watcher keeps it live for external changes).
+ * Left-panel folder tree and vault manager (E1 navigation + E3 actions). Expansion state lives here
+ * (lifted) so creating inside a folder keeps it open and a freshly-created folder can drop straight
+ * into inline rename. Right-click opens a context menu wired to core operations for both notes and
+ * folders (new note/folder, rename, move, delete-to-trash, edit tags). After any action it refreshes
+ * the tree immediately; the watcher keeps it live for external changes.
  */
 import type { TreeNode } from '@brain/core';
 import { ChevronDown, ChevronRight, FileText, FolderPlus } from 'lucide-react';
@@ -35,13 +36,44 @@ function collectFolders(nodes: TreeNode[], acc: string[] = []): string[] {
   return acc;
 }
 
+/** Rewrite paths at or under `oldPath` to `newPath` (or drop them if `newPath` is null). */
+function remapPath(value: string, oldPath: string, newPath: string | null): string | null {
+  if (value === oldPath) return newPath;
+  if (value.startsWith(`${oldPath}/`)) {
+    return newPath === null ? null : newPath + value.slice(oldPath.length);
+  }
+  return value;
+}
+
 export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderTreeProps) {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [moving, setMoving] = useState<TreeNode | null>(null);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
-  // Vault ops can reject (name collision, invalid name, a file that vanished). Never let that
-  // become an unhandled rejection: log it and refresh so the tree reflects reality.
+  function setExpandedFor(path: string, open: boolean) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (open) next.add(path);
+      else next.delete(path);
+      return next;
+    });
+  }
+
+  /** Remap expansion + selection after a folder was renamed/moved/deleted. */
+  function remapAfterFolderChange(oldPath: string, newPath: string | null) {
+    setExpanded((prev) => {
+      const next = new Set<string>();
+      for (const p of prev) {
+        const mapped = remapPath(p, oldPath, newPath);
+        if (mapped !== null) next.add(mapped);
+      }
+      if (newPath) next.add(newPath);
+      return next;
+    });
+    if (selectedPath) onSelect(remapPath(selectedPath, oldPath, newPath));
+  }
+
   async function guard(action: () => Promise<void>) {
     try {
       await action();
@@ -54,33 +86,47 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
   function newNote(folder: string) {
     return guard(async () => {
       const path = await window.vault.newNote(folder);
+      if (folder) setExpandedFor(folder, true); // keep the folder open
       await onRefresh();
-      onSelect(path);
+      onSelect(path); // open it for editing (title-driven naming comes later)
     });
   }
   function newFolder(parent: string) {
     return guard(async () => {
-      await window.vault.newFolder(parent);
+      const path = await window.vault.newFolder(parent);
+      if (parent) setExpandedFor(parent, true);
       await onRefresh();
+      setRenamingPath(path); // let the user name it right away, inline
     });
   }
   function trash(node: TreeNode) {
     return guard(async () => {
-      await window.vault.trash(node.path);
-      await onRefresh();
-      if (selectedPath === node.path) onSelect(null);
+      if (node.type === 'folder') {
+        await window.vault.trashFolder(node.path);
+        await onRefresh();
+        remapAfterFolderChange(node.path, null);
+      } else {
+        await window.vault.trash(node.path);
+        await onRefresh();
+        if (selectedPath === node.path) onSelect(null);
+      }
     });
   }
   function commitRename(node: TreeNode, newBase: string) {
     setRenamingPath(null);
     const trimmed = newBase.trim();
     if (!trimmed || trimmed === node.name) return;
-    // A note name is a single path segment; reject separators before hitting core.
     if (trimmed.includes('/') || trimmed.includes('\\')) return;
     return guard(async () => {
-      const newPath = await window.vault.rename(node.path, `${trimmed}${NOTE_EXTENSION}`);
-      await onRefresh();
-      onSelect(newPath);
+      if (node.type === 'folder') {
+        const newPath = await window.vault.renameFolder(node.path, trimmed);
+        await onRefresh();
+        remapAfterFolderChange(node.path, newPath);
+      } else {
+        const newPath = await window.vault.rename(node.path, `${trimmed}${NOTE_EXTENSION}`);
+        await onRefresh();
+        onSelect(newPath);
+      }
     });
   }
   function move(node: TreeNode, folder: string) {
@@ -88,9 +134,15 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
     return guard(async () => {
       const name = node.path.split('/').pop() ?? node.path;
       const toPath = folder ? `${folder}/${name}` : name;
-      await window.vault.move(node.path, toPath);
-      await onRefresh();
-      onSelect(toPath);
+      if (node.type === 'folder') {
+        await window.vault.moveFolder(node.path, toPath);
+        await onRefresh();
+        remapAfterFolderChange(node.path, toPath);
+      } else {
+        await window.vault.move(node.path, toPath);
+        await onRefresh();
+        onSelect(toPath);
+      }
     });
   }
 
@@ -105,6 +157,9 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
       return [
         { label: 'New note', onClick: () => void newNote(node.path) },
         { label: 'New folder', onClick: () => void newFolder(node.path) },
+        { label: 'Rename', onClick: () => setRenamingPath(node.path) },
+        { label: 'Move to…', onClick: () => setMoving(node) },
+        { label: 'Delete', danger: true, onClick: () => void trash(node) },
       ];
     }
     return [
@@ -145,6 +200,8 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
               depth={0}
               selectedPath={selectedPath}
               renamingPath={renamingPath}
+              expanded={expanded}
+              onToggleExpand={setExpandedFor}
               onSelect={onSelect}
               onOpenMenu={(n, x, y) => setMenu({ node: n, x, y })}
               onCommitRename={commitRename}
@@ -165,7 +222,7 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
       {moving && (
         <MoveDialog
           noteName={moving.name}
-          folders={collectFolders(nodes)}
+          folders={collectFolders(nodes).filter((f) => f !== moving.path)}
           onPick={(folder) => void move(moving, folder)}
           onClose={() => setMoving(null)}
         />
@@ -179,6 +236,8 @@ interface TreeItemProps {
   depth: number;
   selectedPath: string | null;
   renamingPath: string | null;
+  expanded: ReadonlySet<string>;
+  onToggleExpand: (path: string, open: boolean) => void;
   onSelect: (path: string | null) => void;
   onOpenMenu: (node: TreeNode, x: number, y: number) => void;
   onCommitRename: (node: TreeNode, newBase: string) => void;
@@ -186,14 +245,17 @@ interface TreeItemProps {
 }
 
 function TreeItem(props: TreeItemProps) {
-  const { node, depth, selectedPath, renamingPath, onSelect, onOpenMenu } = props;
-  const [expanded, setExpanded] = useState(false);
+  const { node, depth, selectedPath, renamingPath, expanded, onToggleExpand, onSelect } = props;
+  const isOpen = expanded.has(node.path);
   const indent = { paddingLeft: `${depth * 14 + 8}px` };
 
   function openMenu(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    onOpenMenu(node, e.clientX, e.clientY);
+    onOpenMenuFrom(e);
+  }
+  function onOpenMenuFrom(e: React.MouseEvent) {
+    props.onOpenMenu(node, e.clientX, e.clientY);
   }
 
   if (renamingPath === node.path) {
@@ -219,19 +281,19 @@ function TreeItem(props: TreeItemProps) {
         <button
           type="button"
           style={indent}
-          onClick={() => setExpanded((e) => !e)}
+          onClick={() => onToggleExpand(node.path, !isOpen)}
           onContextMenu={openMenu}
-          aria-expanded={expanded}
+          aria-expanded={isOpen}
           className={`${rowClass} text-ink hover:bg-edge/50`}
         >
-          {expanded ? (
+          {isOpen ? (
             <ChevronDown size={14} className="text-faint shrink-0" aria-hidden />
           ) : (
             <ChevronRight size={14} className="text-faint shrink-0" aria-hidden />
           )}
           <span className="truncate font-medium">{node.name}</span>
         </button>
-        {expanded && children.length > 0 && (
+        {isOpen && children.length > 0 && (
           <ul>
             {children.map((child) => (
               <TreeItem key={child.path} {...props} node={child} depth={depth + 1} />
@@ -284,9 +346,10 @@ function RenameInput({
       // biome-ignore lint/a11y/noAutofocus: rename should focus immediately for a fast inline edit
       autoFocus
       value={value}
-      aria-label="Rename note"
+      aria-label="Rename"
       style={indent}
       onChange={(e) => setValue(e.target.value)}
+      onFocus={(e) => e.target.select()}
       onBlur={() => onCommit(value)}
       onKeyDown={(e) => {
         if (e.key === 'Enter') onCommit(value);

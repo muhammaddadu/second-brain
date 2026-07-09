@@ -22,7 +22,13 @@ export function VaultSwitcher({
   const [recents, setRecents] = useState<RecentVault[]>([]);
 
   useEffect(() => {
-    if (open) window.vault.recentVaults().then(setRecents).catch(console.error);
+    if (!open) return;
+    window.vault.recentVaults().then(setRecents).catch(console.error);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, [open]);
 
   async function act(fn: () => Promise<VaultInfo | null>) {

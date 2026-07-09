@@ -32,4 +32,4 @@ Make the left panel a full vault manager: right-click context menu with the file
 
 - Watcher mechanism: core `watchVault` uses **chokidar** (reliable cross-platform recursive watching) behind a thin interface; the desktop main process forwards events (with a fresh content hash for note writes) to the renderer. Recorded in [tech-stack](../../architecture/tech-stack.md).
 - Conflict guard is the ADR 0002 primitive made concrete: reads carry a content hash; the guarded save is a compare-and-swap; the watcher lets the open editor notice an external change and surface Reload / Keep-mine. Tag writes return the new hash so they don't self-trigger a false conflict.
-- Folder rename/move and folder delete-to-trash are not exposed yet (context menu covers folder creation and note-level rename/move/delete); they can be added when core grows folder-move/trash ops.
+- Folder operations shipped: core `renameFolder`/`moveFolder`/`trashFolder` (with content), exposed in the folder context menu; the tree remaps expansion + selection across a folder rename/move/delete. Creating a folder enters inline rename immediately, and creating inside a folder keeps it expanded.

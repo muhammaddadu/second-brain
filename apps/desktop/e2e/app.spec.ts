@@ -175,7 +175,7 @@ test('creates and renames a note via the context menu, and reflects external cha
   // Rename via context menu → inline input.
   await window.getByRole('button', { name: 'Untitled' }).click({ button: 'right' });
   await window.getByTestId('context-menu').getByRole('button', { name: 'Rename' }).click();
-  const input = window.getByRole('textbox', { name: 'Rename note' });
+  const input = window.getByRole('textbox', { name: 'Rename' });
   await input.fill('Renamed note');
   await input.press('Enter');
   await expect(window.getByRole('button', { name: 'Renamed note' })).toBeVisible();
@@ -187,6 +187,25 @@ test('creates and renames a note via the context menu, and reflects external cha
     'utf8',
   );
   await expect(window.getByRole('button', { name: 'external' })).toBeVisible({ timeout: 8000 });
+});
+
+test('creates a folder with inline rename, then renames it via the context menu', async () => {
+  // New folder inside Journal → drops into inline rename immediately (parent stays open).
+  await window.getByRole('button', { name: 'Journal', exact: true }).click({ button: 'right' });
+  await window.getByTestId('context-menu').getByRole('button', { name: 'New folder' }).click();
+  const createInput = window.getByRole('textbox', { name: 'Rename' });
+  await expect(createInput).toBeVisible();
+  await createInput.fill('Reading list');
+  await createInput.press('Enter');
+  await expect(window.getByRole('button', { name: 'Reading list' })).toBeVisible();
+
+  // Rename it again via the context menu.
+  await window.getByRole('button', { name: 'Reading list' }).click({ button: 'right' });
+  await window.getByTestId('context-menu').getByRole('button', { name: 'Rename' }).click();
+  const renameInput = window.getByRole('textbox', { name: 'Rename' });
+  await renameInput.fill('Reading');
+  await renameInput.press('Enter');
+  await expect(window.getByRole('button', { name: 'Reading', exact: true })).toBeVisible();
 });
 
 test('inserts a Mermaid diagram from the slash menu', async () => {

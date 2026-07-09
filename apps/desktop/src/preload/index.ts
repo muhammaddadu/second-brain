@@ -35,6 +35,9 @@ const vault: VaultApi = {
   rename: (path, newName) => ipcRenderer.invoke(IPC.rename, path, newName),
   move: (fromPath, toPath) => ipcRenderer.invoke(IPC.move, fromPath, toPath),
   trash: (path) => ipcRenderer.invoke(IPC.trash, path),
+  renameFolder: (path, newName) => ipcRenderer.invoke(IPC.renameFolder, path, newName),
+  moveFolder: (fromPath, toPath) => ipcRenderer.invoke(IPC.moveFolder, fromPath, toPath),
+  trashFolder: (path) => ipcRenderer.invoke(IPC.trashFolder, path),
   onVaultChange: (listener) => {
     const handler = (_event: unknown, change: VaultChangePayload) => listener(change);
     ipcRenderer.on(IPC.changed, handler);

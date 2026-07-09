@@ -28,6 +28,9 @@ export const IPC = {
   rename: 'vault:rename',
   move: 'vault:move',
   trash: 'vault:trash',
+  renameFolder: 'vault:rename-folder',
+  moveFolder: 'vault:move-folder',
+  trashFolder: 'vault:trash-folder',
   /** Main → renderer push: a file changed in the vault (watcher). */
   changed: 'vault:changed',
 } as const;
@@ -132,6 +135,12 @@ export interface VaultApi {
   move(fromPath: string, toPath: string): Promise<void>;
   /** Delete a note to trash (recoverable). */
   trash(path: string): Promise<void>;
+  /** Rename a folder in place; returns the new folder path. */
+  renameFolder(path: string, newName: string): Promise<string>;
+  /** Move a folder (and contents) to a new vault-relative path. */
+  moveFolder(fromPath: string, toPath: string): Promise<void>;
+  /** Delete a folder (and contents) to trash (recoverable). */
+  trashFolder(path: string): Promise<void>;
   /** Subscribe to vault change events; returns an unsubscribe function. */
   onVaultChange(listener: (change: VaultChangePayload) => void): () => void;
 }

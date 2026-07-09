@@ -1,4 +1,6 @@
-/** A small positioned context menu. A transparent backdrop closes it on any outside click. */
+/** A small positioned context menu. Closes on outside click or Escape. */
+import { useEffect } from 'react';
+
 export interface MenuItem {
   label: string;
   onClick: () => void;
@@ -16,6 +18,14 @@ export function ContextMenu({
   items: MenuItem[];
   onClose: () => void;
 }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return (
     <>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: click-catcher backdrop, not a control */}

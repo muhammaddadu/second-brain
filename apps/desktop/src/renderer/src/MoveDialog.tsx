@@ -1,4 +1,6 @@
-/** Minimal "move to…" modal: pick a destination folder (or the vault root) for a note. */
+/** Minimal "move to…" modal: pick a destination folder (or the vault root). Esc closes. */
+import { useEffect } from 'react';
+
 export function MoveDialog({
   noteName,
   folders,
@@ -11,6 +13,14 @@ export function MoveDialog({
   onPick: (folder: string) => void;
   onClose: () => void;
 }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
       <div

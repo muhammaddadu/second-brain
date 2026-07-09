@@ -126,6 +126,20 @@ describe('vault operations', () => {
     await expect(createFolder(vault, '../escape')).rejects.toBeInstanceOf(InvalidPathError);
   });
 
+  it('renames and trashes a folder (with its contents)', async () => {
+    const { renameFolder, trashFolder } = await import('./vault.js');
+    const toRel = await renameFolder(vault, 'Projects', 'Work');
+    expect(toRel).toBe('Work');
+    expect(await exists(join(fixture.root, 'Work/alpha/index.note.json'))).toBe(true); // content moved
+    expect(await exists(join(fixture.root, 'Projects'))).toBe(false);
+    await expect(renameFolder(vault, 'Work', 'bad/name')).rejects.toBeInstanceOf(InvalidPathError);
+
+    const trashRel = await trashFolder(vault, 'Work');
+    expect(trashRel.startsWith(`${BRAIN_DIR}/${TRASH_DIRNAME}/`)).toBe(true);
+    expect(await exists(join(fixture.root, 'Work'))).toBe(false); // recoverable, not gone
+    expect(await exists(join(fixture.root, trashRel))).toBe(true);
+  });
+
   it('guarded save succeeds when the file is unchanged and rejects when it changed', async () => {
     const path = 'Journal/2026-07-07.note.json';
     const baseHash = await hashNote(vault, path);

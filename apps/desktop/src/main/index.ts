@@ -12,13 +12,16 @@ import {
   initVault,
   isVault,
   listTree,
+  moveFolder,
   moveNote,
   NOTE_EXTENSION,
   NoteConflictError,
   NoteExistsError,
   openVault,
   readNote,
+  renameFolder,
   renameNote,
+  trashFolder,
   trashNote,
   updateNoteBlocksGuarded,
   updateNoteTags,
@@ -355,6 +358,15 @@ function registerHandlers(): void {
   });
   ipcMain.handle(IPC.trash, async (_event, path: string) => {
     await trashNote(requireVault(), path);
+  });
+  ipcMain.handle(IPC.renameFolder, (_event, path: string, newName: string) =>
+    renameFolder(requireVault(), path, newName),
+  );
+  ipcMain.handle(IPC.moveFolder, async (_event, fromPath: string, toPath: string) => {
+    await moveFolder(requireVault(), fromPath, toPath);
+  });
+  ipcMain.handle(IPC.trashFolder, async (_event, path: string) => {
+    await trashFolder(requireVault(), path);
   });
 }
 
