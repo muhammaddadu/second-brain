@@ -5,7 +5,10 @@
  * `index.ts` (the app/vault shell) so this cohesive concern lives in one place; the bits it doesn't
  * own — the current index, settings, secret decryption, and status broadcast — are injected.
  */
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import {
+  BUILTIN_EMBEDDING_MODEL,
   createEmbeddingAdapter,
   type DiscoveredProvider,
   type EmbeddingAdapter,
@@ -62,6 +65,10 @@ export interface EmbeddingService {
   stats(): IndexStats;
   /** Pause/resume the embedding pass; resuming kicks it off again. */
   setPaused(paused: boolean): void;
+  /** Whether the built-in on-device model is already downloaded. */
+  builtinReady(): boolean;
+  /** Download + warm up the built-in model (progress via pushStatus), then index. */
+  downloadBuiltin(): Promise<void>;
 }
 
 export function createEmbeddingService(deps: EmbeddingServiceDeps): EmbeddingService {
@@ -80,9 +87,33 @@ export function createEmbeddingService(deps: EmbeddingServiceDeps): EmbeddingSer
     return kind === 'builtin' ? { ...config, cacheDir: deps.builtinCacheDir } : config;
   }
 
+  /** True once the built-in on-device model has been downloaded to the cache dir. */
+  function builtinReady(): boolean {
+    const model = configFor('builtin').model || BUILTIN_EMBEDDING_MODEL;
+    return existsSync(join(deps.builtinCacheDir, model));
+  }
+
+  /** Don't auto-download the built-in model on a background pass — wait for explicit consent. */
+  function awaitingBuiltinDownload(): boolean {
+    const { embedding } = deps.getSettings();
+    return embedding.enabled && embedding.kind === 'builtin' && !builtinReady();
+  }
+
+  /** (Re)build the active adapter, wiring download progress (used only by the built-in provider). */
+  async function refresh(): Promise<void> {
+    const { embedding } = deps.getSettings();
+    adapter = embedding.enabled
+      ? await createEmbeddingAdapter(
+          configFor(embedding.kind),
+          deps.readSecret(embedding.kind),
+          (pct) => deps.pushStatus({ state: 'downloading', done: pct, total: 100 }),
+        )
+      : null;
+  }
+
   async function runPass(): Promise<void> {
     const index = deps.getIndex();
-    if (running || paused || !adapter || !index) return;
+    if (running || paused || !adapter || !index || awaitingBuiltinDownload()) return;
     running = true;
     try {
       await embedPending(
@@ -105,13 +136,7 @@ export function createEmbeddingService(deps: EmbeddingServiceDeps): EmbeddingSer
 
   return {
     provider: () => adapter,
-
-    async refresh(): Promise<void> {
-      const { embedding } = deps.getSettings();
-      adapter = embedding.enabled
-        ? await createEmbeddingAdapter(configFor(embedding.kind), deps.readSecret(embedding.kind))
-        : null;
-    },
+    refresh,
 
     async syncAndEmbed(vault: Vault, index: SearchIndex): Promise<void> {
       await syncIndex(vault, index); // keyword index (fast, local)
@@ -164,6 +189,21 @@ export function createEmbeddingService(deps: EmbeddingServiceDeps): EmbeddingSer
     setPaused(next: boolean): void {
       paused = next;
       if (!paused) void runPass(); // resuming picks up where it left off
+    },
+
+    builtinReady,
+
+    async downloadBuiltin(): Promise<void> {
+      await refresh(); // build the adapter with the progress callback
+      if (!adapter) return;
+      try {
+        await adapter.embed(['warm up']); // first call downloads the model (progress pushed via cb)
+      } catch (error) {
+        console.error('built-in model download failed', error);
+        deps.pushStatus({ state: 'idle', done: 0, total: 0 });
+        return;
+      }
+      await runPass(); // model is ready now → index the vault
     },
   };
 }

@@ -106,6 +106,8 @@ export function SemanticSearchSettings({
   const [stats, setStats] = useState<IndexStats | null>(null);
   const [secretSet, setSecretSet] = useState(false);
   const [keychainOk, setKeychainOk] = useState(true);
+  const [builtinReady, setBuiltinReady] = useState<boolean | null>(null);
+  const [downloadPct, setDownloadPct] = useState<number | null>(null);
 
   const active = embedding.kind;
   const meta = META.get(active);
@@ -122,11 +124,26 @@ export function SemanticSearchSettings({
       .catch(() => setKeychainOk(false));
   }, []);
 
+  const refreshBuiltinReady = useCallback(() => {
+    window.vault
+      .builtinModelReady()
+      .then(setBuiltinReady)
+      .catch(() => setBuiltinReady(false));
+  }, []);
+
   useEffect(() => {
     if (!embedding.enabled) return;
     refreshStats();
-    return window.vault.onIndexStatus(() => refreshStats());
-  }, [embedding.enabled, refreshStats]);
+    return window.vault.onIndexStatus((s) => {
+      refreshStats();
+      if (s.state === 'downloading') {
+        setDownloadPct(s.done);
+      } else {
+        setDownloadPct(null);
+        if (s.state === 'idle') refreshBuiltinReady(); // download may have just finished
+      }
+    });
+  }, [embedding.enabled, refreshStats, refreshBuiltinReady]);
 
   useEffect(() => {
     window.vault
@@ -134,7 +151,9 @@ export function SemanticSearchSettings({
       .then(setSecretSet)
       .catch(() => setSecretSet(false));
     setTest({ loading: false, result: null });
-  }, [active]);
+    if (active === 'builtin') refreshBuiltinReady();
+    else setBuiltinReady(null);
+  }, [active, refreshBuiltinReady]);
 
   function setConfig(patch: Partial<ProviderConfig>) {
     onChange({
@@ -238,34 +257,47 @@ export function SemanticSearchSettings({
                 <span className="text-ink font-medium">{meta.name}.</span> {meta.blurb}
               </p>
             )}
-            <ProviderConfigPanel
-              kind={active}
-              config={config}
-              models={models[active] ?? []}
-              secretSet={secretSet}
-              keychainOk={keychainOk}
-              onConfig={setConfig}
-              onRefreshModels={() => void refreshModels()}
-              onSaveSecret={saveSecret}
-            />
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => void runTest()}
-                className="bg-accent text-accent-ink rounded-lg px-3 py-1.5 text-sm"
-                data-testid="test-connection"
-              >
-                {test.loading ? 'Testing…' : 'Test connection'}
-              </button>
-              {test.result && (
-                <span
-                  className={`flex items-center gap-1.5 text-xs ${test.result.ok ? 'text-green-700 dark:text-green-400' : 'text-accent'}`}
-                >
-                  {test.result.ok && <Check size={13} />}
-                  {test.result.message}
-                </span>
-              )}
-            </div>
+            {active === 'builtin' ? (
+              <BuiltinPanel
+                ready={builtinReady}
+                downloadPct={downloadPct}
+                testResult={test.result}
+                testing={test.loading}
+                onDownload={() => void window.vault.downloadBuiltinModel()}
+                onTest={() => void runTest()}
+              />
+            ) : (
+              <>
+                <ProviderConfigPanel
+                  kind={active}
+                  config={config}
+                  models={models[active] ?? []}
+                  secretSet={secretSet}
+                  keychainOk={keychainOk}
+                  onConfig={setConfig}
+                  onRefreshModels={() => void refreshModels()}
+                  onSaveSecret={saveSecret}
+                />
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void runTest()}
+                    className="bg-accent text-accent-ink rounded-lg px-3 py-1.5 text-sm"
+                    data-testid="test-connection"
+                  >
+                    {test.loading ? 'Testing…' : 'Test connection'}
+                  </button>
+                  {test.result && (
+                    <span
+                      className={`flex items-center gap-1.5 text-xs ${test.result.ok ? 'text-green-700 dark:text-green-400' : 'text-accent'}`}
+                    >
+                      {test.result.ok && <Check size={13} />}
+                      {test.result.message}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           <IndexControls
@@ -286,6 +318,83 @@ export function SemanticSearchSettings({
         </div>
       )}
     </section>
+  );
+}
+
+/** Built-in on-device model: first-run consent + download progress, then Test. */
+function BuiltinPanel({
+  ready,
+  downloadPct,
+  testResult,
+  testing,
+  onDownload,
+  onTest,
+}: {
+  ready: boolean | null;
+  downloadPct: number | null;
+  testResult: TestResult | null;
+  testing: boolean;
+  onDownload: () => void;
+  onTest: () => void;
+}) {
+  if (downloadPct !== null) {
+    return (
+      <div className="flex flex-col gap-2" data-testid="builtin-downloading">
+        <span className="text-muted text-xs">Downloading EmbeddingGemma… {downloadPct}%</span>
+        <div className="bg-edge h-1.5 w-full overflow-hidden rounded-full">
+          <div
+            className="bg-accent h-full rounded-full transition-all"
+            style={{ width: `${downloadPct}%` }}
+          />
+        </div>
+        <span className="text-faint text-[11px]">
+          One-time download. Once complete it runs completely offline — your notes never leave this
+          device.
+        </span>
+      </div>
+    );
+  }
+
+  if (ready) {
+    return (
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onTest}
+          className="bg-accent text-accent-ink rounded-lg px-3 py-1.5 text-sm"
+          data-testid="test-connection"
+        >
+          {testing ? 'Testing…' : 'Test connection'}
+        </button>
+        <span className="text-faint flex items-center gap-1.5 text-xs">
+          <Check size={13} className="text-green-700 dark:text-green-400" /> Downloaded — runs
+          offline on this device.
+        </span>
+        {testResult && !testResult.ok && (
+          <span className="text-accent text-xs">{testResult.message}</span>
+        )}
+      </div>
+    );
+  }
+
+  // Not downloaded yet → first-run consent.
+  return (
+    <div className="border-edge bg-surface/50 flex flex-col gap-3 rounded-lg border border-dashed p-3">
+      <p className="text-muted text-xs leading-relaxed">
+        The first time you use it, the app downloads{' '}
+        <strong className="text-ink">EmbeddingGemma-300M</strong> (about 200 MB). After that it runs{' '}
+        <strong className="text-ink">completely offline</strong> on this device — your note text is
+        never sent anywhere.
+      </p>
+      <button
+        type="button"
+        onClick={onDownload}
+        className="bg-accent text-accent-ink self-start rounded-lg px-3 py-1.5 text-sm"
+        data-testid="download-model"
+      >
+        Download model (~200 MB)
+      </button>
+    </div>
   );
 }
 

@@ -318,9 +318,14 @@ test('settings: enabling semantic search reveals the provider picker and config'
   await expect(toggle).not.toBeChecked(); // off by default (private, no network)
 
   await toggle.check();
-  // The provider picker appears (Ollama recommended + selected by default) with a Test action.
+  // The provider picker appears; Built-in (on-device) is the default, so first run offers a
+  // consent-gated download rather than silently fetching the model.
   await expect(window.getByRole('button', { name: /Ollama/ })).toBeVisible();
   await expect(window.getByRole('button', { name: 'AWS Bedrock' })).toBeVisible();
+  await expect(window.getByTestId('download-model')).toBeVisible();
+
+  // Picking a remote provider swaps to its config + Test action.
+  await window.getByRole('button', { name: 'OpenAI' }).click();
   await expect(window.getByTestId('test-connection')).toBeVisible();
 
   // Turn it back off so later tests (and the app's default) stay keyword-only.

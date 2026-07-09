@@ -137,15 +137,21 @@ function Workspace({
       <header className="titlebar app-drag border-edge flex items-center justify-between border-b px-4 py-2">
         <VaultSwitcher current={info} onSwitch={onSwitch} />
         <div className="app-no-drag flex items-center gap-2">
-          {indexStatus.state === 'indexing' && (
+          {indexStatus.state !== 'idle' && (
             <span
               className="text-muted flex items-center gap-1.5 text-xs"
               data-testid="index-status"
-              title="Building the semantic search index"
+              title={
+                indexStatus.state === 'downloading'
+                  ? 'Downloading the on-device model'
+                  : 'Building the semantic search index'
+              }
             >
               <Loader2 size={13} className="text-accent animate-spin" aria-hidden />
               <span className="tabular-nums">
-                Indexing {indexStatus.done}/{indexStatus.total}
+                {indexStatus.state === 'downloading'
+                  ? `Downloading model… ${indexStatus.done}%`
+                  : `Indexing ${indexStatus.done}/${indexStatus.total}`}
               </span>
             </span>
           )}

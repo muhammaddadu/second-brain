@@ -54,6 +54,8 @@ export const IPC = {
   clearSemanticIndex: 'embed:clear-semantic',
   indexStats: 'embed:index-stats',
   pauseIndexing: 'embed:pause-indexing',
+  builtinModelReady: 'embed:builtin-ready',
+  downloadBuiltinModel: 'embed:builtin-download',
   /** Main → renderer push: a file changed in the vault (watcher). */
   changed: 'vault:changed',
   /** Main → renderer push: indexing status (idle / indexing progress). */
@@ -100,9 +102,12 @@ export interface ProviderSecretInput {
   awsSecretAccessKey?: string;
 }
 
-/** Indexing status pushed to the renderer so the UI can show progress (idle when done). */
+/**
+ * Indexing status pushed to the renderer for progress. `downloading` = fetching the built-in
+ * on-device model (done/total are a 0–100 percent); `indexing` = embedding chunks (done/total count).
+ */
 export interface IndexStatus {
-  state: 'idle' | 'indexing';
+  state: 'idle' | 'indexing' | 'downloading';
   done: number;
   total: number;
 }
@@ -233,4 +238,8 @@ export interface VaultApi {
   indexStats(): Promise<IndexStats>;
   /** Pause or resume the (network) embedding pass. */
   pauseIndexing(paused: boolean): Promise<void>;
+  /** Whether the built-in on-device model is already downloaded (so we can prompt before fetching). */
+  builtinModelReady(): Promise<boolean>;
+  /** Download + warm up the built-in on-device model (progress via onIndexStatus), then index. */
+  downloadBuiltinModel(): Promise<void>;
 }

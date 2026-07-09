@@ -203,11 +203,16 @@ function explainError(error: unknown, privacy: 'local' | 'hosted'): string {
 export async function createEmbeddingAdapter(
   config: ProviderConfig,
   secrets: ProviderSecrets = {},
+  onDownloadProgress?: (percent: number) => void,
 ): Promise<EmbeddingAdapter | null> {
   switch (config.kind) {
     case 'builtin': {
       const { createLocalAdapter } = await import('./embeddings-local.js');
-      return createLocalAdapter(config.model || BUILTIN_EMBEDDING_MODEL, config.cacheDir);
+      return createLocalAdapter(
+        config.model || BUILTIN_EMBEDDING_MODEL,
+        config.cacheDir,
+        onDownloadProgress,
+      );
     }
     case 'ollama':
       if (!config.baseUrl || !config.model) return null;

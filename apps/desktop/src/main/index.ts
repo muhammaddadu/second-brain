@@ -540,6 +540,8 @@ function registerHandlers(): void {
   ipcMain.handle(IPC.clearSemanticIndex, () => embeddings.clearSemantic());
   ipcMain.handle(IPC.indexStats, (): IndexStats => embeddings.stats());
   ipcMain.handle(IPC.pauseIndexing, (_event, paused: boolean) => embeddings.setPaused(paused));
+  ipcMain.handle(IPC.builtinModelReady, (): boolean => embeddings.builtinReady());
+  ipcMain.handle(IPC.downloadBuiltinModel, () => embeddings.downloadBuiltin());
 }
 
 // --- Appearance (native theme + translucency) --------------------------------

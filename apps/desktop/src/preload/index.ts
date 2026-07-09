@@ -67,6 +67,8 @@ const vault: VaultApi = {
   clearSemanticIndex: () => ipcRenderer.invoke(IPC.clearSemanticIndex),
   indexStats: () => ipcRenderer.invoke(IPC.indexStats),
   pauseIndexing: (paused) => ipcRenderer.invoke(IPC.pauseIndexing, paused),
+  builtinModelReady: () => ipcRenderer.invoke(IPC.builtinModelReady),
+  downloadBuiltinModel: () => ipcRenderer.invoke(IPC.downloadBuiltinModel),
 };
 
 contextBridge.exposeInMainWorld('vault', vault);
