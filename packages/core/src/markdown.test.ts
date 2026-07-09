@@ -23,4 +23,15 @@ describe('markdown conversion', () => {
     expect(markdown).toContain('one');
     expect(markdown).toContain('two');
   });
+
+  it('maps a ```mermaid fence to a codeBlock and back (diagram storage stays a code block)', async () => {
+    const blocks = await markdownToBlocks('```mermaid\ngraph TD; A-->B;\n```\n');
+    const diagram = blocks[0] as { type?: string; props?: { language?: string } };
+    expect(diagram.type).toBe('codeBlock'); // stored as a plain code block, not a bespoke type
+    expect(diagram.props?.language).toBe('mermaid');
+
+    const back = await blocksToMarkdown(blocks);
+    expect(back).toContain('```mermaid');
+    expect(back).toContain('graph TD; A-->B;');
+  });
 });

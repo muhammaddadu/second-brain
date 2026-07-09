@@ -31,4 +31,4 @@ Core operates on any directory as a vault. Tests never touch a personal vault â€
 
 ## What's next
 
-First-class diagram rendering ([E7](../product/epics/E7-diagrams.md)) and live file actions ([E3](../product/epics/E3-file-actions.md)) build on the editor. Orient on build order via the [epics index](../product/epics/index.md).
+Live file actions & external-change handling ([E3](../product/epics/E3-file-actions.md)), then search & RAG ([E4](../product/epics/E4-search-rag.md)). Orient on build order via the [epics index](../product/epics/index.md).

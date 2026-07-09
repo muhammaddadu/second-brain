@@ -11,6 +11,7 @@ import { BlockNoteView } from '@blocknote/mantine';
 import { useCreateBlockNote } from '@blocknote/react';
 import type { NoteEnvelope } from '@brain/core';
 import { useRef } from 'react';
+import { editorSchema } from './editorSchema';
 import { TagEditor } from './TagEditor';
 
 const AUTOSAVE_MS = 600;
@@ -32,7 +33,10 @@ export function NoteEditor({ path, note }: { path: string; note: NoteEnvelope })
     Array.isArray(note.blocks) && note.blocks.length > 0
       ? (note.blocks as PartialBlock[])
       : undefined;
-  const editor = useCreateBlockNote(initialContent ? { initialContent } : {});
+  const editor = useCreateBlockNote({
+    schema: editorSchema,
+    ...(initialContent ? { initialContent } : {}),
+  });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function scheduleSave() {

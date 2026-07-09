@@ -40,7 +40,7 @@ Two panels plus a global search overlay (ASCII wireframe — permitted exception
 - BlockNote renders the selected note's body; editing is in-place with debounced autosave to the note file (lossless — the file stores the editor's native blocks, [data-model](../architecture/data-model.md)).
 - Title and tags shown above the body, tags editable (backed by note metadata).
 - If the open note changes on disk, a non-destructive conflict prompt (reload / keep mine) — never a silent clobber (E3).
-- **Diagram blocks (E7):** a code block tagged `mermaid` renders inline as the diagram; selecting it (or a source/preview toggle on the block) reveals the text source for editing, re-rendering as you type. Invalid source shows the render error next to the intact source. Unknown language tags display as normal code blocks. Traces to [PRD §3.7](../product/prd.md).
+- **Diagram blocks (E7 ✓):** a code block tagged `mermaid` renders inline as the diagram, with its text source shown directly beneath for editing; the diagram re-renders as you type. Invalid source shows the render error next to the intact, still-editable source. Unknown language tags display as normal code blocks. Behind an app-layer language→renderer registry, so more diagram languages are additions. Traces to [PRD §3.7](../product/prd.md).
 
 ## Search (⌘K, E4)
 

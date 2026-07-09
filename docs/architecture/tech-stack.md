@@ -33,6 +33,7 @@
 | **Tailwind CSS v4** (`@tailwindcss/vite`) | renderer styling | fast layout + theme tokens driving light/dark; warm-paper theme in `apps/desktop` ([ux/index.md § Visual design](../ux/index.md)) |
 | **React 19** | renderer UI framework | user-chosen requirement ([PRD §3.3](../product/prd.md)); function components, state local to the renderer |
 | **Playwright** (`_electron`) | desktop E2E | drives the real built Electron app; the E1 harness every later desktop epic extends |
+| **Mermaid** (E7) | diagram renderer | v1 entry in the app-layer language→renderer registry; renders `mermaid` code blocks inline. Adding a diagram language ([PRD §7.4](../product/prd.md#7-open-questions)) is a registry entry, not a storage change |
 
 ## Constraints on future additions
 
