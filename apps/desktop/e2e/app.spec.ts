@@ -257,6 +257,13 @@ test('an external edit to the OPEN note surfaces a conflict, never a silent clob
   );
 
   await expect(window.getByTestId('conflict-banner')).toBeVisible({ timeout: 8000 });
+
+  // The banner offers a diff of on-disk vs. mine.
+  await window.getByRole('button', { name: 'View diff' }).click();
+  await expect(window.getByTestId('conflict-diff')).toBeVisible();
+  await expect(window.getByTestId('conflict-diff')).toContainText('EXTERNAL EDIT');
+  await window.keyboard.press('Escape'); // close the diff overlay
+  await expect(window.getByTestId('conflict-diff')).toHaveCount(0);
 });
 
 test('editing the note title renames its file on disk', async () => {

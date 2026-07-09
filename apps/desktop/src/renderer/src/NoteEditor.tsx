@@ -17,6 +17,7 @@ import {
 import type { NoteEnvelope } from '@brain/core';
 import { AlertTriangle, Workflow } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { ConflictDiff } from './ConflictDiff';
 import { editorSchema } from './editorSchema';
 import { TagEditor } from './TagEditor';
 
@@ -54,13 +55,22 @@ export function NoteEditor({ path, note, initialHash, onReload, onRenamed }: Not
   });
 
   const hashRef = useRef(initialHash);
+  // Every hash *we* wrote. A watcher event whose hash is in here is our own save (regardless of
+  // event ordering / races) and must never be mistaken for an external conflict.
+  const ownHashes = useRef<Set<string>>(new Set([initialHash]));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [conflict, setConflict] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
 
-  // External change to *this* note (a different hash than our last known) → surface a conflict.
+  function rememberOwnWrite(hash: string) {
+    hashRef.current = hash;
+    ownHashes.current.add(hash);
+  }
+
+  // A change to *this* note whose hash we did not produce is a genuine external edit.
   useEffect(() => {
     const unsubscribe = window.vault.onVaultChange((change) => {
-      if (change.path === path && change.hash && change.hash !== hashRef.current) {
+      if (change.path === path && change.hash && !ownHashes.current.has(change.hash)) {
         setConflict(true);
       }
     });
@@ -73,7 +83,7 @@ export function NoteEditor({ path, note, initialHash, onReload, onRenamed }: Not
     timer.current = setTimeout(async () => {
       try {
         const result = await window.vault.saveBlocks(path, editor.document, hashRef.current);
-        if (result.status === 'saved') hashRef.current = result.hash;
+        if (result.status === 'saved') rememberOwnWrite(result.hash);
         else setConflict(true);
       } catch (error) {
         // The note changed or vanished on disk mid-edit — surface it rather than silently losing work.
@@ -89,7 +99,7 @@ export function NoteEditor({ path, note, initialHash, onReload, onRenamed }: Not
       const latest = await window.vault.readNote(path);
       const result = await window.vault.saveBlocks(path, editor.document, latest.hash);
       if (result.status === 'saved') {
-        hashRef.current = result.hash;
+        rememberOwnWrite(result.hash);
         setConflict(false);
       }
     } catch (error) {
@@ -113,9 +123,9 @@ export function NoteEditor({ path, note, initialHash, onReload, onRenamed }: Not
     }
     try {
       const result = await window.vault.setTitle(path, next);
-      // The title write (and any rename) changed the file's bytes — refresh the conflict-guard
-      // baseline for the new path. The editor stays mounted, so we must do this here.
-      hashRef.current = (await window.vault.readNote(result.path)).hash;
+      // The title write (and any rename) changed the file's bytes — record the new hash as our own
+      // so the watcher event doesn't read as an external conflict. Editor stays mounted.
+      rememberOwnWrite((await window.vault.readNote(result.path)).hash);
       if (result.path !== path) onRenamed(result.path);
     } catch (error) {
       console.error(error);
@@ -137,6 +147,13 @@ export function NoteEditor({ path, note, initialHash, onReload, onRenamed }: Not
           <span className="flex shrink-0 gap-2">
             <button
               type="button"
+              onClick={() => setShowDiff(true)}
+              className="border-edge hover:bg-edge/50 rounded-lg border px-2.5 py-1 text-xs"
+            >
+              View diff
+            </button>
+            <button
+              type="button"
               onClick={onReload}
               className="border-edge hover:bg-edge/50 rounded-lg border px-2.5 py-1 text-xs"
             >
@@ -151,6 +168,21 @@ export function NoteEditor({ path, note, initialHash, onReload, onRenamed }: Not
             </button>
           </span>
         </div>
+      )}
+      {showDiff && (
+        <ConflictDiff
+          path={path}
+          mineBlocks={editor.document}
+          onClose={() => setShowDiff(false)}
+          onReload={() => {
+            setShowDiff(false);
+            onReload();
+          }}
+          onKeepMine={() => {
+            setShowDiff(false);
+            void keepMine();
+          }}
+        />
       )}
       <input
         data-testid="note-title"
@@ -171,13 +203,7 @@ export function NoteEditor({ path, note, initialHash, onReload, onRenamed }: Not
         placeholder="Untitled"
         className="text-ink placeholder:text-faint w-full border-none bg-transparent font-serif text-3xl font-semibold outline-none"
       />
-      <TagEditor
-        path={path}
-        initial={initialTags}
-        onSaved={(hash) => {
-          hashRef.current = hash;
-        }}
-      />
+      <TagEditor path={path} initial={initialTags} onSaved={(hash) => rememberOwnWrite(hash)} />
       <div className="mt-6">
         <BlockNoteView
           editor={editor}
