@@ -6,7 +6,14 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { listTree, openVault, readNote, type Vault } from '@brain/core';
+import {
+  listTree,
+  openVault,
+  readNote,
+  updateNoteBlocks,
+  updateNoteTags,
+  type Vault,
+} from '@brain/core';
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import { IPC, type VaultInfo } from '../shared/ipc.js';
 
@@ -60,6 +67,13 @@ function registerVaultHandlers(vault: Vault): void {
   });
   ipcMain.handle(IPC.vaultTree, () => listTree(vault.root));
   ipcMain.handle(IPC.readNote, (_event, path: string) => readNote(vault, path));
+  ipcMain.handle(IPC.saveBlocks, async (_event, path: string, blocks: unknown[]) => {
+    await updateNoteBlocks(vault, path, blocks);
+  });
+  ipcMain.handle(IPC.setTags, async (_event, path: string, tags: string[]) => {
+    const note = await updateNoteTags(vault, path, tags);
+    return note.meta.tags ?? [];
+  });
 }
 
 function createWindow(): void {

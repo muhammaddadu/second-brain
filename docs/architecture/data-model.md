@@ -45,7 +45,7 @@ One note = one `.note.json` file: a JSON envelope holding metadata plus the nati
 
 Markdown remains a first-class *interchange* format at every surface, just not the resting format:
 
-- **Write:** MCP/CLI/core accept note content as Markdown **or** BlockNote block JSON, caller's choice. Markdown is converted on write via BlockNote's parser (`tryParseMarkdownToBlocks`); unrecognised syntax degrades to plain text, never an error.
+- **Write:** MCP/CLI/core accept note content as Markdown **or** BlockNote block JSON, caller's choice. Markdown is converted on write via BlockNote's parser (`tryParseMarkdownToBlocks`); unrecognised syntax degrades to plain text, never an error. Conversion runs **headless in core** via `@blocknote/server-util` so the CLI/MCP work with the app closed — mechanism and dependency rationale in [ADR 0003](../adr/0003-headless-markdown-conversion-server-util.md).
 - **Read/export:** any note — or the whole vault — can be exported to Markdown on demand (`blocksToMarkdownLossy`). Export is a *view*: lossy by BlockNote's definition, acceptable because the JSON file remains the source of truth. Whole-vault export is the longevity guarantee (vault usable with the app gone) and is a tested, supported operation, not a nicety.
 - Owned by [agent-integration](../guides/agent-integration.md): which MCP tools/CLI subcommands expose these formats.
 

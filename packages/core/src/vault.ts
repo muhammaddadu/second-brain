@@ -13,6 +13,7 @@ import {
   type NoteMeta,
   parseNote,
   serializeNote,
+  setTags,
 } from './envelope.js';
 import { InvalidPathError, NoteExistsError } from './errors.js';
 import { BRAIN_DIR, NOTE_EXTENSION, TRASH_DIRNAME } from './paths.js';
@@ -126,6 +127,30 @@ export async function writeNote(
   };
   await atomicWriteFile(abs, serializeNote(updated));
   return updated;
+}
+
+/**
+ * Replace a note's body blocks, preserving all metadata (and touching `updated`). This is the
+ * editor autosave path — read current envelope, swap blocks, write. Metadata is untouched unless
+ * a separate op changes it (E2 acceptance: metadata survives editing).
+ */
+export async function updateNoteBlocks(
+  vault: Vault,
+  relPath: string,
+  blocks: unknown[],
+): Promise<NoteEnvelope> {
+  const note = await readNote(vault, relPath);
+  return writeNote(vault, relPath, { ...note, blocks });
+}
+
+/** Replace a note's tags, preserving body and other metadata. */
+export async function updateNoteTags(
+  vault: Vault,
+  relPath: string,
+  tags: readonly string[],
+): Promise<NoteEnvelope> {
+  const note = await readNote(vault, relPath);
+  return writeNote(vault, relPath, setTags(note, tags));
 }
 
 /** Move a note to a new vault-relative path (across folders). Refuses to overwrite a target. */

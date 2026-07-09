@@ -16,6 +16,12 @@ export {
   NoteParseError,
   VaultError,
 } from './errors.js';
+export {
+  exportNoteToMarkdown,
+  exportVaultToMarkdown,
+  importMarkdownAsNote,
+} from './import-export.js';
+export { blocksToMarkdown, markdownToBlocks } from './markdown.js';
 export { BRAIN_DIR, INDEX_DB, NOTE_EXTENSION, RULES_FILE, TRASH_DIRNAME } from './paths.js';
 export { listTree, type TreeNode, type TreeNodeType } from './tree.js';
 export {
@@ -28,6 +34,8 @@ export {
   readNote,
   renameNote,
   trashNote,
+  updateNoteBlocks,
+  updateNoteTags,
   type Vault,
   type VaultOptions,
   writeNote,

@@ -2,7 +2,7 @@
 
 > **This doc owns:** running the project locally — prerequisites, install, dev loop. **For what the commands do architecturally see** [app-architecture](../architecture/app-architecture.md); **for the command list see** [AGENTS.md → Commands](../../AGENTS.md#commands).
 
-As of [E1](../product/epics/E1-desktop-shell.md), the repo is a pnpm monorepo with `@brain/core` (all vault I/O) and `@brain/desktop` (the Electron shell — folder tree + read-only note view). Rich editing arrives in E2.
+As of [E2](../product/epics/E2-blocknote-editor.md), the repo is a pnpm monorepo with `@brain/core` (all vault I/O + Markdown import/export) and `@brain/desktop` (the Electron shell — folder tree + BlockNote editor with autosave and tag editing).
 
 ## Prerequisites
 
@@ -31,4 +31,4 @@ Core operates on any directory as a vault. Tests never touch a personal vault �
 
 ## What's next
 
-Rich in-place editing and Markdown import/export land in [E2](../product/epics/E2-blocknote-editor.md). Orient on build order via the [epics index](../product/epics/index.md).
+First-class diagram rendering ([E7](../product/epics/E7-diagrams.md)) and live file actions ([E3](../product/epics/E3-file-actions.md)) build on the editor. Orient on build order via the [epics index](../product/epics/index.md).

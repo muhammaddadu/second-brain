@@ -10,6 +10,8 @@ export const IPC = {
   vaultInfo: 'vault:info',
   vaultTree: 'vault:tree',
   readNote: 'vault:read-note',
+  saveBlocks: 'vault:save-blocks',
+  setTags: 'vault:set-tags',
 } as const;
 
 /** Summary of the open vault, for the window header. */
@@ -23,4 +25,8 @@ export interface VaultApi {
   info(): Promise<VaultInfo>;
   tree(): Promise<TreeNode[]>;
   readNote(path: string): Promise<NoteEnvelope>;
+  /** Replace a note's body blocks (editor autosave); metadata is preserved. */
+  saveBlocks(path: string, blocks: unknown[]): Promise<void>;
+  /** Replace a note's tags; returns the persisted tags. */
+  setTags(path: string, tags: string[]): Promise<string[]>;
 }

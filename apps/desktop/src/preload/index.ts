@@ -9,6 +9,8 @@ const vault: VaultApi = {
   info: () => ipcRenderer.invoke(IPC.vaultInfo),
   tree: () => ipcRenderer.invoke(IPC.vaultTree),
   readNote: (path: string) => ipcRenderer.invoke(IPC.readNote, path),
+  saveBlocks: (path: string, blocks: unknown[]) => ipcRenderer.invoke(IPC.saveBlocks, path, blocks),
+  setTags: (path: string, tags: string[]) => ipcRenderer.invoke(IPC.setTags, path, tags),
 };
 
 contextBridge.exposeInMainWorld('vault', vault);
