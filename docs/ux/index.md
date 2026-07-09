@@ -51,4 +51,11 @@ Two panels plus a global search overlay (ASCII wireframe — permitted exception
 
 - The vault is the interface: nothing in the UI (tags, structure, rules) exists anywhere but the files.
 - Keyboard-first for the frequent loop: ⌘K → open → edit → done.
-- Visual design (theme, typography) is deliberately unspecified until E1 — decide then, record here.
+## Visual design (decided E1, 2026-07-09)
+
+**Warm / paper direction** — a calm, Notion-like reading surface that gets out of the way of note content.
+
+- **Palette:** warm off-white paper background (not stark white), soft warm-gray borders and secondary text, a single restrained accent. Light and dark are both first-class (the app respects OS theme); dark is a warm charcoal, not pure black.
+- **Typography:** a humanist sans for body/UI; titles may take a serif accent for the "paper" feel. Generous line-height and comfortable measure for long-form reading.
+- **Layout:** generous whitespace, low-contrast chrome, content-forward. The two panels share the paper surface with only a hairline divider.
+- **Stack:** Tailwind CSS v4 (design tokens drive light/dark). Implemented in `apps/desktop`; tokens are defined once in the renderer's global stylesheet and reused.

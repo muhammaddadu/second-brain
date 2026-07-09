@@ -20,7 +20,7 @@ Epic IDs are stable (never renumbered); **table order is the build order**.
 | Epic | Title | Status | Depends on |
 |------|-------|--------|-----------|
 | [E0](E0-vault-core.md) | Workspace skeleton & vault core | ✅ Done | — |
-| [E1](E1-desktop-shell.md) | Desktop shell & folder navigation | Planned | E0 |
+| [E1](E1-desktop-shell.md) | Desktop shell & folder navigation | ✅ Done | E0 |
 | [E2](E2-blocknote-editor.md) | BlockNote editing & Markdown import/export | Planned | E1 |
 | [E7](E7-diagrams.md) | Diagrams as first-class blocks | Planned | E2 |
 | [E3](E3-file-actions.md) | File actions & live vault updates | Planned | E2 |

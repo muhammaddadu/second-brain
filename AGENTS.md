@@ -27,17 +27,20 @@ Run from the repo root. Package manager is **pnpm** (`pnpm install` first). Scri
 | Command | What it does |
 |---------|--------------|
 | `pnpm install` | Install all workspace dependencies |
-| `pnpm dev` | Current dev loop: `@brain/core` tests in watch mode (desktop app `dev` lands in E1) |
+| `pnpm dev` | Launch the desktop app (electron-vite) with HMR |
 | `pnpm lint` | Biome lint + format check (`biome check .`) — `pnpm format` to auto-fix |
 | `pnpm typecheck` | `tsc --noEmit` in every package |
-| `pnpm test` | Vitest run in every package |
-| `pnpm build` | `tsc` build in every package (emits `dist/`) |
+| `pnpm test` | Vitest unit tests in every package |
+| `pnpm test:e2e` | Desktop Playwright E2E — builds the app, drives real Electron (needs a display) |
+| `pnpm build` | Build every package (core → `dist/` via `tsc`; desktop → `out/` via electron-vite) |
 
-**Before declaring any change done:** `pnpm lint && pnpm typecheck && pnpm test && pnpm build` must all pass, and the docs cross-links in `docs/README.md` must resolve.
+Point the app at a scratch vault with `BRAIN_VAULT=/path/to/vault pnpm dev` (otherwise it shows a folder picker).
+
+**Before declaring any change done:** `pnpm lint && pnpm typecheck && pnpm test && pnpm build` must all pass (plus `pnpm test:e2e` when desktop behaviour changed), and the docs cross-links in `docs/README.md` must resolve.
 
 ## Repo Layout
 
-Traces to [app-architecture](docs/architecture/app-architecture.md). `packages/core` landed in E0; the rest are planned.
+Traces to [app-architecture](docs/architecture/app-architecture.md). `packages/core` (E0) and `apps/desktop` (E1) have landed; the rest are planned.
 
 ```
 AGENTS.md, CLAUDE.md, LEARNINGS.md   # agent guidance (this methodology)
@@ -45,7 +48,7 @@ package.json, pnpm-workspace.yaml    # pnpm monorepo root
 tsconfig.base.json, biome.json       # shared TS config; Biome lint+format
 docs/                # project documentation — routing index at docs/README.md
 packages/core/       # (E0 ✓) vault library: note envelope/metadata, tree, mutations, trash — ALL vault I/O lives here
-apps/desktop/        # (planned, E1) Electron + React + Vite app
+apps/desktop/        # (E1 ✓) Electron + React + Vite shell: main (hosts core), preload (IPC bridge), renderer (React UI)
 packages/cli/        # (planned, E5) `brain` CLI — headless agent/human surface
 packages/mcp/        # (planned, E6) MCP server exposing vault tools to agents
 ```

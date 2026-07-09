@@ -25,7 +25,14 @@
 | **TypeScript strict + NodeNext ESM** | shared `tsconfig.base.json` | strict mode with `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`; ESM throughout |
 | **Vault concurrency: atomic write-then-rename + watcher + WAL** | see [ADR 0002](../adr/0002-vault-concurrency-atomic-write-rename.md) | integrity by construction, no coordinator, headless-safe |
 
-**Still deferred:** Electron tooling (electron-vite vs. Forge) — decided in E1 when `apps/desktop` lands.
+## Fixed in E1 (2026-07-09)
+
+| Choice | What | Why |
+|--------|------|-----|
+| **electron-vite** | Electron build/dev tooling | Vite for main/preload/renderer with HMR and a clean dev loop; packaging (Forge's strength) is out of scope until after E6 |
+| **Tailwind CSS v4** (`@tailwindcss/vite`) | renderer styling | fast layout + theme tokens driving light/dark; warm-paper theme in `apps/desktop` ([ux/index.md § Visual design](../ux/index.md)) |
+| **React 19** | renderer UI framework | user-chosen requirement ([PRD §3.3](../product/prd.md)); function components, state local to the renderer |
+| **Playwright** (`_electron`) | desktop E2E | drives the real built Electron app; the E1 harness every later desktop epic extends |
 
 ## Constraints on future additions
 

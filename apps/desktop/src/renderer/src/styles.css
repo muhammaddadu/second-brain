@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+/*
+ * Warm / paper theme (ux/index.md § Visual design). Tokens map Tailwind color/font utilities to
+ * CSS variables that flip with the OS light/dark preference — so `bg-paper`, `text-ink`,
+ * `text-muted`, `border-edge`, `text-accent`, `font-serif` all stay theme-aware.
+ */
+@theme {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-edge: var(--edge);
+  --color-accent: var(--accent);
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: Georgia, "Times New Roman", serif;
+}
+
+:root {
+  --paper: #faf7f2;
+  --surface: #f4efe7;
+  --ink: #2b2723;
+  --muted: #8a8175;
+  --edge: #e7ddcf;
+  --accent: #b5744a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #1c1a17;
+    --surface: #23201b;
+    --ink: #e8e3da;
+    --muted: #9a9184;
+    --edge: #332e27;
+    --accent: #d08a5e;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}

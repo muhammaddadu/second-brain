@@ -8,11 +8,12 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "pnpm --filter @brain/core test:watch",
+    "dev": "pnpm --filter @brain/desktop dev",
     "lint": "biome check .",
     "format": "biome check --write .",
     "typecheck": "pnpm -r --if-present run typecheck",
     "test": "pnpm -r --if-present run test",
+    "test:e2e": "pnpm --filter @brain/desktop test:e2e",
     "build": "pnpm -r --if-present run build"
   },
   "devDependencies": {
@@ -21,7 +22,9 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "esbuild"
+      "esbuild",
+      "electron",
+      "@tailwindcss/oxide"
     ]
   }
 }

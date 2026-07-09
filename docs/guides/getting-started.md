@@ -2,7 +2,7 @@
 
 > **This doc owns:** running the project locally — prerequisites, install, dev loop. **For what the commands do architecturally see** [app-architecture](../architecture/app-architecture.md); **for the command list see** [AGENTS.md → Commands](../../AGENTS.md#commands).
 
-As of [E0](../product/epics/E0-vault-core.md), the repo is a pnpm monorepo with one package, `@brain/core` (all vault I/O). The desktop app arrives in [E1](../product/epics/E1-desktop-shell.md); until then there is no app to launch — the dev loop is core plus its tests.
+As of [E1](../product/epics/E1-desktop-shell.md), the repo is a pnpm monorepo with `@brain/core` (all vault I/O) and `@brain/desktop` (the Electron shell — folder tree + read-only note view). Rich editing arrives in E2.
 
 ## Prerequisites
 
@@ -20,14 +20,15 @@ All four must pass before any change is done ([AGENTS.md → Commands](../../AGE
 
 ## Dev loop
 
-- `pnpm dev` — runs `@brain/core` tests in watch mode (the current inner loop; the app `dev` server lands in E1).
-- `pnpm test` — one-shot Vitest run across the workspace.
+- `pnpm dev` — launches the desktop app with HMR. On first run it shows a folder picker; to skip that, point it at a scratch vault: `BRAIN_VAULT=/path/to/vault pnpm dev`.
+- `pnpm test` — one-shot Vitest run across the workspace (core unit tests).
+- `pnpm test:e2e` — builds the app and drives real Electron with Playwright (needs a display).
 - `pnpm format` — apply Biome formatting fixes.
 
 ## Developing against a vault
 
-Core operates on any directory as a vault. Tests never touch a personal vault — they build a throwaway temp-dir vault with synthetic notes via the `createFixtureVault` helper in `packages/core/src/test-support/`. Follow that pattern for local experiments; **never point tests or fixtures at a real vault** ([AGENTS.md → Git Conventions](../../AGENTS.md#git-conventions)).
+Core operates on any directory as a vault. Tests never touch a personal vault — they build a throwaway temp-dir vault with synthetic notes via the `createFixtureVault` helper in `packages/core/src/test-support/` (the desktop E2E seeds its own temp vault the same way). For manual runs, make an empty scratch folder and pass it via `BRAIN_VAULT`; **never point tests, fixtures, or `BRAIN_VAULT` at a real vault** ([AGENTS.md → Git Conventions](../../AGENTS.md#git-conventions)).
 
 ## What's next
 
-Launching the desktop app against a scratch vault is documented here in the same change as [E1](../product/epics/E1-desktop-shell.md). Orient on build order via the [epics index](../product/epics/index.md).
+Rich in-place editing and Markdown import/export land in [E2](../product/epics/E2-blocknote-editor.md). Orient on build order via the [epics index](../product/epics/index.md).
