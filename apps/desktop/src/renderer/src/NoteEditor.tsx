@@ -63,19 +63,30 @@ export function NoteEditor({ path, note, initialHash, onReload }: NoteEditorProp
     if (conflict) return; // don't overwrite until the user resolves the conflict
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
-      const result = await window.vault.saveBlocks(path, editor.document, hashRef.current);
-      if (result.status === 'saved') hashRef.current = result.hash;
-      else setConflict(true);
+      try {
+        const result = await window.vault.saveBlocks(path, editor.document, hashRef.current);
+        if (result.status === 'saved') hashRef.current = result.hash;
+        else setConflict(true);
+      } catch (error) {
+        // The note changed or vanished on disk mid-edit — surface it rather than silently losing work.
+        console.error(error);
+        setConflict(true);
+      }
     }, AUTOSAVE_MS);
   }
 
   async function keepMine() {
-    // Overwrite the on-disk version with ours (explicit, not silent): save against the latest hash.
-    const latest = await window.vault.readNote(path);
-    const result = await window.vault.saveBlocks(path, editor.document, latest.hash);
-    if (result.status === 'saved') {
-      hashRef.current = result.hash;
-      setConflict(false);
+    try {
+      // Overwrite the on-disk version with ours (explicit, not silent): save against the latest hash.
+      const latest = await window.vault.readNote(path);
+      const result = await window.vault.saveBlocks(path, editor.document, latest.hash);
+      if (result.status === 'saved') {
+        hashRef.current = result.hash;
+        setConflict(false);
+      }
+    } catch (error) {
+      // The note is gone on disk; a reload will surface the missing-note state.
+      console.error(error);
     }
   }
 

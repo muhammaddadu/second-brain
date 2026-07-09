@@ -141,6 +141,21 @@ describe('vault operations', () => {
     ).rejects.toBeInstanceOf(NoteConflictError);
   });
 
+  it('renameNote rejects names with a bad extension or a path separator', async () => {
+    const path = 'Journal/2026-07-07.note.json';
+    await expect(renameNote(vault, path, 'no-extension')).rejects.toBeInstanceOf(InvalidPathError);
+    await expect(renameNote(vault, path, 'a/b.note.json')).rejects.toBeInstanceOf(InvalidPathError);
+  });
+
+  it('guarded save on a note that no longer exists rejects (not a silent success)', async () => {
+    const path = 'Journal/2026-07-07.note.json';
+    const baseHash = await hashNote(vault, path);
+    await trashNote(vault, path); // the note is gone from its path
+    await expect(
+      updateNoteBlocksGuarded(vault, path, [{ type: 'paragraph' }], baseHash),
+    ).rejects.toBeTruthy();
+  });
+
   it('writes deterministic serialised bytes', async () => {
     const note = await readNote(vault, 'Journal/2026-07-07.note.json');
     await writeNote(vault, 'Journal/2026-07-07.note.json', note);

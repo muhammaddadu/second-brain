@@ -35,8 +35,9 @@ export function DiagramView({ renderer, source }: { renderer: DiagramRenderer; s
   }
   return (
     // Safe: SVG is produced by the local mermaid renderer (securityLevel: 'strict'); no remote input.
+    // Padding/centering are handled by the surrounding block; here we just allow wide diagrams to scroll.
     <div
-      className="flex justify-center overflow-x-auto p-2"
+      className="max-w-full overflow-x-auto"
       data-testid="diagram-preview"
       // biome-ignore lint/security/noDangerouslySetInnerHtml: locally-rendered mermaid SVG, strict mode
       dangerouslySetInnerHTML={{ __html: result.svg }}

@@ -40,35 +40,58 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [moving, setMoving] = useState<TreeNode | null>(null);
 
-  async function newNote(folder: string) {
-    const path = await window.vault.newNote(folder);
-    await onRefresh();
-    onSelect(path);
+  // Vault ops can reject (name collision, invalid name, a file that vanished). Never let that
+  // become an unhandled rejection: log it and refresh so the tree reflects reality.
+  async function guard(action: () => Promise<void>) {
+    try {
+      await action();
+    } catch (error) {
+      console.error(error);
+      await onRefresh();
+    }
   }
-  async function newFolder(parent: string) {
-    await window.vault.newFolder(parent);
-    await onRefresh();
+
+  function newNote(folder: string) {
+    return guard(async () => {
+      const path = await window.vault.newNote(folder);
+      await onRefresh();
+      onSelect(path);
+    });
   }
-  async function trash(node: TreeNode) {
-    await window.vault.trash(node.path);
-    await onRefresh();
-    if (selectedPath === node.path) onSelect(null);
+  function newFolder(parent: string) {
+    return guard(async () => {
+      await window.vault.newFolder(parent);
+      await onRefresh();
+    });
   }
-  async function commitRename(node: TreeNode, newBase: string) {
+  function trash(node: TreeNode) {
+    return guard(async () => {
+      await window.vault.trash(node.path);
+      await onRefresh();
+      if (selectedPath === node.path) onSelect(null);
+    });
+  }
+  function commitRename(node: TreeNode, newBase: string) {
     setRenamingPath(null);
     const trimmed = newBase.trim();
     if (!trimmed || trimmed === node.name) return;
-    const newPath = await window.vault.rename(node.path, `${trimmed}${NOTE_EXTENSION}`);
-    await onRefresh();
-    onSelect(newPath);
+    // A note name is a single path segment; reject separators before hitting core.
+    if (trimmed.includes('/') || trimmed.includes('\\')) return;
+    return guard(async () => {
+      const newPath = await window.vault.rename(node.path, `${trimmed}${NOTE_EXTENSION}`);
+      await onRefresh();
+      onSelect(newPath);
+    });
   }
-  async function move(node: TreeNode, folder: string) {
+  function move(node: TreeNode, folder: string) {
     setMoving(null);
-    const name = node.path.split('/').pop() ?? node.path;
-    const toPath = folder ? `${folder}/${name}` : name;
-    await window.vault.move(node.path, toPath);
-    await onRefresh();
-    onSelect(toPath);
+    return guard(async () => {
+      const name = node.path.split('/').pop() ?? node.path;
+      const toPath = folder ? `${folder}/${name}` : name;
+      await window.vault.move(node.path, toPath);
+      await onRefresh();
+      onSelect(toPath);
+    });
   }
 
   function menuItems(node: TreeNode | null): MenuItem[] {

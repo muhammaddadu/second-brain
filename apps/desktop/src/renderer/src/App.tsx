@@ -75,7 +75,12 @@ function Workspace({ info, onSwitch }: { info: VaultInfo; onSwitch: (info: Vault
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshTree = useCallback(async () => {
-    setTree(await window.vault.tree());
+    try {
+      setTree(await window.vault.tree());
+    } catch (error) {
+      // e.g. the vault directory was removed out from under us; keep the last known tree.
+      console.error(error);
+    }
   }, []);
 
   useEffect(() => {

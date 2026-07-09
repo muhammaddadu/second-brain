@@ -91,6 +91,9 @@ export function Onboarding({
     try {
       const info = await action();
       if (info) onReady(info);
+    } catch (error) {
+      // e.g. the chosen folder can't be created/opened — stay on the welcome screen.
+      console.error(error);
     } finally {
       setBusy(false);
     }

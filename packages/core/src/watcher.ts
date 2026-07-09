@@ -44,6 +44,9 @@ export function watchVault(vault: Vault, onChange: (change: VaultChange) => void
   };
 
   watcher.on('add', forward('add')).on('change', forward('change')).on('unlink', forward('unlink'));
+  // Without an 'error' listener chokidar rethrows (e.g. if the vault dir is deleted while open),
+  // which would crash the host process. Swallow — the surface refreshes from disk on next read.
+  watcher.on('error', () => {});
 
   return { close: () => watcher.close() };
 }

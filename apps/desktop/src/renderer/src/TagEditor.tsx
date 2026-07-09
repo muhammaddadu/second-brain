@@ -16,10 +16,16 @@ export function TagEditor({
   const [draft, setDraft] = useState('');
 
   async function commit(next: string[]) {
-    setTags(next);
-    const saved = await window.vault.setTags(path, next);
-    setTags(saved.tags);
-    onSaved?.(saved.hash);
+    const previous = tags;
+    setTags(next); // optimistic
+    try {
+      const saved = await window.vault.setTags(path, next);
+      setTags(saved.tags);
+      onSaved?.(saved.hash);
+    } catch (error) {
+      console.error(error);
+      setTags(previous); // roll back if the write failed (e.g. note vanished)
+    }
   }
 
   function add() {

@@ -27,8 +27,13 @@ export function VaultSwitcher({
 
   async function act(fn: () => Promise<VaultInfo | null>) {
     setOpen(false);
-    const info = await fn();
-    if (info) onSwitch(info);
+    try {
+      const info = await fn();
+      if (info) onSwitch(info);
+    } catch (error) {
+      // A vault that failed to open (moved/permission) shouldn't crash the header.
+      console.error(error);
+    }
   }
 
   return (

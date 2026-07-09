@@ -35,17 +35,17 @@ const codeBlock = createReactBlockSpec(
         const source = inlineText(block.content);
         return (
           <div
-            className="border-edge my-2 overflow-hidden rounded border"
+            className="border-edge my-4 overflow-hidden rounded-lg border"
             data-testid="diagram-block"
           >
-            <div contentEditable={false}>
+            <div contentEditable={false} className="flex justify-center px-6 py-6">
               <DiagramView renderer={renderer} source={source} />
             </div>
             <div className="border-edge bg-surface border-t">
-              <div className="text-muted px-3 pt-1 text-[10px] uppercase tracking-wide">
+              <div className="text-muted px-4 pt-2 pb-1 text-[10px] font-medium tracking-wider uppercase">
                 {language} source
               </div>
-              <pre className="overflow-x-auto px-3 py-2 font-mono text-xs">
+              <pre className="text-ink overflow-x-auto px-4 pt-0 pb-3 font-mono text-xs leading-relaxed">
                 <code ref={contentRef} data-testid="diagram-source" />
               </pre>
             </div>
@@ -54,7 +54,7 @@ const codeBlock = createReactBlockSpec(
       }
 
       return (
-        <pre className="bg-surface my-2 overflow-x-auto rounded p-3 font-mono text-sm">
+        <pre className="bg-surface text-ink my-4 overflow-x-auto rounded-lg p-4 font-mono text-sm leading-relaxed">
           <code ref={contentRef} />
         </pre>
       );
