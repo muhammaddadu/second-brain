@@ -16,11 +16,14 @@ import {
 } from '@blocknote/react';
 import type { NoteEnvelope } from '@brain/core';
 import { noteDisplayName } from '@brain/core/paths';
+import type { NoteRef } from '@brain/core/wikilinks';
 import { AlertTriangle, Workflow } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { Backlinks } from './Backlinks';
 import { ConflictDiff } from './ConflictDiff';
 import { editorSchema } from './editorSchema';
 import { TagEditor } from './TagEditor';
+import { WikilinkOverlay } from './WikilinkOverlay';
 
 const STARTER_DIAGRAM = 'graph TD\n  A[Start] --> B[End]';
 
@@ -34,12 +37,21 @@ interface NoteEditorProps {
   path: string;
   note: NoteEnvelope;
   initialHash: string;
+  /** Open another note (wikilink navigation). */
+  onOpenNote: (path: string) => void;
   onReload: () => void;
   /** Called with the new path when editing the title renamed the note's file. */
   onRenamed: (newPath: string) => void;
 }
 
-export function NoteEditor({ path, note, initialHash, onReload, onRenamed }: NoteEditorProps) {
+export function NoteEditor({
+  path,
+  note,
+  initialHash,
+  onOpenNote,
+  onReload,
+  onRenamed,
+}: NoteEditorProps) {
   const initialContent =
     Array.isArray(note.blocks) && note.blocks.length > 0
       ? (note.blocks as PartialBlock[])
@@ -56,6 +68,13 @@ export function NoteEditor({ path, note, initialHash, onReload, onRenamed }: Not
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [conflict, setConflict] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
+  // The vault's notes (path + title) for wikilink resolution and the [[ picker; refreshed live.
+  const [noteRefs, setNoteRefs] = useState<NoteRef[]>([]);
+  useEffect(() => {
+    const load = () => window.vault.noteRefs().then(setNoteRefs).catch(console.error);
+    load();
+    return window.vault.onVaultChange(load);
+  }, []);
 
   function rememberOwnWrite(hash: string) {
     hashRef.current = hash;
@@ -240,7 +259,19 @@ export function NoteEditor({ path, note, initialHash, onReload, onRenamed }: Not
             }
           />
         </BlockNoteView>
+        <WikilinkOverlay
+          editor={editor}
+          notes={noteRefs}
+          onNavigate={onOpenNote}
+          onCreateMissing={(target) => {
+            void window.vault
+              .createNoteFromLink(target)
+              .then((newPath) => onOpenNote(newPath))
+              .catch(console.error);
+          }}
+        />
       </div>
+      <Backlinks path={path} onOpenNote={onOpenNote} />
     </article>
   );
 }

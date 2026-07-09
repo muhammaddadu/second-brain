@@ -47,4 +47,6 @@ claude mcp add second-brain -- node packages/mcp/dist/index.js --vault /path/to/
 
 **The rules handshake:** new vaults seed a starter `RULES.md` (edited in Settings → Agent access); agents call `get_rules` → `search` for placement → write. The canonical "summarise my last 24 hours and file it where it belongs" flow is executable and test-proven: `packages/mcp/src/server.test.ts` scripts an MCP client through rules → search → update-existing → create-in-the-mandated-folder and asserts on the resulting files.
 
+**Wikilinks:** reference another note with `[[Folder/Note]]` or `[[Note Title]]` written as plain text anywhere in a note's Markdown/content — the app renders it clickable, resolves it (exact path, then unique title), and shows it as a backlink on the target. No special tool: an agent just writes the `[[…]]` text ([ADR 0010](../adr/0010-wikilinks-plain-text-with-nondestructive-rendering.md)).
+
 **Content formats:** write tools accept Markdown (converted by core — no schema knowledge needed); reads return Markdown; the on-disk canonical format stays BlockNote JSON ([ADR 0001](../adr/0001-blocknote-json-canonical-note-format.md)).

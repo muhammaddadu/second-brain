@@ -12,6 +12,7 @@ import type {
   GraphData,
   ImportResult,
   NoteEnvelope,
+  NoteRef,
   PropertyType,
   ProviderKind,
   ProviderSecrets,
@@ -51,6 +52,10 @@ export const IPC = {
   importFiles: 'vault:import-files',
   search: 'vault:search',
   graph: 'vault:graph',
+  resolveLink: 'vault:resolve-link',
+  backlinks: 'vault:backlinks',
+  noteRefs: 'vault:note-refs',
+  createNoteFromLink: 'vault:create-from-link',
   // Databases (E8, ADR 0004).
   getDatabase: 'db:get',
   createDatabase: 'db:create',
@@ -260,8 +265,16 @@ export interface VaultApi {
   ): Promise<ImportResult[]>;
   /** Search the vault (keyword, plus semantic when a provider is configured); ranked, with snippets. */
   search(query: string, limit?: number): Promise<SearchHit[]>;
-  /** The knowledge graph derived from the index — notes as nodes, tag + semantic edges. */
+  /** The knowledge graph derived from the index — notes as nodes, tag + semantic + link edges. */
   graph(threshold?: number): Promise<GraphData>;
+  /** Resolve a wikilink target to a vault note path (path, then unique title), or null. */
+  resolveLink(target: string): Promise<string | null>;
+  /** Notes that link to `path` (its backlinks), with titles. */
+  backlinks(path: string): Promise<NoteRef[]>;
+  /** All notes as {path, title} — for client-side wikilink resolution and the [[ picker. */
+  noteRefs(): Promise<NoteRef[]>;
+  /** Create a note at a wikilink target (e.g. "People/Robert Kohler"); returns the created path. */
+  createNoteFromLink(target: string): Promise<string>;
 
   // --- Databases (E8, ADR 0004) ---
   /** A folder's database schema, or null when the folder isn't a database. */

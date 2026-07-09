@@ -158,7 +158,19 @@ const SEED_NOTES: SeedNote[] = [
       h(3, 'Today'),
       li('Set up my vault and read the guide.'),
       li('Tried ⌘K search and moved a few notes around.'),
+      li('Coffee with [[People/Ada Lovelace]] — type [[ anywhere to link a note.'),
       li('Idea: keep a running list of book highlights to revisit.'),
+    ],
+  },
+  {
+    path: 'People/Ada Lovelace.note.json',
+    title: 'Ada Lovelace',
+    tags: ['person'],
+    blocks: [
+      h(1, 'Ada Lovelace'),
+      p(
+        'A "People" note is just a note. Write `[[Ada Lovelace]]` (or the full path `[[People/Ada Lovelace]]`) in any other note and it becomes a link back here — see "Linked from" at the bottom of a note for everything that points to it.',
+      ),
     ],
   },
 ];

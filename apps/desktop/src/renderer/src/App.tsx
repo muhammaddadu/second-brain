@@ -235,6 +235,7 @@ function Workspace({
           ) : (
             <NoteView
               path={selectedPath}
+              onOpenNote={(path) => setRoute({ name: 'note', path })}
               onRenamed={(newPath) => {
                 setRoute({ name: 'note', path: newPath });
                 void refreshTree();

@@ -8,9 +8,12 @@ import { join } from 'node:path';
 import {
   addProperty,
   buildGraph,
+  collectVaultLinks,
   createDatabase,
   createFolderWithUniqueName,
+  createNote,
   createNoteWithUniqueName,
+  getBacklinks,
   hashNote,
   importFileAsNote,
   indexPath,
@@ -33,6 +36,7 @@ import {
   reindexNote,
   renameFolder,
   renameNote,
+  resolveWikilink,
   type SearchIndex,
   setFolderOrder,
   setNoteTitle,
@@ -319,6 +323,25 @@ function registerHandlers(): void {
   ipcMain.handle(IPC.setOrder, async (_event, folder: string, orderedNames: string[]) => {
     await setFolderOrder(requireVault(), folder, orderedNames);
   });
+  ipcMain.handle(IPC.resolveLink, (_event, target: string) => {
+    // Resolve against the index's note list (paths + titles) — no file reads, so link clicks are instant.
+    const notes = searchIndex ? searchIndex.graphNotes() : [];
+    return resolveWikilink(target, notes);
+  });
+  ipcMain.handle(IPC.backlinks, (_event, path: string) => getBacklinks(requireVault(), path));
+  ipcMain.handle(IPC.noteRefs, () =>
+    (searchIndex ? searchIndex.graphNotes() : []).map((n) => ({ path: n.path, title: n.title })),
+  );
+  ipcMain.handle(IPC.createNoteFromLink, async (_event, target: string) => {
+    const clean = target
+      .trim()
+      .replace(/^\.?\//, '')
+      .replace(new RegExp(`${NOTE_EXTENSION}$`), '');
+    const relPath = `${clean}${NOTE_EXTENSION}`;
+    const title = clean.split('/').pop() ?? clean;
+    await createNote(requireVault(), relPath, { title });
+    return relPath;
+  });
   ipcMain.handle(
     IPC.importFiles,
     async (_event, folder: string, files: Array<{ name: string; data: Uint8Array }>) => {
@@ -352,12 +375,15 @@ function registerHandlers(): void {
   ipcMain.handle(IPC.listRows, (_event, folder: string) => listRows(requireVault(), folder));
   ipcMain.handle(IPC.listDatabases, () => listDatabases(requireVault()));
 
-  ipcMain.handle(IPC.graph, (_event, threshold?: number) => {
+  ipcMain.handle(IPC.graph, async (_event, threshold?: number) => {
     if (!searchIndex) return { nodes: [], edges: [] };
     const model = embeddings.provider()?.model;
+    // Explicit wikilinks (read from files) become link edges alongside tag/semantic similarity.
+    const { links } = await collectVaultLinks(requireVault());
     return buildGraph(searchIndex, {
       ...(model ? { model } : {}),
       ...(typeof threshold === 'number' ? { threshold } : {}),
+      links,
     });
   });
 

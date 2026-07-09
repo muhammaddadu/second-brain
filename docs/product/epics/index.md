@@ -28,6 +28,7 @@ Epic IDs are stable (never renumbered); **table order is the build order**.
 | [E5](E5-cli.md) | CLI surface | Done ✓ | E0, E4 |
 | [E6](E6-mcp-rules.md) | MCP server & vault rules | Done ✓ | E5 |
 | [E8](E8-databases.md) | Databases | Done ✓ | E2, E3 |
+| [E9](E9-wikilinks.md) | Wikilinks | Done ✓ | E2, E4 |
 
 ## Build order & dependencies
 

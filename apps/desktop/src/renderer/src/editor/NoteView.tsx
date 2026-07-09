@@ -14,9 +14,11 @@ import { NoteEditor } from './NoteEditor';
 
 export function NoteView({
   path,
+  onOpenNote,
   onRenamed,
 }: {
   path: string | null;
+  onOpenNote: (path: string) => void;
   onRenamed: (newPath: string) => void;
 }) {
   const [loaded, setLoaded] = useState<{ note: NoteEnvelope; hash: string } | null>(null);
@@ -82,6 +84,7 @@ export function NoteView({
       path={path}
       note={loaded.note}
       initialHash={loaded.hash}
+      onOpenNote={onOpenNote}
       onReload={() => setReloadNonce((n) => n + 1)}
       onRenamed={(newPath) => {
         renamedTo.current = newPath; // skip the reload the route change would otherwise trigger

@@ -77,6 +77,12 @@ export {
   importMarkdownAsNote,
 } from './import-export.js';
 export { IMPORTABLE_EXTENSIONS, type ImportResult, importFileAsNote } from './import-file.js';
+export {
+  collectVaultLinks,
+  getBacklinks,
+  type VaultLink,
+  type VaultLinks,
+} from './links.js';
 export { blocksToMarkdown, markdownToBlocks } from './markdown.js';
 export {
   AGENT_GUIDE_FILE,
@@ -147,3 +153,10 @@ export {
   type VaultWatcher,
   watchVault,
 } from './watcher.js';
+export {
+  type NoteRef,
+  parseWikilinks,
+  resolveWikilink,
+  type WikiLink,
+  wikilinkTargets,
+} from './wikilinks.js';

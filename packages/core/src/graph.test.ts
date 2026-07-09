@@ -33,6 +33,24 @@ describe('buildGraph', () => {
     expect(edge?.weight).toBeCloseTo(1 / 2); // shared {y} over union {x,y}
   });
 
+  it('adds explicit wikilink edges, which dominate a same-pair tag edge', async () => {
+    index.upsert({ path: 'a.note.json', title: 'A', tags: ['x'], hash: '1', text: 'a' });
+    index.upsert({ path: 'b.note.json', title: 'B', tags: ['x'], hash: '2', text: 'b' });
+    const graph = buildGraph(index, {
+      links: [{ from: 'a.note.json', to: 'b.note.json' }],
+    });
+    expect(graph.edges).toHaveLength(1); // one merged edge for the pair
+    const edge = graph.edges[0];
+    expect(edge?.kind).toBe('link'); // explicit link wins over the shared-tag edge
+    expect(edge?.weight).toBe(1);
+  });
+
+  it('ignores link edges to unknown notes', async () => {
+    index.upsert({ path: 'a.note.json', title: 'A', tags: [], hash: '1', text: 'a' });
+    const graph = buildGraph(index, { links: [{ from: 'a.note.json', to: 'gone.note.json' }] });
+    expect(graph.edges).toHaveLength(0);
+  });
+
   it('is derived from the index — rebuilding reproduces the same nodes and edges', async () => {
     const vault2 = openVault(fixture.root);
     await createNote(vault2, 'One.note.json', { title: 'One' });

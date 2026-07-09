@@ -61,6 +61,13 @@ test.beforeAll(async () => {
   await importMarkdownAsNote(vault, CODE_PATH, '```python\nprint("hi")\n```\n', {
     title: 'Snippet',
   });
+  // Wikilink fixtures: a target note and a note linking to it by path.
+  await importMarkdownAsNote(vault, 'People/Ada Lovelace.note.json', 'A person.', {
+    title: 'Ada Lovelace',
+  });
+  await importMarkdownAsNote(vault, 'Links/Daily.note.json', 'Met [[People/Ada Lovelace]] today.', {
+    title: 'Daily',
+  });
 
   app = await electron.launch({
     args: [mainEntry, `--user-data-dir=${userData}`],
@@ -554,6 +561,25 @@ test('dropping a Markdown file onto the tree imports it as a note', async () => 
   const parsed = JSON.parse(await readFile(imported, 'utf8'));
   expect(parsed.meta.title).toBe('Imported doc');
   await expect(window.getByRole('button', { name: 'Imported doc', exact: true })).toBeVisible();
+});
+
+test('wikilinks: [[link]] renders clickable, navigates, and shows a backlink', async () => {
+  // The fixture note "Daily" references [[People/Ada Lovelace]].
+  await openNote('Links', 'Daily');
+  const link = window.locator('.wikilink').first();
+  await expect(link).toBeVisible({ timeout: 8000 });
+  await expect(link).toHaveText(/Ada Lovelace/);
+
+  // Clicking it opens the target note…
+  await link.click();
+  await expect(window.getByTestId('note-title')).toHaveValue('Ada Lovelace', { timeout: 8000 });
+
+  // …which shows the linking note as a backlink; clicking that returns.
+  const backlinks = window.getByTestId('backlinks');
+  await expect(backlinks).toBeVisible();
+  await expect(backlinks).toContainText('Daily');
+  await backlinks.getByRole('button', { name: 'Daily', exact: true }).click();
+  await expect(window.getByTestId('note-title')).toHaveValue('Daily');
 });
 
 test('opens the knowledge graph and can return to a note', async () => {

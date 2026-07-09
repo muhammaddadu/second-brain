@@ -75,6 +75,14 @@ Owner-defined agent conventions ([PRD §3.6](../product/prd.md)) live in `RULES.
 
 Distinct from that, `AGENTS.md` (also plain Markdown at the root) is the **app-maintained agent guide** — the filesystem *contract* (note envelope, folders/tags, reserved `.brain/`, `.order.json`, safe writes) that orients any agent working the folder directly. The app writes and version-refreshes it on vault open but never clobbers owner edits (a `<!-- second-brain:agent-guide vN managed:HASH -->` marker distinguishes an untouched app copy from one the owner changed). The same body is installable as a global Claude Code skill from Settings → Agent access ([ADR 0009](../adr/0009-agent-guide-and-installable-skill.md)). So: `AGENTS.md` = *how the vault works* (app owns), `RULES.md` = *the owner's conventions* (owner owns).
 
+## Wikilinks (E9 ✓)
+
+Notes reference each other with `[[target]]` / `[[target|alias]]` written as **plain text inside the note document** — no special block or metadata ([ADR 0010](../adr/0010-wikilinks-plain-text-with-nondestructive-rendering.md)). Because a link is ordinary text, agents write it with zero schema knowledge, it survives Markdown export unchanged, and opening/editing a note never rewrites it (the app renders links via a non-destructive editor decoration, so the bytes on disk don't change).
+
+- **Resolution (one rule, every surface):** `target` resolves to an exact vault path first (`People/Robert Kohler` → `People/Robert Kohler.note.json`, case-insensitive fallback), then to a note with a unique matching filename or title (so bare `[[Robert Kohler]]` also works). Ambiguous bare names don't resolve; the full path always does.
+- **Backlinks and graph edges are derived, never stored** — computed by reading the notes (`collectVaultLinks`), so they rebuild from the files like every other derived view. A resolved link becomes a `link` edge in the knowledge graph (stronger than tag/semantic similarity).
+- Owned by core `wikilinks.ts` (pure `parseWikilinks` / `resolveWikilink`) + `links.ts` (vault-wide scan). `[[Note#Heading]]` parses today but only the note resolves; sub-note anchors are future work.
+
 ## Databases (E8 ✓)
 
 A **database** is a folder that also contains a `database.json` descriptor; each note in that folder is a **row**. Storage rationale is [ADR 0004](../adr/0004-databases-as-folders-of-notes-with-schema.md); this is the format E8 builds to.

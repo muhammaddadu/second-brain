@@ -23,6 +23,8 @@
     "@brain/core": "workspace:*",
     "@floating-ui/dom": "^1.6.0",
     "@huggingface/transformers": "^4.2.0",
+    "@tiptap/core": "^3.27.3",
+    "@tiptap/pm": "^3.27.3",
     "d3-force": "^3.0.0",
     "diff": "^7.0.0",
     "lucide-react": "^0.460.0",
