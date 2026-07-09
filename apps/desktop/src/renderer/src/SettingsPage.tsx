@@ -29,7 +29,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-10 py-8" data-testid="settings-page">
+    <div className="animate-fade mx-auto max-w-2xl px-10 py-8" data-testid="settings-page">
       <h1 className="font-serif text-3xl font-semibold">Settings</h1>
 
       {settings && (

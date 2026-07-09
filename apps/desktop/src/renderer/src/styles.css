@@ -166,6 +166,69 @@ kbd {
   animation: float 5s ease-in-out infinite;
 }
 
+/* --- Subtle, performant motion (opacity/transform only; auto-off under reduced-motion) --- */
+
+/* Content fades in on mount so switching notes/pages doesn't snap. */
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-fade {
+  animation: fade 0.16s ease-out both;
+}
+
+/* Popovers/menus grow in slightly from their anchor. */
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-pop {
+  animation: pop 0.12s ease-out both;
+  transform-origin: top;
+}
+
+/* Tree children reveal without a hard jump. */
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-reveal {
+  animation: reveal 0.15s ease-out both;
+}
+
+/* Ease hover/active state changes on interactive elements so they don't flash. */
+button,
+a,
+input,
+[role="button"] {
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease,
+    opacity 0.12s ease;
+}
+
+/* A stable scrollbar gutter stops content from shifting when a scrollbar appears/disappears. */
+.scroll-stable {
+  scrollbar-gutter: stable;
+}
+
 /*
  * Blend the BlockNote editor into the paper surface — by default its Mantine theme paints a stark
  * white card. Map its CSS variables to our tokens and inherit our font.

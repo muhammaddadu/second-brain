@@ -135,7 +135,7 @@ function Workspace({
       </header>
       <div className="flex min-h-0 flex-1">
         <nav className="sidebar border-edge flex w-64 shrink-0 flex-col border-r">
-          <div className="min-h-0 flex-1 overflow-y-auto py-2">
+          <div className="scroll-stable min-h-0 flex-1 overflow-y-auto py-2">
             <FolderTree
               nodes={tree}
               selectedPath={selectedPath}
@@ -157,7 +157,7 @@ function Workspace({
             Settings
           </button>
         </nav>
-        <main className="content-surface min-w-0 flex-1 overflow-y-auto">
+        <main className="content-surface scroll-stable min-w-0 flex-1 overflow-y-auto">
           {route.name === 'settings' ? (
             <SettingsPage />
           ) : (

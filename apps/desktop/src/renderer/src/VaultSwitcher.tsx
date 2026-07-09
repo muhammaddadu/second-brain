@@ -64,7 +64,7 @@ export function VaultSwitcher({
           {/* biome-ignore lint/a11y/useKeyWithClickEvents: transient menu, closes on outside click */}
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
-            className="border-edge bg-raised absolute top-full left-0 z-50 mt-1 w-72 overflow-hidden rounded-xl border py-1 text-sm shadow-md"
+            className="border-edge bg-raised animate-pop absolute top-full left-0 z-50 mt-1 w-72 overflow-hidden rounded-xl border py-1 text-sm shadow-md"
             data-testid="vault-switcher-menu"
           >
             {recents.length > 0 && (

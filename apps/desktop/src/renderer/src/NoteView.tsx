@@ -50,10 +50,14 @@ export function NoteView({
     );
   }
   if (error) {
-    return <div className="text-muted px-10 py-8">Couldn’t open note: {error}</div>;
+    return (
+      <div className="text-muted mx-auto max-w-3xl px-10 py-8">Couldn’t open note: {error}</div>
+    );
   }
   if (!loaded) {
-    return <div className="text-muted px-10 py-8">Loading…</div>;
+    // Same container as the article so content doesn't jump in when it loads. No text flash for
+    // the common fast case — a bare, quiet placeholder.
+    return <div className="mx-auto max-w-3xl px-10 py-8" aria-hidden />;
   }
 
   // key remounts the editor with fresh content on note switch or reload-after-conflict.

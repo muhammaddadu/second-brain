@@ -294,7 +294,7 @@ function TreeItem(props: TreeItemProps) {
           <span className="truncate font-medium">{node.name}</span>
         </button>
         {isOpen && children.length > 0 && (
-          <ul>
+          <ul className="animate-reveal">
             {children.map((child) => (
               <TreeItem key={child.path} {...props} node={child} depth={depth + 1} />
             ))}

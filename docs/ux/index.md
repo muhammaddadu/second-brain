@@ -75,3 +75,4 @@ A **Settings** entry pinned at the bottom of the sidebar opens a small preferenc
 - **Typography:** a humanist sans for body/UI; titles may take a serif accent for the "paper" feel. Generous line-height and comfortable measure for long-form reading.
 - **Layout:** generous whitespace, low-contrast chrome, content-forward. The two panels share the paper surface with only a hairline divider.
 - **Stack:** Tailwind CSS v4 (design tokens drive light/dark). Implemented in `apps/desktop`; tokens are defined once in the renderer's global stylesheet and reused.
+- **Motion & stability:** subtle, fast, GPU-friendly (opacity/transform only) — content fades in on note/page switch, tree children and popovers ease in, hover states transition. Layout must not jump: matched containers across loading/loaded states and a stable scrollbar gutter. All motion auto-disables under `prefers-reduced-motion`.

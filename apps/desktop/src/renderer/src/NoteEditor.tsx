@@ -126,7 +126,7 @@ export function NoteEditor({ path, note, initialHash, onReload, onRenamed }: Not
   }
 
   return (
-    <article className="mx-auto max-w-3xl px-10 py-8">
+    <article className="animate-fade mx-auto max-w-3xl px-10 py-8">
       {conflict && (
         <div
           className="border-edge bg-surface mb-4 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm"

@@ -36,7 +36,7 @@ export function ContextMenu({
         onContextMenu={(e) => e.preventDefault()}
       />
       <ul
-        className="border-edge bg-raised fixed z-50 min-w-44 overflow-hidden rounded-lg border py-1 text-sm shadow-md"
+        className="border-edge bg-raised animate-pop fixed z-50 min-w-44 overflow-hidden rounded-lg border py-1 text-sm shadow-md"
         style={{ top: y, left: x }}
         data-testid="context-menu"
       >
