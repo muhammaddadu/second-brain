@@ -2,6 +2,14 @@
 
 export { atomicWriteFile } from './atomic.js';
 export {
+  cosineSimilarity,
+  createEmbeddingProvider,
+  DEFAULT_EMBEDDING_CONFIG,
+  type EmbeddingConfig,
+  type EmbeddingProvider,
+  fuseRankings,
+} from './embeddings.js';
+export {
   CURRENT_ENVELOPE_VERSION,
   getTags,
   type NoteEnvelope,
@@ -36,6 +44,9 @@ export {
   blocksToText,
   buildMatchQuery,
   chunkText,
+  type EmbedProgress,
+  embedPending,
+  hybridSearch,
   type IndexEntry,
   indexPath,
   openSearchIndex,

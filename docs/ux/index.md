@@ -57,7 +57,7 @@ Two panels plus a global search overlay (ASCII wireframe — permitted exception
 
 ## Settings (E1 ✓)
 
-A **Settings** entry pinned at the bottom of the sidebar opens a small preferences panel — the seam for user preferences over time. Today it exposes what is genuinely configurable: **Appearance → Theme** (System / Light / Dark, applied live via `nativeTheme`) and **Reduce transparency** (turns off the vibrancy/Mica effect). Preferences persist in the app config and apply immediately. Future settings (default editor behaviour, embedding provider for E4, agent rules shortcuts) slot into this same panel.
+A **Settings** entry pinned at the bottom of the sidebar opens a dedicated preferences page (sidebar stays in place) — the seam for user preferences over time. Today: **Appearance** — Theme (System / Light / Dark, applied live via `nativeTheme`) and Reduce transparency (turns off the vibrancy/Mica effect); and **Search & indexing** — a *Semantic search* toggle (off by default; keyword search always works and stays local) that, when on, reveals the embedding provider fields (endpoint / model / optional API key), with a plain note that a local runtime keeps everything on-machine while a hosted URL sends note text out ([ADR 0007](../adr/0007-embeddings-provider-config-and-vector-storage.md)). Preferences persist in the app config and apply immediately.
 
 ## Search (⌘K, E4 — keyword shipped)
 

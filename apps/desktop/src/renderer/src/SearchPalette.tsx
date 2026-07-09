@@ -135,7 +135,6 @@ export function SearchPalette({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: click-catcher backdrop */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: Esc handled on the input below */}
       <div className="absolute inset-0 bg-black/25" onClick={onClose} />
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: palette keyboard scope */}
       <div
         ref={dialogRef}
         className="border-edge bg-raised animate-pop relative flex w-full max-w-xl flex-col overflow-hidden rounded-xl border shadow-md"

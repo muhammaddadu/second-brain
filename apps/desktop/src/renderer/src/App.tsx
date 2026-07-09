@@ -5,9 +5,9 @@
  * the renderer holds only UI state. A watcher subscription refreshes the tree live (E3).
  */
 import type { TreeNode } from '@brain/core';
-import { Search, Settings as SettingsIcon } from 'lucide-react';
+import { Loader2, Search, Settings as SettingsIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Appearance, VaultInfo } from '../../shared/ipc';
+import type { Appearance, IndexStatus, VaultInfo } from '../../shared/ipc';
 import { DEFAULT_ROUTE, type Route, routeFromUrl } from '../../shared/route';
 import { FolderTree } from './FolderTree';
 import { NoteView } from './NoteView';
@@ -92,6 +92,7 @@ function Workspace({
     initialRoute ? routeFromUrl(initialRoute) : DEFAULT_ROUTE,
   );
   const [searchOpen, setSearchOpen] = useState(false);
+  const [indexStatus, setIndexStatus] = useState<IndexStatus>({ state: 'idle', done: 0, total: 0 });
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshTree = useCallback(async () => {
@@ -111,6 +112,7 @@ function Workspace({
     });
     // Deep links / CLI "open to page" navigate the workspace.
     const unsubscribeNav = window.vault.onNavigate((url) => setRoute(routeFromUrl(url)));
+    const unsubscribeIndex = window.vault.onIndexStatus(setIndexStatus);
     // ⌘K / Ctrl+K toggles search from anywhere.
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -122,6 +124,7 @@ function Workspace({
     return () => {
       unsubscribeChange();
       unsubscribeNav();
+      unsubscribeIndex();
       window.removeEventListener('keydown', onKey);
       if (debounce.current) clearTimeout(debounce.current);
     };
@@ -133,17 +136,31 @@ function Workspace({
     <div className="flex h-full flex-col">
       <header className="titlebar app-drag border-edge flex items-center justify-between border-b px-4 py-2">
         <VaultSwitcher current={info} onSwitch={onSwitch} />
-        <button
-          type="button"
-          onClick={() => setSearchOpen(true)}
-          title="Search your notes"
-          data-testid="search-button"
-          className="app-no-drag border-edge text-muted hover:text-ink hover:border-accent/40 flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs"
-        >
-          <Search size={14} strokeWidth={2} />
-          <span>Search</span>
-          <kbd className="text-faint ml-1 font-sans">⌘K</kbd>
-        </button>
+        <div className="app-no-drag flex items-center gap-2">
+          {indexStatus.state === 'indexing' && (
+            <span
+              className="text-muted flex items-center gap-1.5 text-xs"
+              data-testid="index-status"
+              title="Building the semantic search index"
+            >
+              <Loader2 size={13} className="text-accent animate-spin" aria-hidden />
+              <span className="tabular-nums">
+                Indexing {indexStatus.done}/{indexStatus.total}
+              </span>
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            title="Search your notes"
+            data-testid="search-button"
+            className="border-edge text-muted hover:text-ink hover:border-accent/40 flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs"
+          >
+            <Search size={14} strokeWidth={2} />
+            <span>Search</span>
+            <kbd className="text-faint ml-1 font-sans">⌘K</kbd>
+          </button>
+        </div>
       </header>
       <div className="flex min-h-0 flex-1">
         <nav className="sidebar border-edge flex w-64 shrink-0 flex-col border-r">

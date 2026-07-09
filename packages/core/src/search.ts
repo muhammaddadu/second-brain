@@ -10,6 +10,13 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { basename, join } from 'node:path';
+import {
+  cosineSimilarity,
+  decodeVector,
+  type EmbeddingProvider,
+  encodeVector,
+  fuseRankings,
+} from './embeddings.js';
 import { parseNote } from './envelope.js';
 import { BRAIN_DIR, INDEX_DB, NOTE_EXTENSION } from './paths.js';
 import { listTree, type TreeNode } from './tree.js';
@@ -78,6 +85,14 @@ export interface SearchIndex {
   clear(): void;
   /** Keyword search: distinct notes ranked best-first, each with a snippet. */
   search(query: string, limit?: number): SearchHit[];
+  /** Chunks with no embedding for `model` yet (the work list for {@link embedPending}). */
+  pendingChunks(model: string, limit: number): Array<{ id: number; text: string }>;
+  /** How many chunks still need an embedding for `model` (for progress). */
+  pendingCount(model: string): number;
+  /** Store one chunk's vector for `model`. */
+  setEmbedding(chunkId: number, model: string, vec: number[]): void;
+  /** Semantic search: distinct notes ranked by cosine similarity to `queryVec` for `model`. */
+  semanticHits(queryVec: number[], model: string, limit?: number): SearchHit[];
   /** Whether the underlying database is still open (false after {@link SearchIndex.close}). */
   isOpen(): boolean;
   close(): void;
@@ -181,6 +196,7 @@ export function openSearchIndex(dbPath: string): SearchIndex {
     CREATE TABLE IF NOT EXISTS chunks (id INTEGER PRIMARY KEY, path TEXT, pos INTEGER, text TEXT);
     CREATE INDEX IF NOT EXISTS chunks_by_path ON chunks (path);
     CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(text);
+    CREATE TABLE IF NOT EXISTS embeddings (chunk_id INTEGER PRIMARY KEY, model TEXT, vec BLOB);
   `);
 
   // Guard every operation on `open`: a vault switch / HMR reload can close this index while an
@@ -190,6 +206,9 @@ export function openSearchIndex(dbPath: string): SearchIndex {
 
   function remove(path: string): void {
     if (!open) return;
+    db.run('DELETE FROM embeddings WHERE chunk_id IN (SELECT id FROM chunks WHERE path = ?)', [
+      path,
+    ]);
     db.run('DELETE FROM chunks_fts WHERE rowid IN (SELECT id FROM chunks WHERE path = ?)', [path]);
     db.run('DELETE FROM chunks WHERE path = ?', [path]);
     db.run('DELETE FROM notes WHERE path = ?', [path]);
@@ -263,6 +282,73 @@ export function openSearchIndex(dbPath: string): SearchIndex {
           snippet: typeof row.snippet === 'string' ? row.snippet : '',
           // bm25 is negative (lower = better); flip so higher = more relevant for callers.
           score: -(typeof row.rank === 'number' ? row.rank : 0),
+        });
+        if (hits.length >= limit) break;
+      }
+      return hits;
+    },
+    pendingChunks(model: string, limit: number): Array<{ id: number; text: string }> {
+      if (!open) return [];
+      return db
+        .all(
+          `SELECT c.id AS id, c.text AS text FROM chunks c
+           LEFT JOIN embeddings e ON e.chunk_id = c.id AND e.model = ?
+           WHERE e.chunk_id IS NULL
+           LIMIT ?`,
+          [model, limit],
+        )
+        .map((r) => ({ id: Number(r.id), text: typeof r.text === 'string' ? r.text : '' }));
+    },
+    pendingCount(model: string): number {
+      if (!open) return 0;
+      const row = db.get(
+        `SELECT count(*) AS n FROM chunks c
+         LEFT JOIN embeddings e ON e.chunk_id = c.id AND e.model = ?
+         WHERE e.chunk_id IS NULL`,
+        [model],
+      );
+      return row && typeof row.n === 'number' ? row.n : 0;
+    },
+    setEmbedding(chunkId: number, model: string, vec: number[]): void {
+      if (!open) return;
+      db.run('INSERT OR REPLACE INTO embeddings (chunk_id, model, vec) VALUES (?, ?, ?)', [
+        chunkId,
+        model,
+        encodeVector(vec),
+      ]);
+    },
+    semanticHits(queryVec: number[], model: string, limit = 20): SearchHit[] {
+      if (!open) return [];
+      const rows = db.all(
+        `SELECT c.path AS path, n.title AS title, c.text AS text, e.vec AS vec
+         FROM embeddings e
+         JOIN chunks c ON c.id = e.chunk_id
+         JOIN notes n ON n.path = c.path
+         WHERE e.model = ?`,
+        [model],
+      );
+      const scored = rows
+        .map((row) => {
+          const vec = row.vec instanceof Uint8Array ? decodeVector(row.vec) : null;
+          return {
+            path: typeof row.path === 'string' ? row.path : '',
+            title: typeof row.title === 'string' ? row.title : '',
+            text: typeof row.text === 'string' ? row.text : '',
+            score: vec ? cosineSimilarity(queryVec, vec) : 0,
+          };
+        })
+        .filter((s) => s.path)
+        .sort((a, b) => b.score - a.score);
+      const seen = new Set<string>();
+      const hits: SearchHit[] = [];
+      for (const s of scored) {
+        if (seen.has(s.path)) continue;
+        seen.add(s.path);
+        hits.push({
+          path: s.path,
+          title: s.title || titleFor(s.path, undefined),
+          snippet: s.text.slice(0, 160),
+          score: s.score,
         });
         if (hits.length >= limit) break;
       }
@@ -362,4 +448,86 @@ export async function syncIndex(vault: Vault, index: SearchIndex): Promise<void>
   for (const path of index.indexedPaths()) {
     if (!present.has(path)) index.remove(path);
   }
+}
+
+/** Progress of the (async, network) embedding pass. */
+export interface EmbedProgress {
+  done: number;
+  total: number;
+}
+
+/** Chunks embedded per provider round-trip during {@link embedPending}. */
+const EMBED_PAGE = 64;
+
+/**
+ * Compute and store embeddings for every chunk still missing one for the provider's model (ADR
+ * 0007). This is the slow, network-bound half of indexing — it reports progress and stops if the
+ * index is closed (vault switch). Throws if the provider fails, so the caller can surface it.
+ */
+export async function embedPending(
+  index: SearchIndex,
+  provider: EmbeddingProvider,
+  onProgress?: (p: EmbedProgress) => void,
+): Promise<void> {
+  const total = index.pendingCount(provider.model);
+  if (total === 0) {
+    onProgress?.({ done: 0, total: 0 });
+    return;
+  }
+  let done = 0;
+  while (index.isOpen()) {
+    const batch = index.pendingChunks(provider.model, EMBED_PAGE);
+    if (batch.length === 0) break;
+    const vectors = await provider.embed(batch.map((c) => c.text));
+    if (!index.isOpen()) return;
+    let stored = 0;
+    batch.forEach((chunk, i) => {
+      const vec = vectors[i];
+      if (vec) {
+        index.setEmbedding(chunk.id, provider.model, vec);
+        stored += 1;
+      }
+    });
+    // Guard against a misbehaving provider that returns no usable vectors — don't spin forever.
+    if (stored === 0) break;
+    done += stored;
+    onProgress?.({ done: Math.min(done, total), total });
+  }
+  onProgress?.({ done: total, total });
+}
+
+/**
+ * Search combining keyword (FTS) and, when a provider is configured, semantic (vector) retrieval,
+ * fused by Reciprocal Rank Fusion. Falls back to keyword-only if there's no provider or the query
+ * embedding fails — search never hard-fails because embeddings are down. The keyword snippet (with
+ * highlight markers) is preferred when a note appears in both legs.
+ */
+export async function hybridSearch(
+  index: SearchIndex,
+  query: string,
+  provider: EmbeddingProvider | null,
+  limit = 20,
+): Promise<SearchHit[]> {
+  const keyword = index.search(query, limit);
+  if (!provider) return keyword;
+  let semantic: SearchHit[] = [];
+  try {
+    const [queryVec] = await provider.embed([query]);
+    if (queryVec) semantic = index.semanticHits(queryVec, provider.model, limit);
+  } catch (error) {
+    console.error('semantic search failed; falling back to keyword only', error);
+    return keyword;
+  }
+  if (semantic.length === 0) return keyword;
+  const order = fuseRankings(
+    keyword.map((h) => h.path),
+    semantic.map((h) => h.path),
+  );
+  const byPath = new Map<string, SearchHit>();
+  for (const hit of semantic) byPath.set(hit.path, hit);
+  for (const hit of keyword) byPath.set(hit.path, hit); // keyword wins → keeps the highlighted snippet
+  return order
+    .slice(0, limit)
+    .map((path) => byPath.get(path))
+    .filter((hit): hit is SearchHit => hit !== undefined);
 }

@@ -312,6 +312,23 @@ test('settings page: switching theme applies live, sidebar intact', async () => 
   await expect(window.getByTestId('settings-page')).toHaveCount(0);
 });
 
+test('settings: enabling semantic search reveals the embedding provider fields', async () => {
+  await window.getByRole('button', { name: 'Settings' }).click();
+  const toggle = window.getByTestId('semantic-toggle');
+  await expect(toggle).not.toBeChecked(); // off by default (private, no network)
+
+  await toggle.check();
+  // Provider config appears; the local Ollama endpoint is the placeholder.
+  await expect(window.getByPlaceholder('http://localhost:11434/v1')).toBeVisible();
+  await expect(window.getByPlaceholder('nomic-embed-text')).toBeVisible();
+
+  // Turn it back off so later tests (and the app's default) stay keyword-only.
+  await toggle.uncheck();
+  await expect(window.getByPlaceholder('nomic-embed-text')).toHaveCount(0);
+
+  await openNote('Journal', '2026-07-07');
+});
+
 test('an external edit to the OPEN note surfaces a conflict, never a silent clobber', async () => {
   await openNote('Journal', '2026-07-07'); // open it; NoteView reads its current hash
 

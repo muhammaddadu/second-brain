@@ -6,9 +6,14 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import {
+  createEmbeddingProvider,
   createFolder,
   createNote,
+  DEFAULT_EMBEDDING_CONFIG,
+  type EmbeddingProvider,
+  embedPending,
   hashNote,
+  hybridSearch,
   indexPath,
   initVault,
   isVault,
@@ -39,6 +44,7 @@ import {
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme } from 'electron';
 import {
   type Appearance,
+  type IndexStatus,
   IPC,
   type ReadNoteResult,
   type RecentVault,
@@ -67,6 +73,40 @@ app.setName(APP_NAME);
 let currentVault: Vault | null = null;
 let watcher: VaultWatcher | null = null;
 let searchIndex: SearchIndex | null = null;
+// The embedding provider (null = off / keyword-only), rebuilt from settings. `embedding` guards
+// against overlapping embed passes; a running pass re-queries pending chunks, so it absorbs new work.
+let embedProvider: EmbeddingProvider | null = null;
+let embedding = false;
+
+/** Push indexing status to every window so the UI can show progress. */
+function pushIndexStatus(status: IndexStatus): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send(IPC.indexStatus, status);
+  }
+}
+
+/** Rebuild the embedding provider from the current settings (call on startup and on settings change). */
+function refreshEmbeddingProvider(): void {
+  embedProvider = createEmbeddingProvider(readSettings().embedding);
+}
+
+/** Run the (network, slow) embedding pass over pending chunks, pushing progress; no-op if off/busy. */
+async function scheduleEmbedPass(index: SearchIndex): Promise<void> {
+  if (embedding || !embedProvider) return;
+  embedding = true;
+  try {
+    await embedPending(index, embedProvider, (p) => {
+      if (p.total > 0 && p.done < p.total) {
+        pushIndexStatus({ state: 'indexing', done: p.done, total: p.total });
+      }
+    });
+  } catch (error) {
+    console.error('embedding pass failed', error);
+  } finally {
+    embedding = false;
+    pushIndexStatus({ state: 'idle', done: 0, total: 0 });
+  }
+}
 
 // --- Config (remembered vaults) ---------------------------------------------
 
@@ -75,7 +115,11 @@ interface Config {
   settings: Settings;
 }
 
-const DEFAULT_SETTINGS: Settings = { theme: 'system', reduceTransparency: false };
+const DEFAULT_SETTINGS: Settings = {
+  theme: 'system',
+  reduceTransparency: false,
+  embedding: DEFAULT_EMBEDDING_CONFIG,
+};
 
 function configPath(): string {
   return join(app.getPath('userData'), 'config.json');
@@ -161,7 +205,11 @@ async function activateVault(vaultPath: string): Promise<VaultInfo> {
   searchIndex?.close();
   const index = openSearchIndex(indexPath(vault));
   searchIndex = index;
-  void syncIndex(vault, index).catch((error) => console.error('index sync failed', error));
+  refreshEmbeddingProvider();
+  void (async () => {
+    await syncIndex(vault, index); // keyword index (fast, local)
+    await scheduleEmbedPass(index); // semantic embeddings (slow, network) if a provider is set
+  })().catch((error) => console.error('index sync failed', error));
   watcher = watchVault(vault, async (change) => {
     let hash: string | undefined;
     // Bind reindex to the index opened for *this* vault (captured), not the module-level handle: a
@@ -174,6 +222,7 @@ async function activateVault(vaultPath: string): Promise<VaultInfo> {
         try {
           hash = await hashNote(vault, change.path);
           await reindexNote(vault, index, change.path);
+          void scheduleEmbedPass(index); // embed the note's new chunks (if a provider is set)
         } catch {
           // File may have vanished between event and read; leave hash undefined.
         }
@@ -314,6 +363,12 @@ function registerHandlers(): void {
     nativeTheme.themeSource = saved.theme; // fires nativeTheme 'updated' → broadcastAppearance
     applyTranslucency();
     broadcastAppearance();
+    // An embedding-config change rebuilds the provider and (re)embeds against the current index —
+    // so turning semantic search on/off or changing the model takes effect immediately.
+    if (patch.embedding) {
+      refreshEmbeddingProvider();
+      if (searchIndex) void scheduleEmbedPass(searchIndex);
+    }
     return saved;
   });
 
@@ -419,7 +474,7 @@ function registerHandlers(): void {
     await setFolderOrder(requireVault(), folder, orderedNames);
   });
   ipcMain.handle(IPC.search, (_event, query: string, limit?: number) =>
-    searchIndex ? searchIndex.search(query, limit) : [],
+    searchIndex ? hybridSearch(searchIndex, query, embedProvider, limit) : [],
   );
 }
 

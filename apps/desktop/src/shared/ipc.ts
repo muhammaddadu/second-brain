@@ -4,7 +4,13 @@
  * @brain/core (erased at build), never `fs` or core itself: all vault I/O happens in the main
  * process (AGENTS.md architecture rule; app-architecture.md boundary rules).
  */
-import type { NoteEnvelope, SearchHit, TreeNode, VaultEventType } from '@brain/core';
+import type {
+  EmbeddingConfig,
+  NoteEnvelope,
+  SearchHit,
+  TreeNode,
+  VaultEventType,
+} from '@brain/core';
 
 export const IPC = {
   startup: 'app:startup',
@@ -36,6 +42,8 @@ export const IPC = {
   search: 'vault:search',
   /** Main → renderer push: a file changed in the vault (watcher). */
   changed: 'vault:changed',
+  /** Main → renderer push: indexing status (idle / indexing progress). */
+  indexStatus: 'vault:index-status',
 } as const;
 
 /** Summary of the open vault, for the window header. */
@@ -67,6 +75,15 @@ export interface Settings {
   theme: 'system' | 'light' | 'dark';
   /** Turn off window translucency (vibrancy/Mica) regardless of platform. */
   reduceTransparency: boolean;
+  /** Semantic-search embedding provider (default off = keyword only, no network — ADR 0007). */
+  embedding: EmbeddingConfig;
+}
+
+/** Indexing status pushed to the renderer so the UI can show progress (idle when done). */
+export interface IndexStatus {
+  state: 'idle' | 'indexing';
+  done: number;
+  total: number;
 }
 
 /**
@@ -157,8 +174,10 @@ export interface VaultApi {
    * `orderedNames` are on-disk entry names (a folder's dir name, a note's `.note.json` filename).
    */
   setOrder(folder: string, orderedNames: string[]): Promise<void>;
-  /** Full-text search the vault; returns notes ranked best-first with a highlighted snippet. */
+  /** Search the vault (keyword, plus semantic when a provider is configured); ranked, with snippets. */
   search(query: string, limit?: number): Promise<SearchHit[]>;
   /** Subscribe to vault change events; returns an unsubscribe function. */
   onVaultChange(listener: (change: VaultChangePayload) => void): () => void;
+  /** Subscribe to indexing status (progress of the embedding pass); returns an unsubscribe function. */
+  onIndexStatus(listener: (status: IndexStatus) => void): () => void;
 }

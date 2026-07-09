@@ -1,10 +1,12 @@
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { EmbeddingProvider } from './embeddings.js';
 import {
   blocksToText,
   buildMatchQuery,
   chunkText,
+  embedPending,
+  hybridSearch,
   indexPath,
   openSearchIndex,
   rebuildIndex,
@@ -181,5 +183,81 @@ describe('search index (FTS)', () => {
 
     // sanity: the index really is a file on disk
     await expect(readFile(indexPath(vault))).resolves.toBeInstanceOf(Buffer);
+  });
+});
+
+// A deterministic stand-in for a real embedding endpoint: maps text to a 3-D topic vector by keyword
+// so cosine ordering is predictable without any network.
+const fakeProvider: EmbeddingProvider = {
+  model: 'fake-topic-v1',
+  async embed(texts: string[]): Promise<number[][]> {
+    return texts.map((t) => {
+      const s = t.toLowerCase();
+      if (/ocean|sea|water|blue|tide/.test(s)) return [1, 0, 0];
+      if (/mountain|peak|rock|climb|summit/.test(s)) return [0, 1, 0];
+      return [0, 0, 1];
+    });
+  },
+};
+
+describe('semantic + hybrid search (embeddings, ADR 0007)', () => {
+  let fixture: FixtureVault;
+  let vault: Vault;
+  let index: SearchIndex;
+
+  beforeEach(async () => {
+    fixture = await createFixtureVault();
+    vault = openVault(fixture.root);
+    index = openSearchIndex(indexPath(vault));
+    await createNote(vault, 'Nature/reef.note.json', { title: 'Reef' });
+    await updateNoteBlocks(vault, 'Nature/reef.note.json', [
+      {
+        type: 'paragraph',
+        content: [{ type: 'text', text: 'the vast blue tide rolls in', styles: {} }],
+      },
+    ]);
+    await createNote(vault, 'Nature/ridge.note.json', { title: 'Ridge' });
+    await updateNoteBlocks(vault, 'Nature/ridge.note.json', [
+      {
+        type: 'paragraph',
+        content: [{ type: 'text', text: 'climbing the rocky summit', styles: {} }],
+      },
+    ]);
+    await rebuildIndex(vault, index);
+  });
+  afterEach(async () => {
+    index.close();
+    await fixture.cleanup();
+  });
+
+  it('embedPending fills every chunk, then reports zero pending', async () => {
+    expect(index.pendingCount(fakeProvider.model)).toBeGreaterThan(0);
+    const progress: number[] = [];
+    await embedPending(index, fakeProvider, (p) => progress.push(p.done));
+    expect(index.pendingCount(fakeProvider.model)).toBe(0);
+    expect(progress.at(-1)).toBeGreaterThan(0);
+  });
+
+  it('finds a note by meaning with no keyword overlap (semantic leg)', async () => {
+    await embedPending(index, fakeProvider);
+    // "ocean" appears in neither note; keyword search finds nothing…
+    expect(index.search('ocean')).toEqual([]);
+    // …but semantically it maps to the ocean-topic note.
+    const hits = await hybridSearch(index, 'ocean', fakeProvider);
+    expect(hits[0]?.path).toBe('Nature/reef.note.json');
+  });
+
+  it('hybridSearch without a provider is exactly keyword search', async () => {
+    await embedPending(index, fakeProvider);
+    const hybrid = await hybridSearch(index, 'summit', null);
+    expect(hybrid.map((h) => h.path)).toEqual(index.search('summit').map((h) => h.path));
+    expect(hybrid[0]?.path).toBe('Nature/ridge.note.json'); // keyword match
+  });
+
+  it('drops embeddings when a note is removed', async () => {
+    await embedPending(index, fakeProvider);
+    index.remove('Nature/reef.note.json');
+    const hits = await hybridSearch(index, 'ocean', fakeProvider);
+    expect(hits.map((h) => h.path)).not.toContain('Nature/reef.note.json');
   });
 });

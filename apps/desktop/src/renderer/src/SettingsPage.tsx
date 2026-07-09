@@ -15,9 +15,22 @@ const THEME_OPTIONS = [
 
 export function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
+  // Local mirror of the embedding text fields so typing doesn't round-trip on every keystroke; we
+  // commit on blur / toggle. Initialized once from the loaded settings.
+  const [embed, setEmbed] = useState({ baseUrl: '', model: '', apiKey: '' });
 
   useEffect(() => {
-    window.vault.getSettings().then(setSettings).catch(console.error);
+    window.vault
+      .getSettings()
+      .then((s) => {
+        setSettings(s);
+        setEmbed({
+          baseUrl: s.embedding.baseUrl,
+          model: s.embedding.model,
+          apiKey: s.embedding.apiKey ?? '',
+        });
+      })
+      .catch(console.error);
   }, []);
 
   async function update(patch: Partial<Settings>) {
@@ -26,6 +39,19 @@ export function SettingsPage() {
     } catch (error) {
       console.error(error);
     }
+  }
+
+  const semanticOn = settings?.embedding.provider === 'openai-compatible';
+
+  function commitEmbedding(enabled: boolean) {
+    void update({
+      embedding: {
+        provider: enabled ? 'openai-compatible' : 'off',
+        baseUrl: embed.baseUrl.trim(),
+        model: embed.model.trim(),
+        ...(embed.apiKey.trim() ? { apiKey: embed.apiKey.trim() } : {}),
+      },
+    });
   }
 
   return (
@@ -79,6 +105,96 @@ export function SettingsPage() {
           </label>
         </section>
       )}
+
+      {settings && (
+        <section className="mt-10">
+          <h2 className="text-faint mb-3 text-xs font-medium tracking-wide uppercase">
+            Search &amp; indexing
+          </h2>
+
+          <label className="flex cursor-pointer items-center justify-between border-edge border-b py-4">
+            <span className="min-w-0 pr-4">
+              <span className="text-ink block text-sm font-medium">Semantic search</span>
+              <span className="text-muted block text-xs leading-relaxed">
+                Find notes by meaning, not just keywords. Off by default — keyword search always
+                works and stays fully on your machine. Turn on to embed notes with a provider below.
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={semanticOn}
+              onChange={(e) => commitEmbedding(e.target.checked)}
+              className="accent-accent h-4 w-4 shrink-0"
+              data-testid="semantic-toggle"
+            />
+          </label>
+
+          {semanticOn && (
+            <div className="animate-fade flex flex-col gap-4 py-4">
+              <p className="text-muted text-xs leading-relaxed">
+                Uses any OpenAI-compatible embeddings endpoint. A <strong>local</strong> runtime
+                (e.g. Ollama at <code className="text-ink">http://localhost:11434/v1</code>) keeps
+                everything on your machine; a hosted URL sends note text to that provider.
+              </p>
+              <Field
+                label="Endpoint (base URL)"
+                value={embed.baseUrl}
+                placeholder="http://localhost:11434/v1"
+                onChange={(v) => setEmbed((s) => ({ ...s, baseUrl: v }))}
+                onCommit={() => commitEmbedding(true)}
+              />
+              <Field
+                label="Model"
+                value={embed.model}
+                placeholder="nomic-embed-text"
+                onChange={(v) => setEmbed((s) => ({ ...s, model: v }))}
+                onCommit={() => commitEmbedding(true)}
+              />
+              <Field
+                label="API key (optional)"
+                value={embed.apiKey}
+                placeholder="only for hosted providers"
+                type="password"
+                onChange={(v) => setEmbed((s) => ({ ...s, apiKey: v }))}
+                onCommit={() => commitEmbedding(true)}
+              />
+            </div>
+          )}
+        </section>
+      )}
     </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  placeholder,
+  type = 'text',
+  onChange,
+  onCommit,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  type?: 'text' | 'password';
+  onChange: (value: string) => void;
+  onCommit: () => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-muted text-xs font-medium">{label}</span>
+      <input
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onCommit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+        }}
+        className="border-edge bg-raised text-ink placeholder:text-faint focus:border-accent/50 rounded-lg border px-3 py-2 text-sm outline-none"
+      />
+    </label>
   );
 }
