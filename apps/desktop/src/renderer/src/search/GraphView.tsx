@@ -50,12 +50,38 @@ function layout(data: GraphData): { nodes: SimNode[]; links: SimLink[] } {
   return { nodes, links };
 }
 
+/**
+ * View state kept at module level so leaving the graph (clicking a node) and coming back restores
+ * the same pan/zoom, threshold, and tag filter instead of resetting.
+ */
+const saved = {
+  view: { x: 0, y: 0, scale: 1 },
+  threshold: 0.6,
+  activeTag: null as string | null,
+};
+
 export function GraphView({ onOpenNote }: { onOpenNote: (path: string) => void }) {
   const [data, setData] = useState<GraphData | null>(null);
-  const [threshold, setThreshold] = useState(0.6);
-  const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
+  const [threshold, setThresholdState] = useState(saved.threshold);
+  const [activeTag, setActiveTagState] = useState<string | null>(saved.activeTag);
+  const [view, setViewState] = useState(saved.view);
   const drag = useRef<{ x: number; y: number } | null>(null);
+
+  const setThreshold = (t: number) => {
+    saved.threshold = t;
+    setThresholdState(t);
+  };
+  const setActiveTag = (t: string | null) => {
+    saved.activeTag = t;
+    setActiveTagState(t);
+  };
+  const setView = (update: (v: typeof saved.view) => typeof saved.view) => {
+    setViewState((v) => {
+      const next = update(v);
+      saved.view = next;
+      return next;
+    });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -166,8 +192,20 @@ export function GraphView({ onOpenNote }: { onOpenNote: (path: string) => void }
               drag.current = null;
             }}
             onWheel={(e) => {
-              const next = Math.min(3, Math.max(0.3, view.scale * (e.deltaY < 0 ? 1.1 : 0.9)));
-              setView((v) => ({ ...v, scale: next }));
+              // Zoom toward the cursor: convert it to viewBox coords, then adjust the translation
+              // so the point under the pointer stays put while the scale changes.
+              const rect = e.currentTarget.getBoundingClientRect();
+              const cx = ((e.clientX - rect.left) / rect.width) * WIDTH;
+              const cy = ((e.clientY - rect.top) / rect.height) * HEIGHT;
+              setView((v) => {
+                const scale = Math.min(3, Math.max(0.3, v.scale * (e.deltaY < 0 ? 1.1 : 0.9)));
+                const ratio = scale / v.scale;
+                return {
+                  scale,
+                  x: cx - (cx - v.x) * ratio,
+                  y: cy - (cy - v.y) * ratio,
+                };
+              });
             }}
           >
             <g transform={`translate(${view.x} ${view.y}) scale(${view.scale})`}>

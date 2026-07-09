@@ -99,15 +99,16 @@ export function createEmbeddingService(deps: EmbeddingServiceDeps): EmbeddingSer
     return embedding.enabled && embedding.kind === 'builtin' && !builtinReady();
   }
 
-  /** (Re)build the active adapter, wiring download progress (used only by the built-in provider). */
+  /**
+   * (Re)build the active adapter. Deliberately **without** a download-progress callback: the
+   * long-lived adapter also embeds search queries, and Transformers.js fires (cached) progress
+   * events on every load — wiring the callback here left the UI stuck on "Downloading… 100%".
+   * Download progress is reported only by the explicit {@link EmbeddingService.downloadBuiltin}.
+   */
   async function refresh(): Promise<void> {
     const { embedding } = deps.getSettings();
     adapter = embedding.enabled
-      ? await createEmbeddingAdapter(
-          configFor(embedding.kind),
-          deps.readSecret(embedding.kind),
-          (pct) => deps.pushStatus({ state: 'downloading', done: pct, total: 100 }),
-        )
+      ? await createEmbeddingAdapter(configFor(embedding.kind), deps.readSecret(embedding.kind))
       : null;
   }
 
@@ -194,16 +195,23 @@ export function createEmbeddingService(deps: EmbeddingServiceDeps): EmbeddingSer
     builtinReady,
 
     async downloadBuiltin(): Promise<void> {
-      await refresh(); // build the adapter with the progress callback
-      if (!adapter) return;
+      // A dedicated warm-up adapter carries the progress callback; the long-lived one never does.
+      const warmup = await createEmbeddingAdapter(
+        configFor('builtin'),
+        deps.readSecret('builtin'),
+        (pct) => deps.pushStatus({ state: 'downloading', done: pct, total: 100 }),
+      );
+      if (!warmup) return;
       try {
-        await adapter.embed(['warm up']); // first call downloads the model (progress pushed via cb)
+        await warmup.embed(['warm up']); // first call downloads the model (progress via callback)
       } catch (error) {
         console.error('built-in model download failed', error);
-        deps.pushStatus({ state: 'idle', done: 0, total: 0 });
         return;
+      } finally {
+        deps.pushStatus({ state: 'idle', done: 0, total: 0 }); // never leave "Downloading…" hanging
       }
-      await runPass(); // model is ready now → index the vault
+      await refresh(); // model on disk → build the real adapter
+      await runPass(); // → index the vault
     },
   };
 }

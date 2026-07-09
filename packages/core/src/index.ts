@@ -30,6 +30,7 @@ export {
   type TestResult,
 } from './embeddings.js';
 export { BEDROCK_EMBEDDING_MODELS } from './embeddings-bedrock.js';
+export { embeddingAdapterFromEnv } from './embeddings-env.js';
 export {
   CURRENT_ENVELOPE_VERSION,
   getTags,

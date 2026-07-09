@@ -52,6 +52,8 @@ export interface SearchHit {
   title: string;
   snippet: string;
   score: number;
+  /** How the note matched — set by {@link hybridSearch} so UIs can show that semantics contributed. */
+  matched?: 'keyword' | 'semantic' | 'both';
 }
 
 /** What the index needs to (re)index one note. */
@@ -567,7 +569,7 @@ export async function hybridSearch(
   provider: EmbeddingProvider | null,
   limit = 20,
 ): Promise<SearchHit[]> {
-  const keyword = index.search(query, limit);
+  const keyword = index.search(query, limit).map((h) => ({ ...h, matched: 'keyword' as const }));
   if (!provider) return keyword;
   let semantic: SearchHit[] = [];
   try {
@@ -583,8 +585,11 @@ export async function hybridSearch(
     semantic.map((h) => h.path),
   );
   const byPath = new Map<string, SearchHit>();
-  for (const hit of semantic) byPath.set(hit.path, hit);
-  for (const hit of keyword) byPath.set(hit.path, hit); // keyword wins → keeps the highlighted snippet
+  for (const hit of semantic) byPath.set(hit.path, { ...hit, matched: 'semantic' });
+  for (const hit of keyword) {
+    // Keyword wins the snippet (it carries highlights); record when semantics also found the note.
+    byPath.set(hit.path, { ...hit, matched: byPath.has(hit.path) ? 'both' : 'keyword' });
+  }
   return order
     .slice(0, limit)
     .map((path) => byPath.get(path))

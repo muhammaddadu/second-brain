@@ -1,11 +1,10 @@
 /**
- * Build an embedding provider for the CLI from environment variables (ADR 0008) — so `search` does
- * hybrid keyword + semantic retrieval, the same as the app, when a provider is configured. The CLI
- * is plain Node (no Electron keychain), so secrets come from env; local / on-device providers need
- * none. No `BRAIN_EMBED` → keyword-only search.
+ * Build an embedding adapter from environment variables — the configuration seam for headless
+ * surfaces (CLI, MCP server), which are plain Node with no app keychain. Local / on-device
+ * providers need no secret; unset `BRAIN_EMBED` → null (callers fall back to keyword-only search).
  *
- *   BRAIN_EMBED         provider kind: builtin | ollama | lmstudio | openai | openai-compatible | bedrock
- *   BRAIN_EMBED_MODEL   model name / id
+ *   BRAIN_EMBED           provider kind: builtin | ollama | lmstudio | openai | openai-compatible | bedrock
+ *   BRAIN_EMBED_MODEL     model name / id
  *   BRAIN_EMBED_BASE_URL, BRAIN_EMBED_REGION, BRAIN_EMBED_API_KEY, BRAIN_EMBED_CACHE
  *   (Bedrock also reads AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY, or the default AWS chain.)
  */
@@ -17,16 +16,18 @@ import {
   PROVIDER_KINDS,
   type ProviderConfig,
   type ProviderKind,
-} from '@brain/core';
+} from './embeddings.js';
 
-/** Validate an env value against core's provider-kind list (no cast-before-check). */
+/** Validate an env value against the provider-kind list (no cast-before-check). */
 function parseKind(value: string | undefined): ProviderKind | null {
   return (PROVIDER_KINDS as readonly string[]).includes(value ?? '')
     ? (value as ProviderKind)
     : null;
 }
 
-export async function embedFromEnv(env: NodeJS.ProcessEnv): Promise<EmbeddingAdapter | null> {
+export async function embeddingAdapterFromEnv(
+  env: NodeJS.ProcessEnv,
+): Promise<EmbeddingAdapter | null> {
   const kind = parseKind(env.BRAIN_EMBED);
   if (!kind) return null;
   const config: ProviderConfig = {

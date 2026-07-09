@@ -4,7 +4,7 @@
  * opening an existing folder. Authored as native block JSON directly so main never imports the
  * Markdown converter (jsdom can't be bundled into the Electron main process).
  */
-import { createNote, type Vault } from '@brain/core';
+import { createNote, readRules, type Vault, writeRules } from '@brain/core';
 
 const h = (level: 1 | 2 | 3, text: string): unknown => ({
   type: 'heading',
@@ -155,6 +155,17 @@ const SEED_NOTES: SeedNote[] = [
   },
 ];
 
+/** Starter agent rules (RULES.md) matching the seeded folders — owner-editable in Settings (E6). */
+const SEED_RULES = `# Vault rules
+
+Conventions for anyone — human or AI agent — writing to this vault. Edit freely.
+
+- Daily notes and summaries go in \`Journal/\`, one note per day, titled with the date.
+- Longer-lived thinking goes in \`Ideas/\`; how-to material goes in \`Guide/\`.
+- Prefer updating an existing note over creating a near-duplicate — search first.
+- Tag notes with what they are about; keep tags short and lowercase.
+`;
+
 export async function seedStarterVault(vault: Vault): Promise<void> {
   for (const note of SEED_NOTES) {
     try {
@@ -166,5 +177,10 @@ export async function seedStarterVault(vault: Vault): Promise<void> {
     } catch {
       // Non-fatal: a seed failure must not block opening the vault.
     }
+  }
+  try {
+    if (!(await readRules(vault))) await writeRules(vault, SEED_RULES);
+  } catch {
+    // Non-fatal, same as note seeding.
   }
 }

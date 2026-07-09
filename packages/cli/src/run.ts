@@ -7,6 +7,7 @@
 import {
   blocksToText,
   createNote,
+  embeddingAdapterFromEnv,
   getTags,
   hybridSearch,
   importMarkdownAsNote,
@@ -33,7 +34,6 @@ import {
   type Vault,
 } from '@brain/core';
 import { boolFlag, listFlag, type ParsedArgs, parseArgs, stringFlag } from './args.js';
-import { embedFromEnv } from './embed.js';
 
 export interface Io {
   env: NodeJS.ProcessEnv;
@@ -97,7 +97,7 @@ async function cmdSearch(vault: Vault, args: ParsedArgs, io: Io): Promise<number
   const index = openSearchIndex(indexPath(vault));
   try {
     await syncIndex(vault, index); // stand-alone: keep the index current before querying
-    const provider = await embedFromEnv(io.env);
+    const provider = await embeddingAdapterFromEnv(io.env);
     const hits: SearchHit[] = await hybridSearch(index, query, provider, limit);
     if (boolFlag(args, 'json')) {
       io.out(

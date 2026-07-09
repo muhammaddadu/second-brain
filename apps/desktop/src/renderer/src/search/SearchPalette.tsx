@@ -188,6 +188,14 @@ export function SearchPalette({
                           {hit.title || noteDisplayName(hit.path)}
                         </span>
                         {folder && <span className="text-faint truncate text-xs">· {folder}</span>}
+                        {(hit.matched === 'semantic' || hit.matched === 'both') && (
+                          <span
+                            className="bg-accent/10 text-accent ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px]"
+                            title="Found by meaning (semantic search), not just keywords"
+                          >
+                            ≈ meaning
+                          </span>
+                        )}
                       </span>
                       {hit.snippet && (
                         <span className="text-muted line-clamp-2 pl-6 text-xs leading-relaxed">

@@ -2,7 +2,7 @@
 
 > **This doc owns:** the code layout — packages, module boundaries, and where logic lives. **For process/system shape see** [system-architecture](system-architecture.md); **for dependency choices see** [tech-stack](tech-stack.md).
 
-**Status: partial** — E0 scaffolded the workspace and `packages/core`; E1 added `apps/desktop` (Electron shell + IPC bridge); E2 added the BlockNote editor with autosave, tag editing, and core's Markdown import/export; E7 added inline Mermaid diagram rendering behind an app-layer renderer registry; E3 added the file-actions context menu, a core file watcher with live tree updates, and the conflict guard; E4 added the derived search index (WASM SQLite FTS + optional semantic embeddings via a pluggable provider) with a ⌘K palette, provider settings, and the knowledge-graph view; E5 added the `brain` CLI. The MCP package (E6) is still planned. Keep this doc in lockstep as packages land.
+**Status: partial** — E0 scaffolded the workspace and `packages/core`; E1 added `apps/desktop` (Electron shell + IPC bridge); E2 added the BlockNote editor with autosave, tag editing, and core's Markdown import/export; E7 added inline Mermaid diagram rendering behind an app-layer renderer registry; E3 added the file-actions context menu, a core file watcher with live tree updates, and the conflict guard; E4 added the derived search index (WASM SQLite FTS + optional semantic embeddings via a pluggable provider) with a ⌘K palette, provider settings, and the knowledge-graph view; E5 added the `brain` CLI; E6 added the `brain-mcp` MCP server (tool registry over core). All planned packages have landed. Keep this doc in lockstep as packages land.
 
 ## Monorepo layout
 
@@ -21,7 +21,7 @@ packages/
   core/             # E0/E4 — ALL vault logic: note envelope, tree, mutations, trash,
                     #   Markdown import/export, watcher, index (FTS + vectors), hybrid search
   cli/              # E5 — `brain` binary; subcommand-per-core-operation
-  mcp/              # E6 — stdio MCP server; tool-per-core-operation + rules exposure
+  mcp/              # E6 — stdio MCP server; data-driven tool registry (tools.ts) over core
 docs/               # this documentation tree
 ```
 
