@@ -23,3 +23,15 @@ Append-only log of mistakes made in this project and how they were corrected. Re
 **What went wrong:** The first-run "create a new vault" default was `~/Documents/Second Brain`. On macOS with iCloud "Desktop & Documents" sync enabled, the cloud daemon would fight the app's atomic write-then-rename + watcher (ADR 0002), could evict files to `.icloud` placeholder stubs, and would sync the SQLite index/WAL (E4) — a corruption risk. The owner caught it before real use.
 **Why:** `~/Documents` felt like the conventional home for user documents, without accounting for cloud-sync side effects on a files-first, watcher-driven, local-index app.
 **Fix / Correct approach:** Default new vaults to the home root (`~/Second Brain`, via `app.getPath('home')`), which isn't iCloud-synced by default; owners can still pick any folder. Rationale documented in `ux/index.md` and the `suggestedNewVaultPath` comment. General rule: for a files-first app with a live watcher and an on-disk index, never default storage into a cloud-synced location (Documents/Desktop/OneDrive/Dropbox); prefer a non-synced path and let the user opt in.
+
+## Mermaid leaked a "Syntax error" bomb element into `document.body` (2026-07-09)
+
+**What went wrong:** Rendering an invalid Mermaid diagram left a stray "Syntax error in text / mermaid version …" element floating over the whole app; repeated failed renders accumulated more.
+**Why:** `mermaid.render(id, source)` appends a temporary container (`d${id}`) to `document.body` to measure/lay out the SVG, and removes it on success — but on a parse error it throws *before* the cleanup, orphaning the element. Our renderer caught the error but never removed the leftover node.
+**Fix / Correct approach:** Clean up in a `finally` after `mermaid.render` — remove `document.getElementById('d'+id)` and `getElementById(id)` regardless of success/failure. E2E now asserts no `[id^="dbrain-mermaid"]` element survives a failed render. General rule: when a third-party lib mutates the global DOM as a side effect, assume its error path skips its own cleanup and reclaim the nodes yourself.
+
+## Drag-to-move never fired because a guard read a ref that had just been nulled (2026-07-09)
+
+**What went wrong:** Dropping a note/folder onto a target did nothing — `move()` was never called, with no error.
+**Why:** `dropInto()` set `draggingRef.current = null` (drag-end cleanup) *before* calling `canDropInto(target)`, and `canDropInto` re-read the dragged node from that same ref — so it always saw `null` and returned `false`. The local `dragged` variable held the value, but the guard ignored it.
+**Fix / Correct approach:** Pass the dragged node into `canDropInto(dragged, target)` explicitly instead of reading the ref inside it; null the ref only after the decision. General rule: a predicate must take its inputs as parameters, not re-read mutable state the caller is in the middle of tearing down.

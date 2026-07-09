@@ -7,7 +7,7 @@
  */
 import type { TreeNode } from '@brain/core';
 import { ChevronDown, ChevronRight, FileText, FolderPlus } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ContextMenu, type MenuItem } from './ContextMenu';
 import { MoveDialog } from './MoveDialog';
 
@@ -50,6 +50,8 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [moving, setMoving] = useState<TreeNode | null>(null);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const draggingRef = useRef<TreeNode | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null); // folder path, or '' for root
 
   function setExpandedFor(path: string, open: boolean) {
     setExpanded((prev) => {
@@ -146,6 +148,29 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
     });
   }
 
+  // --- Drag to move (drop a note/folder onto a folder, or the root) ---
+  const currentParent = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
+
+  function canDropInto(dragged: TreeNode | null, target: TreeNode | null): boolean {
+    if (!dragged) return false;
+    const targetPath = target ? target.path : '';
+    if (targetPath === dragged.path) return false; // onto itself
+    if (targetPath === currentParent(dragged.path)) return false; // already there
+    // A folder can't move into itself or a descendant.
+    if (dragged.type === 'folder' && targetPath.startsWith(`${dragged.path}/`)) return false;
+    return true;
+  }
+
+  function dropInto(target: TreeNode | null) {
+    const dragged = draggingRef.current;
+    setDropTarget(null);
+    draggingRef.current = null;
+    if (dragged && canDropInto(dragged, target)) {
+      if (target) setExpandedFor(target.path, true);
+      void move(dragged, target ? target.path : '');
+    }
+  }
+
   function menuItems(node: TreeNode | null): MenuItem[] {
     if (node === null) {
       return [
@@ -171,12 +196,22 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
   }
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: right-click surface for root actions
+    // biome-ignore lint/a11y/noStaticElementInteractions: right-click + drop surface for root actions
     <div
-      className="min-h-full"
+      className={`min-h-full ${dropTarget === '' ? 'bg-accent/5' : ''}`}
       onContextMenu={(e) => {
         e.preventDefault();
         setMenu({ node: null, x: e.clientX, y: e.clientY });
+      }}
+      onDragOver={(e) => {
+        if (canDropInto(draggingRef.current, null)) {
+          e.preventDefault();
+          setDropTarget('');
+        }
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        dropInto(null);
       }}
     >
       {nodes.length === 0 ? (
@@ -201,11 +236,23 @@ export function FolderTree({ nodes, selectedPath, onSelect, onRefresh }: FolderT
               selectedPath={selectedPath}
               renamingPath={renamingPath}
               expanded={expanded}
+              dropTarget={dropTarget}
               onToggleExpand={setExpandedFor}
               onSelect={onSelect}
               onOpenMenu={(n, x, y) => setMenu({ node: n, x, y })}
               onCommitRename={commitRename}
               onCancelRename={() => setRenamingPath(null)}
+              onDragStartNode={(n) => {
+                draggingRef.current = n;
+              }}
+              onDragEndNode={() => {
+                draggingRef.current = null;
+                setDropTarget(null);
+              }}
+              onDragOverFolder={(n) => {
+                if (canDropInto(draggingRef.current, n)) setDropTarget(n.path);
+              }}
+              onDropOnFolder={(n) => dropInto(n)}
             />
           ))}
         </ul>
@@ -237,17 +284,40 @@ interface TreeItemProps {
   selectedPath: string | null;
   renamingPath: string | null;
   expanded: ReadonlySet<string>;
+  dropTarget: string | null;
   onToggleExpand: (path: string, open: boolean) => void;
   onSelect: (path: string | null) => void;
   onOpenMenu: (node: TreeNode, x: number, y: number) => void;
   onCommitRename: (node: TreeNode, newBase: string) => void;
   onCancelRename: () => void;
+  onDragStartNode: (node: TreeNode) => void;
+  onDragEndNode: () => void;
+  onDragOverFolder: (node: TreeNode) => void;
+  onDropOnFolder: (node: TreeNode) => void;
 }
 
 function TreeItem(props: TreeItemProps) {
-  const { node, depth, selectedPath, renamingPath, expanded, onToggleExpand, onSelect } = props;
+  const {
+    node,
+    depth,
+    selectedPath,
+    renamingPath,
+    expanded,
+    dropTarget,
+    onToggleExpand,
+    onSelect,
+  } = props;
   const isOpen = expanded.has(node.path);
   const indent = { paddingLeft: `${depth * 14 + 8}px` };
+  const dragProps = {
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      e.stopPropagation();
+      e.dataTransfer.effectAllowed = 'move';
+      props.onDragStartNode(node);
+    },
+    onDragEnd: () => props.onDragEndNode(),
+  };
 
   function openMenu(e: React.MouseEvent) {
     e.preventDefault();
@@ -276,15 +346,27 @@ function TreeItem(props: TreeItemProps) {
 
   if (node.type === 'folder') {
     const children = node.children ?? [];
+    const isDropTarget = dropTarget === node.path;
     return (
       <li>
         <button
           type="button"
           style={indent}
+          {...dragProps}
           onClick={() => onToggleExpand(node.path, !isOpen)}
           onContextMenu={openMenu}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            props.onDragOverFolder(node);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            props.onDropOnFolder(node);
+          }}
           aria-expanded={isOpen}
-          className={`${rowClass} text-ink hover:bg-edge/50`}
+          className={`${rowClass} text-ink ${isDropTarget ? 'bg-accent/15 ring-accent/40 ring-1' : 'hover:bg-edge/50'}`}
         >
           {isOpen ? (
             <ChevronDown size={14} className="text-faint shrink-0" aria-hidden />
@@ -310,6 +392,7 @@ function TreeItem(props: TreeItemProps) {
       <button
         type="button"
         style={indent}
+        {...dragProps}
         onClick={() => onSelect(node.path)}
         onContextMenu={openMenu}
         aria-current={selected}

@@ -33,12 +33,19 @@ export const mermaidRenderer: DiagramRenderer = {
   async render(source) {
     const trimmed = source.trim();
     if (!trimmed) return { ok: false, error: 'Empty diagram.' };
+    renderCount += 1;
+    const id = `brain-mermaid-${renderCount}`;
     try {
-      renderCount += 1;
-      const { svg } = await mermaid.render(`brain-mermaid-${renderCount}`, trimmed);
+      const { svg } = await mermaid.render(id, trimmed);
       return { ok: true, svg };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    } finally {
+      // mermaid appends a temporary container (`d${id}`) to <body> to measure/render; on a syntax
+      // error it throws before removing it, leaving the "Syntax error" bomb element floating over
+      // the app. Remove the leftover ourselves so failed diagrams never leak into the document.
+      document.getElementById(`d${id}`)?.remove();
+      document.getElementById(id)?.remove();
     }
   },
 };

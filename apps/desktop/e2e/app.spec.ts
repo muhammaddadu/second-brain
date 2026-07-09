@@ -154,6 +154,14 @@ test('invalid diagram source shows an error with the source intact', async () =>
   await expect(window.getByTestId('diagram-error')).toBeVisible({ timeout: 8000 });
   // Source is not destroyed — still shown and editable.
   await expect(window.getByTestId('diagram-source')).toContainText('not a valid diagram');
+
+  // Regression: mermaid appends a temporary container to <body> to render; on a syntax error it
+  // must not leak a stray "Syntax error" bomb element into the document (it floated over the app).
+  await expect
+    .poll(async () =>
+      window.evaluate(() => document.querySelectorAll('[id^="dbrain-mermaid"]').length),
+    )
+    .toBe(0);
 });
 
 test('a code block in an unregistered language renders as plain code, not a diagram', async () => {
@@ -206,6 +214,33 @@ test('creates a folder with inline rename, then renames it via the context menu'
   await renameInput.fill('Reading');
   await renameInput.press('Enter');
   await expect(window.getByRole('button', { name: 'Reading', exact: true })).toBeVisible();
+});
+
+test('drags a note into a folder to move it on disk', async () => {
+  // 'external' (Journal/external.note.json) exists from an earlier test; 'Reading' folder too.
+  await ensureExpanded('Journal');
+  const source = window.getByRole('button', { name: 'external' });
+  const target = window.getByRole('button', { name: 'Reading', exact: true });
+  await expect(source).toBeVisible();
+  await expect(target).toBeVisible();
+
+  // HTML5 drag-and-drop: Playwright's mouse-based dragTo doesn't fire native drag events in
+  // Chromium, so dispatch the DnD sequence directly (sharing one DataTransfer, as a real drag does).
+  const dataTransfer = await window.evaluateHandle(() => new DataTransfer());
+  await source.dispatchEvent('dragstart', { dataTransfer });
+  await target.dispatchEvent('dragover', { dataTransfer });
+  await target.dispatchEvent('drop', { dataTransfer });
+
+  const moved = join(vaultRoot, 'Journal/Reading/external.note.json');
+  await expect
+    .poll(
+      async () =>
+        stat(moved)
+          .then(() => true)
+          .catch(() => false),
+      { timeout: 8000 },
+    )
+    .toBe(true);
 });
 
 test('inserts a Mermaid diagram from the slash menu', async () => {
