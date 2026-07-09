@@ -19,6 +19,7 @@
     "@blocknote/mantine": "^0.51.0",
     "@blocknote/react": "^0.51.0",
     "@blocknote/server-util": "^0.51.4",
+    "@brain/cli": "workspace:*",
     "@brain/core": "workspace:*",
     "@floating-ui/dom": "^1.6.0",
     "@huggingface/transformers": "^4.2.0",

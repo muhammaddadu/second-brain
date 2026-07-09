@@ -6,6 +6,7 @@ import {
   currentParent,
   dropIntentFor,
   findNode,
+  firstNotePath,
   flattenVisible,
   remapPath,
   reorderedNames,
@@ -38,6 +39,12 @@ describe('tree lookups', () => {
 
   it('collectFolders lists every folder path', () => {
     expect(collectFolders(tree)).toEqual(['Journal', 'Projects', 'Projects/alpha']);
+  });
+
+  it('firstNotePath returns the first note in depth-first display order', () => {
+    expect(firstNotePath(tree)).toBe('Journal/a.note.json');
+    expect(firstNotePath([folder('Empty')])).toBeNull(); // no notes anywhere
+    expect(firstNotePath([])).toBeNull();
   });
 
   it('remapPath rewrites the path itself and descendants, dropping on null', () => {

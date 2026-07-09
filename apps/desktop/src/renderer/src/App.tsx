@@ -17,6 +17,7 @@ import { SettingsPage } from './settings/SettingsPage';
 import { Onboarding } from './shell/Onboarding';
 import { VaultSwitcher } from './shell/VaultSwitcher';
 import { FolderTree } from './sidebar/FolderTree';
+import { firstNotePath } from './sidebar/folder-tree-logic';
 
 type Phase =
   | { name: 'loading' }
@@ -97,11 +98,23 @@ function Workspace({
   const [searchOpen, setSearchOpen] = useState(false);
   const [indexStatus, setIndexStatus] = useState<IndexStatus>({ state: 'idle', done: 0, total: 0 });
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Open the first note automatically on launch (once), so the editor starts with content rather
+  // than the empty state — unless a deep link already pointed us somewhere specific.
+  const autoOpened = useRef(initialRoute !== undefined);
 
   const refreshTree = useCallback(async () => {
     try {
-      setTree(await window.vault.tree());
+      const nextTree = await window.vault.tree();
+      setTree(nextTree);
       setDatabases(new Set(await window.vault.listDatabases()));
+      if (!autoOpened.current) {
+        autoOpened.current = true;
+        const first = firstNotePath(nextTree);
+        if (first)
+          setRoute((r) =>
+            r.name === 'note' && r.path === null ? { name: 'note', path: first } : r,
+          );
+      }
     } catch (error) {
       // e.g. the vault directory was removed out from under us; keep the last known tree.
       console.error(error);

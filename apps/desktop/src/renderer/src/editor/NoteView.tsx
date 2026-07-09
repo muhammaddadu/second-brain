@@ -57,7 +57,10 @@ export function NoteView({
 
   if (!path) {
     return (
-      <div className="text-muted flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
+      <div
+        className="text-muted flex h-full flex-col items-center justify-center gap-3 px-8 text-center"
+        data-testid="note-empty"
+      >
         <NotebookPen size={28} strokeWidth={1.5} className="text-faint" aria-hidden />
         <p className="text-sm">Select a note from the tree to open it.</p>
       </div>

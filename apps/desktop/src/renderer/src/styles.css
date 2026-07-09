@@ -79,14 +79,20 @@ body {
 
 /* --- Native translucency (glass) with graceful opaque fallback --- */
 
-/* When a real OS effect is active, let it show through the window + sidebar. */
+/* When a real OS effect is active, let it show through the window + chrome. */
 :root[data-translucent="true"] body {
   background-color: transparent;
 }
-.sidebar {
+/* Sidebar and titlebar share one warm chrome tone. Both keep an explicit background even under
+ * vibrancy (a 60%-opaque tint), so the effect adds subtle depth but the chrome NEVER falls through
+ * to the raw effect layer — which renders black (and vibrant-blends text) when the window is
+ * inactive. This is what keeps the header from flashing black on focus loss. */
+.sidebar,
+.titlebar {
   background-color: var(--surface);
 }
-:root[data-translucent="true"] .sidebar {
+:root[data-translucent="true"] .sidebar,
+:root[data-translucent="true"] .titlebar {
   background-color: color-mix(in srgb, var(--surface) 60%, transparent);
 }
 /* The content area is always a solid reading surface, even over vibrancy. */
@@ -99,7 +105,8 @@ body {
   :root[data-translucent="true"] body {
     background-color: var(--paper);
   }
-  :root[data-translucent="true"] .sidebar {
+  :root[data-translucent="true"] .sidebar,
+  :root[data-translucent="true"] .titlebar {
     background-color: var(--surface);
   }
 }

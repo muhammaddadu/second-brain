@@ -23,6 +23,19 @@ export function findNode(nodes: TreeNode[], path: string): TreeNode | null {
   return null;
 }
 
+/**
+ * The first note in display order (depth-first, as rendered) — what to open on launch so the
+ * editor starts with content, not the empty state. Null when the vault has no notes at all.
+ */
+export function firstNotePath(nodes: TreeNode[]): string | null {
+  for (const node of nodes) {
+    if (node.type === 'note') return node.path;
+    const inChild = node.children ? firstNotePath(node.children) : null;
+    if (inChild) return inChild;
+  }
+  return null;
+}
+
 /** Every folder path in the tree (for the Move-to dialog). */
 export function collectFolders(nodes: TreeNode[], acc: string[] = []): string[] {
   for (const node of nodes) {

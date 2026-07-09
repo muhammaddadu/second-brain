@@ -48,6 +48,9 @@ test('first run shows the welcome screen and creates a fresh vault', async () =>
   // …which was really created on disk, marked as a vault, and seeded with a Welcome note.
   await stat(join(home, 'SecondBrain', '.brain', 'vault.json'));
   await expect(window.getByRole('button', { name: 'Welcome' })).toBeVisible();
+  // The first note opens automatically — the editor shows content, not the empty state.
+  await expect(window.getByTestId('note-title')).toBeVisible({ timeout: 8000 });
+  await expect(window.getByTestId('note-empty')).toHaveCount(0);
 });
 
 test('remembers the vault and reopens it on next launch — no welcome screen', async () => {
