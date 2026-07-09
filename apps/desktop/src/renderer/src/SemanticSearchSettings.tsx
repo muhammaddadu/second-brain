@@ -1,7 +1,7 @@
 /**
- * Semantic-search provider configuration (ADR 0008). A guided flow: toggle on → pick a provider from
- * grouped cards (local-first) → fill only that provider's fields → test → manage the index. Provider
- * metadata is data-driven so adding a provider is a table entry + a config panel, not new flow code.
+ * Semantic-search provider configuration (ADR 0008). Compact guided flow: toggle on → pick a
+ * provider from a tight card grid (local-first) → configure only that provider → test → manage the
+ * index. Provider metadata is data-driven, so adding a provider is a table entry + a config panel.
  */
 import type {
   DiscoveredProvider,
@@ -10,16 +10,7 @@ import type {
   ProviderKind,
   TestResult,
 } from '@brain/core';
-import {
-  CheckCircle2,
-  Cloud,
-  HardDrive,
-  Loader2,
-  RefreshCw,
-  Search,
-  ServerCog,
-  ShieldCheck,
-} from 'lucide-react';
+import { Check, Cloud, Cpu, HardDrive, Loader2, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import type { IndexStats } from '../../shared/ipc';
 
@@ -27,69 +18,76 @@ interface ProviderMeta {
   kind: ProviderKind;
   name: string;
   privacy: 'local' | 'hosted';
-  difficulty: 'Easy' | 'Moderate' | 'Advanced';
+  difficulty: 'Easy' | 'Advanced';
   blurb: string;
   recommended?: boolean;
+  Icon: typeof Cloud;
 }
 
 const GROUPS: Array<{ title: string; providers: ProviderMeta[] }> = [
   {
-    title: 'Recommended — local on this machine',
+    title: 'On this machine · private',
     providers: [
+      {
+        kind: 'builtin',
+        name: 'Built-in',
+        privacy: 'local',
+        difficulty: 'Easy',
+        recommended: true,
+        Icon: Sparkles,
+        blurb:
+          'Runs EmbeddingGemma-300M on-device — no setup. Downloads once (~200 MB), then works fully offline.',
+      },
       {
         kind: 'ollama',
         name: 'Ollama',
         privacy: 'local',
         difficulty: 'Easy',
-        blurb: 'Runs models locally. Note text never leaves your machine.',
-        recommended: true,
+        Icon: HardDrive,
+        blurb: 'Use models from a local Ollama install. Note text never leaves your machine.',
       },
       {
         kind: 'lmstudio',
         name: 'LM Studio',
         privacy: 'local',
         difficulty: 'Easy',
-        blurb: 'Local model runtime with an OpenAI-compatible server.',
+        Icon: Cpu,
+        blurb: 'Use LM Studio’s local OpenAI-compatible server.',
       },
     ],
   },
   {
-    title: 'Hosted providers',
+    title: 'Cloud providers',
     providers: [
       {
         kind: 'openai',
         name: 'OpenAI',
         privacy: 'hosted',
         difficulty: 'Easy',
+        Icon: Cloud,
         blurb: 'Sends note text to OpenAI. Usage may incur cost.',
       },
-    ],
-  },
-  {
-    title: 'Enterprise cloud',
-    providers: [
       {
         kind: 'bedrock',
         name: 'AWS Bedrock',
         privacy: 'hosted',
         difficulty: 'Advanced',
-        blurb: 'Titan / Cohere embeddings via your AWS account.',
+        Icon: Cloud,
+        blurb: 'Titan / Cohere embeddings via your AWS account. Sends note text to AWS.',
       },
-    ],
-  },
-  {
-    title: 'Advanced',
-    providers: [
       {
         kind: 'openai-compatible',
-        name: 'Custom endpoint',
+        name: 'Custom',
         privacy: 'hosted',
         difficulty: 'Advanced',
-        blurb: 'Any OpenAI-compatible /embeddings endpoint (incl. Azure/Vertex gateways).',
+        Icon: Cloud,
+        blurb: 'Any OpenAI-compatible /embeddings endpoint (incl. Azure / Vertex gateways).',
       },
     ],
   },
 ];
+
+const META = new Map(GROUPS.flatMap((g) => g.providers).map((p) => [p.kind, p]));
 
 export function SemanticSearchSettings({
   embedding,
@@ -110,6 +108,7 @@ export function SemanticSearchSettings({
   const [keychainOk, setKeychainOk] = useState(true);
 
   const active = embedding.kind;
+  const meta = META.get(active);
   const config: ProviderConfig = embedding.configs[active] ?? { kind: active };
 
   const refreshStats = useCallback(() => {
@@ -123,15 +122,12 @@ export function SemanticSearchSettings({
       .catch(() => setKeychainOk(false));
   }, []);
 
-  // Keep stats live while the panel is open (indexing runs in the background).
   useEffect(() => {
     if (!embedding.enabled) return;
     refreshStats();
-    const unsub = window.vault.onIndexStatus(() => refreshStats());
-    return unsub;
+    return window.vault.onIndexStatus(() => refreshStats());
   }, [embedding.enabled, refreshStats]);
 
-  // Reflect whether the selected provider has a stored secret.
   useEffect(() => {
     window.vault
       .hasEmbeddingSecret(active)
@@ -152,7 +148,6 @@ export function SemanticSearchSettings({
     try {
       const found = await window.vault.scanProviders();
       setScan(found);
-      // Auto-fill models for detected local providers.
       const next: Record<string, string[]> = {};
       for (const p of found) if (p.models.length) next[p.kind] = p.models;
       setModels((m) => ({ ...m, ...next }));
@@ -168,8 +163,7 @@ export function SemanticSearchSettings({
 
   async function runTest() {
     setTest({ loading: true, result: null });
-    const result = await window.vault.testProvider();
-    setTest({ loading: false, result });
+    setTest({ loading: false, result: await window.vault.testProvider() });
     refreshStats();
   }
 
@@ -182,23 +176,17 @@ export function SemanticSearchSettings({
     setSecretSet(Object.values(fields).some((v) => v?.trim()));
   }
 
-  const detected = (kind: ProviderKind) => scan?.find((p) => p.kind === kind);
-
   return (
     <section className="mt-10">
       <h2 className="text-faint mb-2 text-xs font-medium tracking-wide uppercase">
         Semantic search
       </h2>
-      <p className="text-muted mb-4 max-w-prose text-sm leading-relaxed">
-        Find notes by meaning, not just exact words. Keyword search always stays on your machine.
-        Semantic search can run locally or through a provider you choose.
-      </p>
-
       <label className="border-edge flex cursor-pointer items-center justify-between border-b py-4">
         <span className="min-w-0 pr-4">
-          <span className="text-ink block text-sm font-medium">Enable semantic search</span>
-          <span className="text-muted block text-xs">
-            Off keeps everything keyword-only and fully local.
+          <span className="text-ink block text-sm font-medium">Find notes by meaning</span>
+          <span className="text-muted block text-xs leading-relaxed">
+            Keyword search always stays on your machine. Turn on to also match by meaning, locally
+            or through a provider you choose.
           </span>
         </span>
         <input
@@ -211,46 +199,45 @@ export function SemanticSearchSettings({
       </label>
 
       {embedding.enabled && (
-        <div className="animate-fade mt-5 flex flex-col gap-6">
-          {/* Step: choose provider */}
-          <div>
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-ink text-sm font-medium">Embedding provider</h3>
-              <button
-                type="button"
-                onClick={() => void runScan()}
-                className="border-edge hover:border-accent/40 text-muted hover:text-ink flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs"
-              >
-                {scanning ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
-                Scan this machine
-              </button>
-            </div>
-            <p className="text-muted mb-3 text-xs">
-              Choose where embeddings are created. We recommend a local provider for the most
-              private setup.
-            </p>
-            {GROUPS.map((group) => (
-              <div key={group.title} className="mb-4">
-                <div className="text-faint mb-2 text-[11px] font-medium tracking-wide uppercase">
-                  {group.title}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {group.providers.map((meta) => (
-                    <ProviderCard
-                      key={meta.kind}
-                      meta={meta}
-                      selected={active === meta.kind}
-                      detected={detected(meta.kind)}
-                      onSelect={() => onChange({ ...embedding, kind: meta.kind })}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
+        <div className="animate-fade mt-4 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <span className="text-ink text-sm font-medium">Provider</span>
+            <button
+              type="button"
+              onClick={() => void runScan()}
+              className="border-edge hover:border-accent/40 text-muted hover:text-ink flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs"
+            >
+              {scanning ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
+              Scan this machine
+            </button>
           </div>
 
-          {/* Step: configure the selected provider */}
-          <div className="border-edge flex flex-col gap-4 rounded-xl border p-4">
+          {GROUPS.map((group) => (
+            <div key={group.title}>
+              <div className="text-faint mb-1.5 text-[11px] font-medium tracking-wide uppercase">
+                {group.title}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {group.providers.map((p) => (
+                  <ProviderTile
+                    key={p.kind}
+                    meta={p}
+                    selected={active === p.kind}
+                    detected={scan?.find((d) => d.kind === p.kind)}
+                    onSelect={() => onChange({ ...embedding, kind: p.kind })}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Selected provider: blurb + only its fields + test */}
+          <div className="border-edge flex flex-col gap-3 rounded-xl border p-4">
+            {meta && (
+              <p className="text-muted text-xs leading-relaxed">
+                <span className="text-ink font-medium">{meta.name}.</span> {meta.blurb}
+              </p>
+            )}
             <ProviderConfigPanel
               kind={active}
               config={config}
@@ -261,7 +248,6 @@ export function SemanticSearchSettings({
               onRefreshModels={() => void refreshModels()}
               onSaveSecret={saveSecret}
             />
-
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -275,14 +261,13 @@ export function SemanticSearchSettings({
                 <span
                   className={`flex items-center gap-1.5 text-xs ${test.result.ok ? 'text-green-700 dark:text-green-400' : 'text-accent'}`}
                 >
-                  {test.result.ok && <CheckCircle2 size={14} />}
+                  {test.result.ok && <Check size={13} />}
                   {test.result.message}
                 </span>
               )}
             </div>
           </div>
 
-          {/* Step: index status + controls */}
           <IndexControls
             stats={stats}
             onRebuild={async () => {
@@ -304,7 +289,7 @@ export function SemanticSearchSettings({
   );
 }
 
-function ProviderCard({
+function ProviderTile({
   meta,
   selected,
   detected,
@@ -315,42 +300,37 @@ function ProviderCard({
   detected?: DiscoveredProvider;
   onSelect: () => void;
 }) {
-  const status =
-    detected?.status === 'running'
-      ? { label: 'Detected', tone: 'text-green-700 dark:text-green-400' }
-      : detected
-        ? { label: 'Not running', tone: 'text-muted' }
-        : null;
+  const status = detected?.status === 'running' ? 'Detected' : detected ? 'Not running' : null;
   return (
     <button
       type="button"
       onClick={onSelect}
       aria-current={selected}
-      className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left ${
+      className={`flex flex-col gap-1.5 rounded-lg border p-2.5 text-left transition-colors ${
         selected ? 'border-accent/60 bg-accent/10' : 'border-edge hover:border-accent/30'
       }`}
     >
       <span className="flex w-full items-center gap-1.5">
-        {meta.privacy === 'local' ? (
-          <HardDrive size={14} className="text-faint shrink-0" />
-        ) : (
-          <Cloud size={14} className="text-faint shrink-0" />
-        )}
+        <meta.Icon
+          size={14}
+          className={selected ? 'text-accent shrink-0' : 'text-faint shrink-0'}
+        />
         <span className="text-ink truncate text-sm font-medium">{meta.name}</span>
         {meta.recommended && (
-          <span className="bg-accent/15 text-accent ml-auto rounded px-1.5 py-0.5 text-[10px] font-medium">
-            Recommended
+          <span className="bg-accent/15 text-accent ml-auto rounded px-1 py-0.5 text-[9px] font-medium tracking-wide uppercase">
+            Rec
           </span>
         )}
       </span>
-      <span className="text-muted text-xs leading-snug">{meta.blurb}</span>
-      <span className="text-faint mt-1 flex items-center gap-2 text-[11px]">
-        <span className="flex items-center gap-1">
-          {meta.privacy === 'local' ? <ShieldCheck size={11} /> : null}
-          {meta.privacy === 'local' ? 'Private' : 'Sends text out'}
-        </span>
-        <span>· {meta.difficulty}</span>
-        {status && <span className={`· ${status.tone}`}>· {status.label}</span>}
+      <span className="text-faint flex items-center gap-1 text-[11px]">
+        {meta.privacy === 'local' ? 'Private' : 'Sends out'} · {meta.difficulty}
+        {status && (
+          <span
+            className={detected?.status === 'running' ? 'text-green-700 dark:text-green-400' : ''}
+          >
+            · {status}
+          </span>
+        )}
       </span>
     </button>
   );
@@ -373,7 +353,7 @@ function Field({
   useEffect(() => setLocal(value), [value]);
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-muted text-xs font-medium">{label}</span>
+      {label && <span className="text-muted text-xs font-medium">{label}</span>}
       <input
         type={type}
         value={local}
@@ -407,7 +387,7 @@ function ModelField({
           onClick={onRefresh}
           className="text-faint hover:text-ink flex items-center gap-1"
         >
-          <RefreshCw size={11} /> Refresh models
+          <RefreshCw size={11} /> Refresh
         </button>
       </span>
       {models.length > 0 ? (
@@ -453,16 +433,20 @@ function ProviderConfigPanel({
     awsSecretAccessKey?: string;
   }) => void;
 }) {
-  const keyHelp = secretSet ? 'A key is stored (leave blank to keep it).' : undefined;
-  const secretNote = keychainOk ? (
-    <p className="text-faint text-[11px]">
-      Keys are encrypted in your OS keychain, never in the vault.
-    </p>
-  ) : (
+  const secretNote = keychainOk ? null : (
     <p className="text-accent text-[11px]">
-      Your OS keychain is unavailable, so keys can't be stored securely. Use a local provider.
+      Your OS keychain is unavailable, so keys can’t be stored securely — prefer a local provider.
     </p>
   );
+
+  if (kind === 'builtin') {
+    // Zero-config: nothing to fill in. The model downloads on first index / test.
+    return (
+      <p className="text-faint text-[11px]">
+        Nothing to configure. Test to download and warm up the model.
+      </p>
+    );
+  }
 
   if (kind === 'ollama' || kind === 'lmstudio') {
     return (
@@ -479,10 +463,6 @@ function ProviderConfigPanel({
           onCommit={(v) => onConfig({ model: v })}
           onRefresh={onRefreshModels}
         />
-        <p className="text-faint text-[11px]">
-          Recommended model: <code className="text-muted">nomic-embed-text</code>. Everything stays
-          on this machine.
-        </p>
       </>
     );
   }
@@ -490,18 +470,20 @@ function ProviderConfigPanel({
   if (kind === 'bedrock') {
     return (
       <>
-        <Field
-          label="AWS region"
-          value={config.region ?? ''}
-          placeholder="us-east-1"
-          onCommit={(v) => onConfig({ region: v })}
-        />
-        <ModelField
-          value={config.model ?? ''}
-          models={models.length ? models : []}
-          onCommit={(v) => onConfig({ model: v })}
-          onRefresh={onRefreshModels}
-        />
+        <div className="grid grid-cols-2 gap-3">
+          <Field
+            label="AWS region"
+            value={config.region ?? ''}
+            placeholder="us-east-1"
+            onCommit={(v) => onConfig({ region: v })}
+          />
+          <ModelField
+            value={config.model ?? ''}
+            models={models}
+            onCommit={(v) => onConfig({ model: v })}
+            onRefresh={onRefreshModels}
+          />
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <Field
             label="Access key ID (optional)"
@@ -510,17 +492,13 @@ function ProviderConfigPanel({
             onCommit={(v) => v.trim() && onSaveSecret({ awsAccessKeyId: v })}
           />
           <Field
-            label="Secret access key (optional)"
+            label="Secret key (optional)"
             value=""
             type="password"
             placeholder={secretSet ? '•••• stored' : 'uses AWS profile if blank'}
             onCommit={(v) => v.trim() && onSaveSecret({ awsSecretAccessKey: v })}
           />
         </div>
-        <p className="text-faint text-[11px]">
-          Leave credentials blank to use your AWS profile / environment. Note text is sent to AWS;
-          usage may incur cost.
-        </p>
         {secretNote}
       </>
     );
@@ -545,12 +523,14 @@ function ProviderConfigPanel({
         label={`API key${kind === 'openai-compatible' ? ' (optional)' : ''}`}
         value=""
         type="password"
-        placeholder={keyHelp ?? 'sk-…'}
+        placeholder={secretSet ? '•••• stored (leave blank to keep)' : 'sk-…'}
         onCommit={(v) => onSaveSecret({ apiKey: v })}
       />
-      <p className="text-faint text-[11px]">
-        Note text is sent to this provider; usage may incur cost.
-      </p>
+      {keychainOk && (
+        <p className="text-faint text-[11px]">
+          Keys are encrypted in your OS keychain, never in the vault.
+        </p>
+      )}
       {secretNote}
     </>
   );
@@ -571,22 +551,20 @@ function IndexControls({
   const pct = stats.chunks > 0 ? Math.round((stats.embedded / stats.chunks) * 100) : 0;
   return (
     <div
-      className="border-edge flex flex-col gap-3 rounded-xl border p-4"
+      className="border-edge flex flex-col gap-2.5 rounded-xl border p-4"
       data-testid="index-controls"
     >
-      <div className="flex items-center gap-2">
-        <ServerCog size={15} className="text-faint" />
-        <h3 className="text-ink text-sm font-medium">Semantic index</h3>
-      </div>
-      <div className="text-muted grid grid-cols-2 gap-y-1 text-xs">
-        <span>Notes indexed</span>
-        <span className="text-ink text-right tabular-nums">{stats.notes}</span>
-        <span>Embeddings</span>
-        <span className="text-ink text-right tabular-nums">
-          {stats.embedded}/{stats.chunks} ({pct}%)
+      <div className="text-muted flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+        <span>
+          <span className="text-ink tabular-nums">{stats.notes}</span> notes
         </span>
-        <span>Model</span>
-        <span className="text-ink truncate text-right">{stats.model ?? '—'}</span>
+        <span>
+          <span className="text-ink tabular-nums">
+            {stats.embedded}/{stats.chunks}
+          </span>{' '}
+          embedded ({pct}%)
+        </span>
+        {stats.model && <span className="text-faint truncate">{stats.model}</span>}
       </div>
       <div className="flex flex-wrap gap-2">
         <button
@@ -594,14 +572,14 @@ function IndexControls({
           onClick={onRebuild}
           className="border-edge hover:bg-surface rounded-lg border px-2.5 py-1 text-xs"
         >
-          Rebuild index
+          Rebuild
         </button>
         <button
           type="button"
           onClick={() => onPause(!stats.paused)}
           className="border-edge hover:bg-surface rounded-lg border px-2.5 py-1 text-xs"
         >
-          {stats.paused ? 'Resume indexing' : 'Pause indexing'}
+          {stats.paused ? 'Resume' : 'Pause'}
         </button>
         <button
           type="button"
@@ -611,10 +589,6 @@ function IndexControls({
           Clear semantic index
         </button>
       </div>
-      <p className="text-faint text-[11px]">
-        Changing the model requires rebuilding embeddings. Keyword search is unaffected and always
-        available.
-      </p>
     </div>
   );
 }

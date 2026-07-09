@@ -8,10 +8,15 @@ export default defineConfig({
   main: {
     build: {
       rollupOptions: {
-        // The derived index (E4) loads WASM SQLite via a runtime require; keep it external so its
-        // .wasm ships in node_modules and loads at runtime rather than being bundled into main
-        // (ADR 0006). It is a direct desktop dep so it resolves from the built main's location.
-        external: ['node-sqlite3-wasm'],
+        // Native/heavy runtime deps loaded on demand: WASM SQLite (ADR 0006) and the lazily-loaded
+        // embedding backends (AWS SDK, Transformers.js + onnxruntime — ADR 0008). Keep them external
+        // so their binaries/.wasm ship in node_modules and load at runtime instead of being bundled
+        // into main. They are direct desktop deps, so they resolve from the built main's location.
+        external: [
+          'node-sqlite3-wasm',
+          '@aws-sdk/client-bedrock-runtime',
+          '@huggingface/transformers',
+        ],
       },
     },
   },

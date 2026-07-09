@@ -7,18 +7,29 @@
  * here — the main process resolves them from the OS keychain).
  */
 
-/** Provider kinds shipped today. Azure/Vertex route to `openai-compatible` until native adapters land. */
-export type ProviderKind = 'ollama' | 'lmstudio' | 'openai' | 'openai-compatible' | 'bedrock';
+/**
+ * Provider kinds shipped today. `builtin` runs a small model on-device (EmbeddingGemma via
+ * Transformers.js); Azure/Vertex route to `openai-compatible` until native adapters land.
+ */
+export type ProviderKind =
+  | 'builtin'
+  | 'ollama'
+  | 'lmstudio'
+  | 'openai'
+  | 'openai-compatible'
+  | 'bedrock';
 
 /** Non-secret configuration for a single provider (secrets are passed separately at construction). */
 export interface ProviderConfig {
   kind: ProviderKind;
   /** OpenAI-compatible base URL (ollama/lmstudio/openai/custom). */
   baseUrl?: string;
-  /** Model name, or the Bedrock model id (e.g. `amazon.titan-embed-text-v2:0`). */
+  /** Model name, the Bedrock model id, or the `builtin` on-device model repo. */
   model?: string;
   /** AWS region (bedrock only). */
   region?: string;
+  /** Where the `builtin` provider caches its downloaded model (set by the app to userData). */
+  cacheDir?: string;
 }
 
 /** Secrets an adapter may need, resolved by the main process from `safeStorage` and injected. */
@@ -36,10 +47,14 @@ export interface EmbeddingSettings {
   configs: Partial<Record<ProviderKind, ProviderConfig>>;
 }
 
+/** The on-device model the `builtin` provider runs (a Transformers.js-compatible ONNX build). */
+export const BUILTIN_EMBEDDING_MODEL = 'onnx-community/embeddinggemma-300m-ONNX';
+
 export const DEFAULT_EMBEDDING_SETTINGS: EmbeddingSettings = {
   enabled: false,
-  kind: 'ollama',
+  kind: 'builtin',
   configs: {
+    builtin: { kind: 'builtin', model: BUILTIN_EMBEDDING_MODEL },
     ollama: { kind: 'ollama', baseUrl: 'http://localhost:11434/v1', model: 'nomic-embed-text' },
     lmstudio: { kind: 'lmstudio', baseUrl: 'http://localhost:1234/v1', model: '' },
     openai: {
@@ -190,6 +205,10 @@ export async function createEmbeddingAdapter(
   secrets: ProviderSecrets = {},
 ): Promise<EmbeddingAdapter | null> {
   switch (config.kind) {
+    case 'builtin': {
+      const { createLocalAdapter } = await import('./embeddings-local.js');
+      return createLocalAdapter(config.model || BUILTIN_EMBEDDING_MODEL, config.cacheDir);
+    }
     case 'ollama':
       if (!config.baseUrl || !config.model) return null;
       return openAiFamilyAdapter('ollama', 'local', config.baseUrl, config.model, undefined);

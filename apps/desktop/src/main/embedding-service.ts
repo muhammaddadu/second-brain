@@ -33,6 +33,8 @@ export interface EmbeddingServiceDeps {
   readSecret(kind: ProviderKind): ProviderSecretInput;
   /** Broadcast indexing status to the renderer. */
   pushStatus(status: IndexStatus): void;
+  /** Directory where the built-in on-device model is cached (app userData). */
+  builtinCacheDir: string;
 }
 
 export interface EmbeddingService {
@@ -69,9 +71,13 @@ export function createEmbeddingService(deps: EmbeddingServiceDeps): EmbeddingSer
   let running = false;
   let paused = false;
 
-  /** The config for a provider kind, falling back to an empty config so callers can probe any kind. */
+  /**
+   * The config for a provider kind, falling back to an empty config so callers can probe any kind.
+   * Injects the runtime cache dir for the built-in on-device model (not persisted in settings).
+   */
   function configFor(kind: ProviderKind): ProviderConfig {
-    return deps.getSettings().embedding.configs[kind] ?? { kind };
+    const config = deps.getSettings().embedding.configs[kind] ?? { kind };
+    return kind === 'builtin' ? { ...config, cacheDir: deps.builtinCacheDir } : config;
   }
 
   async function runPass(): Promise<void> {
@@ -102,9 +108,8 @@ export function createEmbeddingService(deps: EmbeddingServiceDeps): EmbeddingSer
 
     async refresh(): Promise<void> {
       const { embedding } = deps.getSettings();
-      const config = embedding.enabled ? embedding.configs[embedding.kind] : undefined;
-      adapter = config
-        ? await createEmbeddingAdapter(config, deps.readSecret(embedding.kind))
+      adapter = embedding.enabled
+        ? await createEmbeddingAdapter(configFor(embedding.kind), deps.readSecret(embedding.kind))
         : null;
     },
 

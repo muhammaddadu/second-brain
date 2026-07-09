@@ -2,6 +2,7 @@
 
 export { atomicWriteFile } from './atomic.js';
 export {
+  BUILTIN_EMBEDDING_MODEL,
   cosineSimilarity,
   createEmbeddingAdapter,
   DEFAULT_EMBEDDING_SETTINGS,

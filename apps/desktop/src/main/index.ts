@@ -182,6 +182,7 @@ const embeddings = createEmbeddingService({
   getSettings: readSettings,
   readSecret,
   pushStatus: pushIndexStatus,
+  builtinCacheDir: join(app.getPath('userData'), 'models'),
 });
 
 function writeConfig(config: Config): void {
