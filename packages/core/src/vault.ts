@@ -21,6 +21,7 @@ import {
   BRAIN_DIR,
   NOTE_EXTENSION,
   ORDER_FILE,
+  RULES_FILE,
   TRASH_DIRNAME,
   VAULT_MARKER_FILE,
 } from './paths.js';
@@ -225,6 +226,25 @@ export async function updateNoteBlocksGuarded(
 /** Create an empty folder at a vault-relative path (for the tree's "new folder" action). */
 export async function createFolder(vault: Vault, relPath: string): Promise<void> {
   await mkdir(resolveInVault(vault, relPath), { recursive: true });
+}
+
+/** Read the owner's agent rules ({@link RULES_FILE}), or '' if none exists yet. */
+export async function readRules(vault: Vault): Promise<string> {
+  try {
+    return await readFile(join(vault.root, RULES_FILE), 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+/** Write the owner's agent rules; a blank value removes the file (no empty RULES.md left behind). */
+export async function writeRules(vault: Vault, text: string): Promise<void> {
+  const path = join(vault.root, RULES_FILE);
+  if (text.trim()) {
+    await atomicWriteFile(path, text.endsWith('\n') ? text : `${text}\n`);
+  } else {
+    await rm(path, { force: true });
+  }
 }
 
 /**

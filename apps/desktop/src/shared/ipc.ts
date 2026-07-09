@@ -59,6 +59,8 @@ export const IPC = {
   agentSkillStatus: 'agent:skill-status',
   installAgentSkill: 'agent:skill-install',
   removeAgentSkill: 'agent:skill-remove',
+  getRules: 'agent:get-rules',
+  setRules: 'agent:set-rules',
   /** Main → renderer push: a file changed in the vault (watcher). */
   changed: 'vault:changed',
   /** Main → renderer push: indexing status (idle / indexing progress). */
@@ -261,4 +263,8 @@ export interface VaultApi {
   installAgentSkill(): Promise<void>;
   /** Remove the global agent skill. */
   removeAgentSkill(): Promise<void>;
+  /** The owner's agent rules (RULES.md), or '' if none. */
+  getRules(): Promise<string>;
+  /** Save the owner's agent rules (RULES.md); a blank value removes the file. */
+  setRules(text: string): Promise<void>;
 }

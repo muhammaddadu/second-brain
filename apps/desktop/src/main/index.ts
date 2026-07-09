@@ -27,6 +27,7 @@ import {
   openVault,
   type ProviderKind,
   readNote,
+  readRules,
   reindexNote,
   renameFolder,
   renameNote,
@@ -41,6 +42,7 @@ import {
   type Vault,
   type VaultWatcher,
   watchVault,
+  writeRules,
 } from '@brain/core';
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage } from 'electron';
 import {
@@ -710,6 +712,8 @@ function registerHandlers(): void {
   ipcMain.handle(IPC.agentSkillStatus, () => agentSkillStatus());
   ipcMain.handle(IPC.installAgentSkill, () => installAgentSkill());
   ipcMain.handle(IPC.removeAgentSkill, () => removeAgentSkill());
+  ipcMain.handle(IPC.getRules, () => readRules(requireVault()));
+  ipcMain.handle(IPC.setRules, (_event, text: string) => writeRules(requireVault(), text));
 }
 
 // --- Appearance (native theme + translucency) --------------------------------

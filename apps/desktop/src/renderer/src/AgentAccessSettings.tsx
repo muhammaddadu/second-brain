@@ -10,12 +10,32 @@ import type { AgentSkillStatus } from '../../shared/ipc';
 export function AgentAccessSettings() {
   const [status, setStatus] = useState<AgentSkillStatus | null>(null);
   const [busy, setBusy] = useState(false);
+  const [rules, setRules] = useState('');
+  const [savedRules, setSavedRules] = useState('');
 
   const refresh = useCallback(() => {
     window.vault.agentSkillStatus().then(setStatus).catch(console.error);
   }, []);
 
   useEffect(refresh, [refresh]);
+
+  useEffect(() => {
+    window.vault
+      .getRules()
+      .then((text) => {
+        setRules(text);
+        setSavedRules(text);
+      })
+      .catch(console.error);
+  }, []);
+
+  function saveRules() {
+    if (rules === savedRules) return;
+    window.vault
+      .setRules(rules)
+      .then(() => setSavedRules(rules))
+      .catch(console.error);
+  }
 
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -36,6 +56,33 @@ export function AgentAccessSettings() {
         engagement (note format, folders &amp; tags, safe writes) — which the app keeps up to date
         as features land, without overwriting your edits.
       </p>
+
+      <div className="border-edge mb-3 flex flex-col gap-2 rounded-xl border p-4">
+        <label htmlFor="vault-rules" className="text-ink text-sm font-medium">
+          Your rules (RULES.md)
+        </label>
+        <p className="text-muted text-xs leading-relaxed">
+          Conventions agents should follow before writing — where things go, naming, formatting.
+          e.g. “Daily notes go in <code className="text-ink">Journal/YYYY-MM-DD</code>; each project
+          gets a folder with an <code className="text-ink">index</code> note.” Leave blank to
+          remove.
+        </p>
+        <textarea
+          id="vault-rules"
+          value={rules}
+          onChange={(e) => setRules(e.target.value)}
+          onBlur={saveRules}
+          rows={6}
+          placeholder="Write your vault conventions here…"
+          data-testid="rules-editor"
+          className="border-edge bg-raised text-ink placeholder:text-faint focus:border-accent/50 rounded-lg border px-3 py-2 font-mono text-xs leading-relaxed outline-none"
+        />
+        <span className="text-faint text-[11px]">
+          {rules === savedRules
+            ? 'Saved · agents read this before writing.'
+            : 'Unsaved — click away to save.'}
+        </span>
+      </div>
 
       <div className="border-edge flex flex-col gap-3 rounded-xl border p-4">
         <div className="flex items-center gap-2">

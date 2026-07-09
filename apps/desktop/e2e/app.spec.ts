@@ -335,6 +335,20 @@ test('settings: enabling semantic search reveals the provider picker and config'
   await openNote('Journal', '2026-07-07');
 });
 
+test('settings: editing vault rules writes RULES.md', async () => {
+  await window.getByRole('button', { name: 'Settings' }).click();
+  const editor = window.getByTestId('rules-editor');
+  await editor.fill('Daily notes go in Journal/YYYY-MM-DD.');
+  await editor.blur(); // commit on blur
+
+  const rulesPath = join(vaultRoot, 'RULES.md');
+  await expect
+    .poll(async () => readFile(rulesPath, 'utf8').catch(() => ''), { timeout: 8000 })
+    .toContain('Daily notes go in Journal');
+
+  await openNote('Journal', '2026-07-07');
+});
+
 test('an external edit to the OPEN note surfaces a conflict, never a silent clobber', async () => {
   await openNote('Journal', '2026-07-07'); // open it; NoteView reads its current hash
 

@@ -86,6 +86,7 @@ export {
   moveNote,
   openVault,
   readNote,
+  readRules,
   renameFolder,
   renameNote,
   setFolderOrder,
@@ -98,6 +99,7 @@ export {
   type Vault,
   type VaultOptions,
   writeNote,
+  writeRules,
 } from './vault.js';
 export {
   isReservedPath,

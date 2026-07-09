@@ -72,6 +72,8 @@ const vault: VaultApi = {
   agentSkillStatus: () => ipcRenderer.invoke(IPC.agentSkillStatus),
   installAgentSkill: () => ipcRenderer.invoke(IPC.installAgentSkill),
   removeAgentSkill: () => ipcRenderer.invoke(IPC.removeAgentSkill),
+  getRules: () => ipcRenderer.invoke(IPC.getRules),
+  setRules: (text) => ipcRenderer.invoke(IPC.setRules, text),
 };
 
 contextBridge.exposeInMainWorld('vault', vault);
