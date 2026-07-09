@@ -1,11 +1,15 @@
 /**
  * Right-panel note surface. Loads the selected note (and its content hash, the conflict-guard
- * baseline) through the vault bridge and hands it to the BlockNote editor. A reload counter lets
- * the editor request a fresh read after an external-change conflict is resolved (E3).
+ * baseline) through the vault bridge and hands it to the BlockNote editor.
+ *
+ * Two path changes are treated differently so the UI stays smooth:
+ * - Switching to a *different* note, or resolving a conflict → reload + remount (fresh editor).
+ * - A title-driven **rename** of the *current* note → the path changes but the content is the same,
+ *   so we keep the editor mounted and just let the new path flow in (no blank, no flash).
  */
 import type { NoteEnvelope } from '@brain/core';
 import { NotebookPen } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NoteEditor } from './NoteEditor';
 
 export function NoteView({
@@ -17,17 +21,27 @@ export function NoteView({
 }) {
   const [loaded, setLoaded] = useState<{ note: NoteEnvelope; hash: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
+  // Bumped only on a real switch / reload — the editor is keyed by it, so a rename never remounts.
+  const [mountKey, setMountKey] = useState(0);
+  const [reloadNonce, setReloadNonce] = useState(0);
+  // When a rename is in flight, this holds the path we expect next so we can skip the reload.
+  const renamedTo = useRef<string | null>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is an intentional re-read trigger
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadNonce is an intentional re-read trigger
   useEffect(() => {
     if (!path) {
       setLoaded(null);
       return;
     }
+    if (renamedTo.current === path) {
+      // A rename of the current note: same content, new filename. Keep the editor mounted.
+      renamedTo.current = null;
+      return;
+    }
     let cancelled = false;
-    setLoaded(null);
     setError(null);
+    setLoaded(null);
+    setMountKey((k) => k + 1);
     window.vault
       .readNote(path)
       .then((result) => {
@@ -39,7 +53,7 @@ export function NoteView({
     return () => {
       cancelled = true;
     };
-  }, [path, reloadKey]);
+  }, [path, reloadNonce]);
 
   if (!path) {
     return (
@@ -55,20 +69,21 @@ export function NoteView({
     );
   }
   if (!loaded) {
-    // Same container as the article so content doesn't jump in when it loads. No text flash for
-    // the common fast case — a bare, quiet placeholder.
+    // Same container as the article so content doesn't jump in when it loads; a quiet placeholder.
     return <div className="mx-auto max-w-3xl px-10 py-8" aria-hidden />;
   }
 
-  // key remounts the editor with fresh content on note switch or reload-after-conflict.
   return (
     <NoteEditor
-      key={`${path}:${reloadKey}`}
+      key={mountKey}
       path={path}
       note={loaded.note}
       initialHash={loaded.hash}
-      onReload={() => setReloadKey((k) => k + 1)}
-      onRenamed={onRenamed}
+      onReload={() => setReloadNonce((n) => n + 1)}
+      onRenamed={(newPath) => {
+        renamedTo.current = newPath; // skip the reload the route change would otherwise trigger
+        onRenamed(newPath);
+      }}
     />
   );
 }

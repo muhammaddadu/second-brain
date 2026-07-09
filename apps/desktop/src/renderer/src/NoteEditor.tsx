@@ -113,12 +113,10 @@ export function NoteEditor({ path, note, initialHash, onReload, onRenamed }: Not
     }
     try {
       const result = await window.vault.setTitle(path, next);
-      if (result.path !== path) {
-        onRenamed(result.path); // remount at the new path (fresh hash baseline there)
-      } else {
-        // Same file, but writing meta.title changed its bytes — refresh our conflict-guard baseline.
-        hashRef.current = (await window.vault.readNote(path)).hash;
-      }
+      // The title write (and any rename) changed the file's bytes — refresh the conflict-guard
+      // baseline for the new path. The editor stays mounted, so we must do this here.
+      hashRef.current = (await window.vault.readNote(result.path)).hash;
+      if (result.path !== path) onRenamed(result.path);
     } catch (error) {
       console.error(error);
       setTitleValue(initialTitle);
