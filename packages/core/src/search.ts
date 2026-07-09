@@ -83,6 +83,8 @@ export interface SearchIndex {
   indexedPaths(): string[];
   /** Empty the whole index (used before a full rebuild). */
   clear(): void;
+  /** Run `fn` inside one SQLite transaction — batches many writes into a single commit (fast bulk index). */
+  transaction(fn: () => Promise<void>): Promise<void>;
   /** Keyword search: distinct notes ranked best-first, each with a snippet. */
   search(query: string, limit?: number): SearchHit[];
   /** Chunks with no embedding for `model` yet (the work list for {@link embedPending}). */
@@ -257,6 +259,17 @@ export function openSearchIndex(dbPath: string): SearchIndex {
     clear(): void {
       if (!open) return;
       db.exec('DELETE FROM chunks_fts; DELETE FROM chunks; DELETE FROM notes;');
+    },
+    async transaction(fn: () => Promise<void>): Promise<void> {
+      if (!open) return;
+      db.exec('BEGIN');
+      try {
+        await fn();
+        if (open) db.exec('COMMIT'); // a mid-run close() aborts the txn; nothing to commit
+      } catch (error) {
+        if (open) db.exec('ROLLBACK');
+        throw error;
+      }
     },
     search(query: string, limit = 20): SearchHit[] {
       if (!open) return [];
@@ -484,9 +497,13 @@ async function reindexSafely(vault: Vault, index: SearchIndex, relPath: string):
 /** Fully rebuild the index from the note files — proves the index is derived (delete + rebuild). */
 export async function rebuildIndex(vault: Vault, index: SearchIndex): Promise<void> {
   index.clear();
-  for (const path of await collectNotePaths(vault)) {
-    await reindexSafely(vault, index, path);
-  }
+  const paths = await collectNotePaths(vault);
+  // One transaction for the whole rebuild — turns thousands of auto-commits into a single commit.
+  await index.transaction(async () => {
+    for (const path of paths) {
+      await reindexSafely(vault, index, path);
+    }
+  });
 }
 
 /**
@@ -499,10 +516,14 @@ export async function rebuildIndex(vault: Vault, index: SearchIndex): Promise<vo
  */
 export async function syncIndex(vault: Vault, index: SearchIndex): Promise<void> {
   const present = new Set(await collectNotePaths(vault));
-  for (const path of present) {
-    if (!index.isOpen()) return;
-    await reindexSafely(vault, index, path);
-  }
+  // Batch the (re)index writes into one transaction — cheap when unchanged (hash gate skips), fast
+  // when a large vault is indexed for the first time. Bails if the index is closed (vault switch).
+  await index.transaction(async () => {
+    for (const path of present) {
+      if (!index.isOpen()) return;
+      await reindexSafely(vault, index, path);
+    }
+  });
   if (!index.isOpen()) return;
   for (const path of index.indexedPaths()) {
     if (!present.has(path)) index.remove(path);

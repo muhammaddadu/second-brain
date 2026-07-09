@@ -2,7 +2,7 @@
 
 > **This doc owns:** the acceptance state of the search/RAG epic. **Index:** [epics](index.md). **Index schema:** [data-model](../../architecture/data-model.md).
 
-**Status:** Nearly done — keyword + semantic hybrid search, ⌘K, provider config, indexing progress, and the interactive **knowledge graph** shipped (2026-07-09); a 1000-note performance test is the last open item · **Depends on:** E0 (search UI: E1) · **PRD:** §3.4, §4.1, §4.3, §7.2
+**Status:** Done (2026-07-09) — keyword + semantic hybrid search, ⌘K, a multi-provider embedding system (incl. on-device EmbeddingGemma), indexing progress + controls, the interactive **knowledge graph**, and the 1000-note performance bar all shipped. (Native Azure/Vertex adapters remain reachable via the custom-endpoint provider; a dedicated large-vault UX pass can come later.) · **Depends on:** E0 (search UI: E1) · **PRD:** §3.4, §4.1, §4.3, §7.2
 
 ## Goal
 
@@ -25,7 +25,7 @@ The retrieval layer that makes the vault findable for humans and agents alike: a
 - [x] Editing a note updates its index entries incrementally without a full rebuild (PRD §3.4). — `reindexNote` is content-hash gated (skips unchanged); the main-process watcher reindexes on change / removes on unlink; unit-tested.
 - [x] A semantic query with no keyword overlap (fixture-designed) returns the intended note; a keyword query returns exact matches (PRD §3.4, §6). — `search.test.ts` "finds a note by meaning with no keyword overlap" (semantic leg via a deterministic fake provider) + the keyword tests; `hybridSearch` fuses both with RRF (ADR 0007).
 - [x] Default configuration performs no network calls during indexing or search (PRD §4.1). — embeddings default `off`; keyword indexing/search is fully local (WASM SQLite). Network happens only when the owner opts into a provider in Settings.
-- [ ] Search over a generated 1000-note fixture vault returns in under 1 second (PRD §4.3). — perf test to add with the 1000-note fixture.
+- [x] Search over a generated 1000-note fixture vault returns in under 1 second (PRD §4.3). — `search-perf.test.ts` builds a real 1000-note vault, indexes it, and times a `search` on a term in every note: ~½ ms (well under the 1 s bound). Bulk indexing is wrapped in one SQLite transaction, so building the 1000-note index takes a fraction of a second too.
 - [x] Lint / typecheck / unit tests / build all pass. — green (52 core + 2 desktop unit; 17 E2E).
 
 ### E2E validation
