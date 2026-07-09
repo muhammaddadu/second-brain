@@ -7,10 +7,14 @@
  *
  * Grammar (the part after the scheme):
  *   settings
+ *   graph                      → the knowledge-graph view
  *   note                       → the "no note selected" state
  *   note/<uri-encoded path>    → open a specific note
  */
-export type Route = { name: 'note'; path: string | null } | { name: 'settings' };
+export type Route =
+  | { name: 'note'; path: string | null }
+  | { name: 'settings' }
+  | { name: 'graph' };
 
 /** Custom protocol used for deep links, e.g. `secondbrain://note/Journal%2F2026-07-07.note.json`. */
 export const APP_SCHEME = 'secondbrain';
@@ -20,6 +24,7 @@ export const DEFAULT_ROUTE: Route = { name: 'note', path: null };
 /** Serialize a route to its URL path (no scheme), e.g. `note/Journal%2Fa.note.json`. */
 export function routeToUrl(route: Route): string {
   if (route.name === 'settings') return 'settings';
+  if (route.name === 'graph') return 'graph';
   return route.path ? `note/${encodeURIComponent(route.path)}` : 'note';
 }
 
@@ -31,6 +36,7 @@ export function routeFromUrl(url: string): Route {
     .replace(new RegExp(`^${APP_SCHEME}:`), '')
     .replace(/^\/+/, '');
   if (trimmed === 'settings') return { name: 'settings' };
+  if (trimmed === 'graph') return { name: 'graph' };
   if (trimmed === '' || trimmed === 'note') return { name: 'note', path: null };
   const noteMatch = /^note\/(.+)$/.exec(trimmed);
   if (noteMatch?.[1]) {

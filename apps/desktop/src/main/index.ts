@@ -9,6 +9,7 @@ import { basename, dirname, join } from 'node:path';
 import {
   AGENT_GUIDE_VERSION,
   agentGuideBody,
+  buildGraph,
   createFolder,
   createNote,
   DEFAULT_EMBEDDING_SETTINGS,
@@ -683,6 +684,14 @@ function registerHandlers(): void {
   ipcMain.handle(IPC.search, (_event, query: string, limit?: number) =>
     searchIndex ? embeddings.search(searchIndex, query, limit) : [],
   );
+  ipcMain.handle(IPC.graph, (_event, threshold?: number) => {
+    if (!searchIndex) return { nodes: [], edges: [] };
+    const model = embeddings.provider()?.model;
+    return buildGraph(searchIndex, {
+      ...(model ? { model } : {}),
+      ...(typeof threshold === 'number' ? { threshold } : {}),
+    });
+  });
 
   // --- Embeddings / semantic-search provider management (ADR 0008) ---
   ipcMain.handle(IPC.scanProviders, () => embeddings.scan());

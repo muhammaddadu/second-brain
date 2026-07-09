@@ -93,6 +93,10 @@ export interface SearchIndex {
   setEmbedding(chunkId: number, model: string, vec: number[]): void;
   /** Semantic search: distinct notes ranked by cosine similarity to `queryVec` for `model`. */
   semanticHits(queryVec: number[], model: string, limit?: number): SearchHit[];
+  /** All indexed notes with their tags — the nodes of the knowledge graph. */
+  graphNotes(): Array<{ path: string; title: string; tags: string[] }>;
+  /** One vector per note (mean of its chunk vectors) for `model` — for semantic graph edges. */
+  noteVectors(model: string): Array<{ path: string; vec: number[] }>;
   /** Drop all vectors (keeps keyword index) — for "clear semantic index" / a model change. */
   clearEmbeddings(): void;
   /** Counts for the UI: indexed notes, total chunks, and how many chunks have an embedding. */
@@ -357,6 +361,41 @@ export function openSearchIndex(dbPath: string): SearchIndex {
         if (hits.length >= limit) break;
       }
       return hits;
+    },
+    graphNotes(): Array<{ path: string; title: string; tags: string[] }> {
+      if (!open) return [];
+      return db.all('SELECT path, title, tags FROM notes').map((r) => ({
+        path: typeof r.path === 'string' ? r.path : '',
+        title: typeof r.title === 'string' ? r.title : '',
+        tags: typeof r.tags === 'string' && r.tags ? r.tags.split(' ').filter(Boolean) : [],
+      }));
+    },
+    noteVectors(model: string): Array<{ path: string; vec: number[] }> {
+      if (!open) return [];
+      const rows = db.all(
+        `SELECT c.path AS path, e.vec AS vec
+         FROM embeddings e JOIN chunks c ON c.id = e.chunk_id
+         WHERE e.model = ?`,
+        [model],
+      );
+      // Average each note's chunk vectors into one note-level vector.
+      const sums = new Map<string, { sum: number[]; count: number }>();
+      for (const row of rows) {
+        const path = typeof row.path === 'string' ? row.path : '';
+        if (!path || !(row.vec instanceof Uint8Array)) continue;
+        const vec = decodeVector(row.vec);
+        const acc = sums.get(path);
+        if (!acc) {
+          sums.set(path, { sum: [...vec], count: 1 });
+        } else {
+          for (let i = 0; i < vec.length; i += 1) acc.sum[i] = (acc.sum[i] ?? 0) + (vec[i] ?? 0);
+          acc.count += 1;
+        }
+      }
+      return [...sums.entries()].map(([path, { sum, count }]) => ({
+        path,
+        vec: sum.map((v) => v / count),
+      }));
     },
     clearEmbeddings(): void {
       if (!open) return;

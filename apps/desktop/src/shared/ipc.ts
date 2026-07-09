@@ -7,6 +7,7 @@
 import type {
   DiscoveredProvider,
   EmbeddingSettings,
+  GraphData,
   NoteEnvelope,
   ProviderKind,
   SearchHit,
@@ -43,6 +44,7 @@ export const IPC = {
   trashFolder: 'vault:trash-folder',
   setOrder: 'vault:set-order',
   search: 'vault:search',
+  graph: 'vault:graph',
   // Embeddings / semantic-search provider management (ADR 0008).
   scanProviders: 'embed:scan-providers',
   listModels: 'embed:list-models',
@@ -225,6 +227,8 @@ export interface VaultApi {
   setOrder(folder: string, orderedNames: string[]): Promise<void>;
   /** Search the vault (keyword, plus semantic when a provider is configured); ranked, with snippets. */
   search(query: string, limit?: number): Promise<SearchHit[]>;
+  /** The knowledge graph derived from the index — notes as nodes, tag + semantic edges. */
+  graph(threshold?: number): Promise<GraphData>;
   /** Subscribe to vault change events; returns an unsubscribe function. */
   onVaultChange(listener: (change: VaultChangePayload) => void): () => void;
   /** Subscribe to indexing status (progress of the embedding pass); returns an unsubscribe function. */

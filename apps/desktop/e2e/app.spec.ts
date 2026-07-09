@@ -427,3 +427,15 @@ test('⌘K search finds a note by its text and opens it', async () => {
   await expect(window.getByTestId('search-palette')).toHaveCount(0);
   await expect(window.getByTestId('note-title')).toHaveValue('Findable');
 });
+
+test('opens the knowledge graph and can return to a note', async () => {
+  await window.getByTestId('graph-button').click();
+  await expect(window.getByRole('heading', { name: 'Knowledge graph' })).toBeVisible();
+  // The graph derives from the index; the fixture has several tagged notes, so it renders (svg)
+  // or shows the empty-state — either way the view is up, not the note editor.
+  await expect(window.getByTestId('note-title')).toHaveCount(0);
+
+  // Leaving to a note swaps back to the editor (router navigation).
+  await openNote('Journal', '2026-07-07');
+  await expect(window.getByTestId('note-title')).toHaveValue('Daily log');
+});

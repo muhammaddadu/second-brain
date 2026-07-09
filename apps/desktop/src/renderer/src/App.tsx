@@ -5,11 +5,12 @@
  * the renderer holds only UI state. A watcher subscription refreshes the tree live (E3).
  */
 import type { TreeNode } from '@brain/core';
-import { Loader2, Search, Settings as SettingsIcon } from 'lucide-react';
+import { Loader2, Network, Search, Settings as SettingsIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Appearance, IndexStatus, VaultInfo } from '../../shared/ipc';
 import { DEFAULT_ROUTE, type Route, routeFromUrl } from '../../shared/route';
 import { FolderTree } from './FolderTree';
+import { GraphView } from './GraphView';
 import { NoteView } from './NoteView';
 import { Onboarding } from './Onboarding';
 import { SearchPalette } from './SearchPalette';
@@ -157,6 +158,17 @@ function Workspace({
           )}
           <button
             type="button"
+            onClick={() => setRoute({ name: 'graph' })}
+            title="Knowledge graph"
+            aria-current={route.name === 'graph'}
+            data-testid="graph-button"
+            className={`border-edge hover:text-ink hover:border-accent/40 flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs ${route.name === 'graph' ? 'text-accent' : 'text-muted'}`}
+          >
+            <Network size={14} strokeWidth={2} />
+            <span>Graph</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setSearchOpen(true)}
             title="Search your notes"
             data-testid="search-button"
@@ -195,6 +207,8 @@ function Workspace({
         <main className="content-surface scroll-stable min-w-0 flex-1 overflow-y-auto">
           {route.name === 'settings' ? (
             <SettingsPage />
+          ) : route.name === 'graph' ? (
+            <GraphView onOpenNote={(path) => setRoute({ name: 'note', path })} />
           ) : (
             <NoteView
               path={selectedPath}

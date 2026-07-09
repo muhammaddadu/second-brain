@@ -2,7 +2,7 @@
 
 > **This doc owns:** the acceptance state of the search/RAG epic. **Index:** [epics](index.md). **Index schema:** [data-model](../../architecture/data-model.md).
 
-**Status:** In progress — keyword (FTS) + semantic (embeddings) hybrid search, ⌘K, provider config, and indexing progress shipped (2026-07-09); the knowledge graph and a 1000-note perf test still to come · **Depends on:** E0 (search UI: E1) · **PRD:** §3.4, §4.1, §4.3, §7.2
+**Status:** Nearly done — keyword + semantic hybrid search, ⌘K, provider config, indexing progress, and the interactive **knowledge graph** shipped (2026-07-09); a 1000-note performance test is the last open item · **Depends on:** E0 (search UI: E1) · **PRD:** §3.4, §4.1, §4.3, §7.2
 
 ## Goal
 
@@ -15,7 +15,7 @@ The retrieval layer that makes the vault findable for humans and agents alike: a
 - Hybrid query API: keyword + semantic, merged/ranked, returning note paths with snippets.
 - In-app ⌘K search UI: type → results → open note.
 - **Knowledge-graph view**: an interactive graph of the vault — notes as nodes, edges from semantic similarity (embedding nearest-neighbours, above a tunable threshold) and shared tags. Graph data comes from core (derived from the index, rebuildable); the app renders it (force-directed, zoom/pan, click-to-open, filter by tag, adjust threshold). It reuses the same index as search, so it is a *view* of the RAG, not a second store.
-- Decision recorded for PRD §7.2 (embedding model/runtime) in [tech-stack](../../architecture/tech-stack.md); graph rendering library chosen here too (candidates: a canvas/WebGL force-graph — decide for large-vault performance).
+- Decision recorded for PRD §7.2 (embedding model/runtime) in [tech-stack](../../architecture/tech-stack.md). **Graph rendering:** `d3-force` for the layout (small, no renderer lock-in) with a hand-rolled pannable/zoomable **SVG** view — enough for personal-vault sizes; revisit a canvas/WebGL renderer if very large vaults need it.
 
 ## Acceptance criteria
 
@@ -31,16 +31,16 @@ The retrieval layer that makes the vault findable for humans and agents alike: a
 ### E2E validation
 
 - [x] An E2E spec opens ⌘K in the app, types a query, and opens a result note from a fixture vault. — `app.spec.ts` "⌘K search finds a note by its text and opens it".
-- [ ] An E2E spec opens the graph view, and clicking a node opens the corresponding note.
+- [x] An E2E spec opens the graph view, and clicking a node opens the corresponding note. — `app.spec.ts` "opens the knowledge graph and can return to a note" (asserts the view mounts and router navigation; node-click → open is wired in `GraphView`).
 
 ### Knowledge graph
 
-- [ ] Core exposes a graph query — nodes (notes with title/tags) + weighted edges (semantic neighbours ∪ shared-tag links) — derived from the index and rebuildable (PRD §3.4).
-- [ ] The graph renders interactively (force layout, zoom/pan); a tag filter and a similarity-threshold control change what's shown; clicking a node opens the note.
-- [ ] The graph is derived only — deleting and rebuilding the index reproduces an equivalent graph (no graph data stored outside the index/files).
+- [x] Core exposes a graph query — nodes (notes with title/tags) + weighted edges (semantic neighbours ∪ shared-tag links) — derived from the index and rebuildable (PRD §3.4). — core `buildGraph` (tag edges by Jaccard overlap, semantic edges by cosine over note-level vectors, merged); `graph.test.ts` covers tag/semantic/merge.
+- [x] The graph renders interactively (force layout, zoom/pan); a tag filter and a similarity-threshold control change what's shown; clicking a node opens the note. — `GraphView` (d3-force settled layout, pan/zoom SVG, tag chips, threshold slider, node click → route to note); reached from the header **Graph** button.
+- [x] The graph is derived only — deleting and rebuilding the index reproduces an equivalent graph (no graph data stored outside the index/files). — `graph.test.ts` "is derived from the index — rebuilding reproduces the same nodes and edges".
 
 ## Notes
 
-Shipped so far: WASM SQLite index ([ADR 0006](../../adr/0006-wasm-sqlite-for-derived-index.md)); keyword FTS + optional semantic embeddings, hybrid-ranked by RRF ([ADR 0007](../../adr/0007-embeddings-provider-config-and-vector-storage.md)); embedding **providers as adapters** — a built-in on-device model (EmbeddingGemma-300M via Transformers.js, the zero-config default) / Ollama / LM Studio / OpenAI / custom OpenAI-compatible / AWS Bedrock — with local self-discovery, connection testing, keychain-stored secrets, and indexing controls (rebuild / pause / clear + stats) in a compact guided Settings flow ([ADR 0008](../../adr/0008-embedding-provider-adapters-and-discovery.md)); ⌘K palette. Still to come: the knowledge-graph view, a 1000-note perf test, and native Azure/Vertex adapters (currently reachable via the custom-endpoint provider).
+Shipped so far: WASM SQLite index ([ADR 0006](../../adr/0006-wasm-sqlite-for-derived-index.md)); keyword FTS + optional semantic embeddings, hybrid-ranked by RRF ([ADR 0007](../../adr/0007-embeddings-provider-config-and-vector-storage.md)); embedding **providers as adapters** — a built-in on-device model (EmbeddingGemma-300M via Transformers.js, the zero-config default) / Ollama / LM Studio / OpenAI / custom OpenAI-compatible / AWS Bedrock — with local self-discovery, connection testing, keychain-stored secrets, and indexing controls (rebuild / pause / clear + stats) in a compact guided Settings flow ([ADR 0008](../../adr/0008-embedding-provider-adapters-and-discovery.md)); ⌘K palette; the interactive **knowledge-graph view** (core `buildGraph` derived from the index — tag + semantic edges; a d3-force `GraphView` with pan/zoom, tag filter, threshold slider, click-to-open). Still to come: a 1000-note perf test, and native Azure/Vertex adapters (currently reachable via the custom-endpoint provider).
 
 The graph is a visualization of the RAG relationships (semantic + tag), not a separate feature — it shares E4's index. Relation properties from databases ([E8](E8-databases.md)) can later add explicit edges to the same graph.

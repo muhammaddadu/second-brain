@@ -41,6 +41,13 @@ export {
   VaultError,
 } from './errors.js';
 export {
+  buildGraph,
+  type GraphData,
+  type GraphEdge,
+  type GraphNode,
+  type GraphOptions,
+} from './graph.js';
+export {
   exportNoteToMarkdown,
   exportVaultToMarkdown,
   importMarkdownAsNote,
