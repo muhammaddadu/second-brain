@@ -2,7 +2,7 @@
 
 > **This doc owns:** the system shape — processes, surfaces, data flow, and concurrency. **For code layout see** [app-architecture](app-architecture.md); **for storage formats see** [data-model](data-model.md); **for library choices see** [tech-stack](tech-stack.md).
 
-**Status: planned** — traces to [PRD §3.3–§3.5](../product/prd.md); nothing is built yet.
+**Status: partly built** — traces to [PRD §3.3–§3.5](../product/prd.md). The desktop app and core (vault ops, watcher, conflict guard, Markdown import/export) have shipped; the CLI, MCP server, and the index/search leg are still planned.
 
 ## Shape
 

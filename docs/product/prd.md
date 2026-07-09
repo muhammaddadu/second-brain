@@ -2,7 +2,7 @@
 
 > **This doc owns:** the requirements — what must be true, in and out of scope. **For why see** [value-proposition](value-proposition.md); **for build order see** [epics](epics/index.md); **for storage details see** [data-model](../architecture/data-model.md).
 
-Section numbers are **stable** — slim the bodies, don't renumber. Everything here is **planned**; nothing is built yet.
+Section numbers are **stable** — slim the bodies, don't renumber. This doc states the *requirements*; implementation status is tracked per epic in [epics/index.md](epics/index.md) (E0–E3 and E7 have shipped; search/RAG, CLI, and MCP are still to come).
 
 ## §1 Purpose
 
@@ -86,5 +86,5 @@ Sync/multi-device, mobile, collaboration/multi-user, agent permission tiers, att
 
 - **§7.1 BlockNote ↔ Markdown fidelity.** ~~Decide which blocks round-trip and what happens to the rest.~~ **Resolved by [ADR 0001](../adr/0001-blocknote-json-canonical-note-format.md):** notes are stored as BlockNote JSON, so editing is lossless by construction; Markdown conversion (lossy by BlockNote's design) happens only at import/export boundaries where loss is acceptable.
 - **§7.2 Local embedding model.** Which local embedding model/runtime balances quality and install size (decide in E4).
-- **§7.3 Concurrency mechanism.** File locking vs. last-write-wins + watcher refresh vs. single-writer daemon (decide in E0/E4; owned by system-architecture once decided).
+- **§7.3 Concurrency mechanism.** ~~File locking vs. last-write-wins + watcher refresh vs. single-writer daemon.~~ **Resolved by [ADR 0002](../adr/0002-vault-concurrency-atomic-write-rename.md):** atomic write-then-rename + watcher-driven refresh + SQLite WAL; the never-clobber conflict guard shipped in E3.
 - **§7.4 Diagram/embed types beyond Mermaid.** Which further first-class types (e.g. Graphviz/DOT, math/KaTeX, Excalidraw sketches) and in what order. Text-based languages slot into the §3.7 renderer registry; anything with a non-text or binary format needs a [data-model](../architecture/data-model.md) decision first (it strains the text-content and Markdown-export rules). Decide per type as demand appears, starting during E7.

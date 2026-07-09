@@ -2,7 +2,7 @@
 
 > **This doc owns:** what's stored and its formats — note files, the JSON envelope and metadata, tags, rules location, and the index schema. **For process shape see** [system-architecture](system-architecture.md); **for requirements see** [PRD §3.1–§3.4](../product/prd.md).
 
-**Status: planned** — formats below are the spec E0/E2/E4 build to; refine here (not in code comments) as they land.
+**Status: partly built** — the note envelope, tree, trash, vault marker, and Markdown import/export have shipped (E0/E2/E3/E7); the derived index schema is still the spec E4 builds to. Refine here (not in code comments) as the rest lands.
 
 ## The vault
 

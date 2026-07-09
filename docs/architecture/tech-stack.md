@@ -2,7 +2,7 @@
 
 > **This doc owns:** dependency and technology choices with their rationale. **For how they compose see** [system-architecture](system-architecture.md) and [app-architecture](app-architecture.md).
 
-**Status: proposed** — decided at docs time (2026-07-07) with zero code written; each choice is cheap to revisit until its adopting epic lands. Record reversals here with a dated note, don't erase the original rationale.
+**Status: partly adopted** — choices below were proposed at docs time (2026-07-07); those adopted by shipped epics (pnpm/Vitest/Biome/TS in E0, Electron/React/Tailwind/Playwright in E1, BlockNote in E2, chokidar in E3, Mermaid in E7) are now in use, while SQLite/embeddings (E4) and the MCP SDK (E6) remain proposed. Record reversals here with a dated note, don't erase the original rationale.
 
 ## Decisions
 

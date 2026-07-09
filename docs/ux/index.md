@@ -2,13 +2,13 @@
 
 > **This doc owns:** the app's information architecture, layout, and interactions. **For requirements see** [PRD §3.3](../product/prd.md); **for the component/code side see** [app-architecture](../architecture/app-architecture.md).
 
-**Status: planned** — the spec E1–E4 build to. Two surfaces: a first-run welcome screen and the main window.
+**Status: partly built** — the welcome screen and the main window (tree, editor, diagrams, file actions) have shipped (E1–E3, E7); the ⌘K search overlay lands with E4. Two surfaces: a first-run welcome screen and the main window.
 
 ## First run — vault setup (E1 ✓)
 
 Instead of opening a raw OS folder picker (which invites pointing the app at a huge existing directory), the welcome screen offers, in order:
 
-- **Create a new vault** (primary) — makes a fresh, dedicated folder at a sensible default (`~/Documents/Second Brain`, de-duplicated) and opens it. One click, no decisions.
+- **Create a new vault** (primary) — makes a fresh, dedicated folder at a sensible default (`~/Second Brain`, de-duplicated) and opens it. One click, no decisions. The default is the home directory, **not** `~/Documents` or `~/Desktop`, on purpose: those are commonly iCloud-synced, and a cloud daemon syncing the vault (especially the SQLite index/WAL) fights the app's atomic writes and watcher.
 - **Open an existing folder…** — the OS picker, for power users who want a specific location.
 - **Recent** — previously-used vaults, shown when any exist, so returning owners reopen with one click rather than re-choosing.
 

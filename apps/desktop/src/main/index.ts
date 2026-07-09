@@ -92,9 +92,15 @@ function infoOf(vault: Vault): VaultInfo {
   return { name: vaultName(vault.root), root: vault.root };
 }
 
-/** The default location for a brand-new vault, de-duplicated so we never reuse a folder. */
+/**
+ * The default location for a brand-new vault, de-duplicated so we never reuse a folder. We use the
+ * home directory rather than ~/Documents on purpose: Documents (and Desktop) are commonly synced by
+ * iCloud Drive, whose sync daemon fights our atomic writes/watcher, can evict files to `.icloud`
+ * placeholders, and would sync the SQLite index + WAL (risking corruption). Home root is not synced
+ * by default. The owner can still choose any folder via "Open an existing folder…".
+ */
 function suggestedNewVaultPath(): string {
-  const base = process.env.BRAIN_HOME ?? app.getPath('documents');
+  const base = process.env.BRAIN_HOME ?? app.getPath('home');
   let candidate = join(base, DEFAULT_VAULT_NAME);
   for (let n = 2; existsSync(candidate); n += 1) {
     candidate = join(base, `${DEFAULT_VAULT_NAME} ${n}`);
