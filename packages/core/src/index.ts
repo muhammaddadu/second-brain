@@ -12,6 +12,7 @@ export {
 } from './envelope.js';
 export {
   InvalidPathError,
+  NoteConflictError,
   NoteExistsError,
   NoteParseError,
   VaultError,
@@ -27,16 +28,27 @@ export { listTree, type TreeNode, type TreeNodeType } from './tree.js';
 export {
   type Clock,
   type CreateNoteInput,
+  createFolder,
   createNote,
   emptyTrash,
+  hashNote,
   moveNote,
   openVault,
   readNote,
   renameNote,
   trashNote,
   updateNoteBlocks,
+  updateNoteBlocksGuarded,
   updateNoteTags,
   type Vault,
   type VaultOptions,
   writeNote,
 } from './vault.js';
+export {
+  isReservedPath,
+  toVaultRelative,
+  type VaultChange,
+  type VaultEventType,
+  type VaultWatcher,
+  watchVault,
+} from './watcher.js';

@@ -1,27 +1,30 @@
 /**
- * Right-panel note surface. Loads the selected note through the vault bridge and hands it to the
- * BlockNote editor (E2 — rich, editable). The live external-change conflict prompt is E3.
+ * Right-panel note surface. Loads the selected note (and its content hash, the conflict-guard
+ * baseline) through the vault bridge and hands it to the BlockNote editor. A reload counter lets
+ * the editor request a fresh read after an external-change conflict is resolved (E3).
  */
 import type { NoteEnvelope } from '@brain/core';
 import { useEffect, useState } from 'react';
 import { NoteEditor } from './NoteEditor';
 
 export function NoteView({ path }: { path: string | null }) {
-  const [note, setNote] = useState<NoteEnvelope | null>(null);
+  const [loaded, setLoaded] = useState<{ note: NoteEnvelope; hash: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is an intentional re-read trigger
   useEffect(() => {
     if (!path) {
-      setNote(null);
+      setLoaded(null);
       return;
     }
     let cancelled = false;
-    setNote(null);
+    setLoaded(null);
     setError(null);
     window.vault
       .readNote(path)
-      .then((n) => {
-        if (!cancelled) setNote(n);
+      .then((result) => {
+        if (!cancelled) setLoaded(result);
       })
       .catch((e: unknown) => {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
@@ -29,7 +32,7 @@ export function NoteView({ path }: { path: string | null }) {
     return () => {
       cancelled = true;
     };
-  }, [path]);
+  }, [path, reloadKey]);
 
   if (!path) {
     return (
@@ -41,10 +44,18 @@ export function NoteView({ path }: { path: string | null }) {
   if (error) {
     return <div className="text-muted px-10 py-8">Couldn’t open note: {error}</div>;
   }
-  if (!note) {
+  if (!loaded) {
     return <div className="text-muted px-10 py-8">Loading…</div>;
   }
 
-  // key={path} remounts the editor with fresh content when the selection changes.
-  return <NoteEditor key={path} path={path} note={note} />;
+  // key remounts the editor with fresh content on note switch or reload-after-conflict.
+  return (
+    <NoteEditor
+      key={`${path}:${reloadKey}`}
+      path={path}
+      note={loaded.note}
+      initialHash={loaded.hash}
+      onReload={() => setReloadKey((k) => k + 1)}
+    />
+  );
 }

@@ -1,14 +1,24 @@
 /** Add/remove tags on the open note; each change persists to note metadata via the vault bridge. */
 import { useState } from 'react';
 
-export function TagEditor({ path, initial }: { path: string; initial: string[] }) {
+export function TagEditor({
+  path,
+  initial,
+  onSaved,
+}: {
+  path: string;
+  initial: string[];
+  /** Report the note's new content hash after a tag write, so the editor's conflict guard stays in sync. */
+  onSaved?: (hash: string) => void;
+}) {
   const [tags, setTags] = useState<string[]>(initial);
   const [draft, setDraft] = useState('');
 
   async function commit(next: string[]) {
     setTags(next);
     const saved = await window.vault.setTags(path, next);
-    setTags(saved);
+    setTags(saved.tags);
+    onSaved?.(saved.hash);
   }
 
   function add() {

@@ -4,6 +4,7 @@
  * refuse an existing target and deletes move to trash. The clock is injected so tests get
  * deterministic timestamps (AGENTS.md § Engineering Principles → dependency injection).
  */
+import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, rm, stat } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { atomicWriteFile } from './atomic.js';
@@ -15,7 +16,7 @@ import {
   serializeNote,
   setTags,
 } from './envelope.js';
-import { InvalidPathError, NoteExistsError } from './errors.js';
+import { InvalidPathError, NoteConflictError, NoteExistsError } from './errors.js';
 import { BRAIN_DIR, NOTE_EXTENSION, TRASH_DIRNAME } from './paths.js';
 
 /** A clock returning an ISO-8601 timestamp; injected for deterministic tests. */
@@ -47,23 +48,27 @@ export function openVault(root: string, options: VaultOptions = {}): Vault {
 }
 
 /**
- * Resolve a vault-relative note path to an absolute path, rejecting anything that escapes the
- * vault root or is not a `.note.json` file. This is the trust boundary for caller-supplied paths.
+ * Resolve any vault-relative path to an absolute path, rejecting anything that escapes the vault
+ * root or reaches into the reserved {@link BRAIN_DIR}. The trust boundary for caller paths.
  */
-function resolveNotePath(vault: Vault, relPath: string): string {
-  if (!relPath.endsWith(NOTE_EXTENSION)) {
-    throw new InvalidPathError(`note path must end with ${NOTE_EXTENSION}: ${relPath}`);
-  }
+function resolveInVault(vault: Vault, relPath: string): string {
   const abs = resolve(vault.root, relPath);
   const rel = relative(vault.root, abs);
   if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) {
     throw new InvalidPathError(`path escapes the vault: ${relPath}`);
   }
-  const firstSegment = rel.split(/[\\/]/)[0];
-  if (firstSegment === BRAIN_DIR) {
+  if (rel.split(/[\\/]/)[0] === BRAIN_DIR) {
     throw new InvalidPathError(`path is inside reserved ${BRAIN_DIR}: ${relPath}`);
   }
   return abs;
+}
+
+/** Like {@link resolveInVault}, but also requires the path to be a `.note.json` file. */
+function resolveNotePath(vault: Vault, relPath: string): string {
+  if (!relPath.endsWith(NOTE_EXTENSION)) {
+    throw new InvalidPathError(`note path must end with ${NOTE_EXTENSION}: ${relPath}`);
+  }
+  return resolveInVault(vault, relPath);
 }
 
 async function pathExists(absPath: string): Promise<boolean> {
@@ -151,6 +156,37 @@ export async function updateNoteTags(
 ): Promise<NoteEnvelope> {
   const note = await readNote(vault, relPath);
   return writeNote(vault, relPath, setTags(note, tags));
+}
+
+/** Content hash of a note file's bytes — the baseline for the conflict guard (ADR 0002). */
+export async function hashNote(vault: Vault, relPath: string): Promise<string> {
+  const abs = resolveNotePath(vault, relPath);
+  return createHash('sha256')
+    .update(await readFile(abs))
+    .digest('hex');
+}
+
+/**
+ * Save blocks only if the file still matches `baseHash` (the hash the caller last read). If the
+ * file changed on disk since — an agent, a git pull, another editor — this throws
+ * {@link NoteConflictError} instead of clobbering (ADR 0002 compare-and-swap). Returns the new hash.
+ */
+export async function updateNoteBlocksGuarded(
+  vault: Vault,
+  relPath: string,
+  blocks: unknown[],
+  baseHash: string,
+): Promise<string> {
+  if ((await hashNote(vault, relPath)) !== baseHash) {
+    throw new NoteConflictError(`note changed on disk since last read: ${relPath}`);
+  }
+  await updateNoteBlocks(vault, relPath, blocks);
+  return hashNote(vault, relPath);
+}
+
+/** Create an empty folder at a vault-relative path (for the tree's "new folder" action). */
+export async function createFolder(vault: Vault, relPath: string): Promise<void> {
+  await mkdir(resolveInVault(vault, relPath), { recursive: true });
 }
 
 /** Move a note to a new vault-relative path (across folders). Refuses to overwrite a target. */

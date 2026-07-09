@@ -2,7 +2,7 @@
 
 > **This doc owns:** the acceptance state of the file-actions epic. **Index:** [epics](index.md). **Interaction spec:** [UX hub](../../ux/index.md).
 
-**Status:** Planned · **Depends on:** E2 · **PRD:** §3.1, §3.3, §4.2
+**Status:** Done (2026-07-09) · **Depends on:** E2 · **PRD:** §3.1, §3.3, §4.2
 
 ## Goal
 
@@ -18,16 +18,18 @@ Make the left panel a full vault manager: right-click context menu with the file
 
 ### Functional
 
-- [ ] Every context-menu action performs its core operation and the tree reflects it immediately (PRD §3.3).
-- [ ] Delete sends to trash and the note is recoverable (PRD §4.2).
-- [ ] A file added/changed/removed outside the app appears in the tree without restart (PRD §3.1).
-- [ ] An external edit to the open note never silently loses either version (PRD §4.2, §7.3 decision).
-- [ ] Lint / typecheck / unit tests / build all pass.
+- [x] Every context-menu action performs its core operation and the tree reflects it immediately (PRD §3.3). — `ContextMenu` + `FolderTree` wire New note / New folder / Rename (inline) / Move (dialog) / Delete / Edit tags to core via IPC, each followed by an immediate tree refresh. Create + rename covered by E2E; the underlying `moveNote`/`trashNote`/`createFolder`/`renameNote` core ops are unit-tested in `vault.test.ts`.
+- [x] Delete sends to trash and the note is recoverable (PRD §4.2). — context-menu Delete → `trashNote` (core), which moves the file under `.brain/trash/`; `vault.test.ts` asserts the note is gone from its path but present (recoverable) in trash.
+- [x] A file added/changed/removed outside the app appears in the tree without restart (PRD §3.1). — core `watchVault` (chokidar) pushes changes over IPC; `App` refreshes the tree (debounced). E2E writes a note file directly on disk and asserts it appears in the tree.
+- [x] An external edit to the open note never silently loses either version (PRD §4.2, §7.3 decision). — guarded autosave (`updateNoteBlocksGuarded`, ADR 0002 compare-and-swap; unit-tested to reject a stale write) + a conflict banner (Reload / Keep-mine — both explicit, neither silent). E2E edits the open note out-of-band and asserts the conflict banner appears.
+- [x] Lint / typecheck / unit tests / build all pass. — full pipeline green (36 unit tests: 34 core + 2 desktop).
 
 ### E2E validation
 
-- [ ] An E2E spec creates a note via the context menu, renames it, then modifies a file on disk out-of-band and asserts the UI reflects the external change.
+- [x] An E2E spec creates a note via the context menu, renames it, then modifies a file on disk out-of-band and asserts the UI reflects the external change. — `app.spec.ts` "creates and renames a note via the context menu…"; a second spec covers the open-note conflict banner.
 
 ## Notes
 
-—
+- Watcher mechanism: core `watchVault` uses **chokidar** (reliable cross-platform recursive watching) behind a thin interface; the desktop main process forwards events (with a fresh content hash for note writes) to the renderer. Recorded in [tech-stack](../../architecture/tech-stack.md).
+- Conflict guard is the ADR 0002 primitive made concrete: reads carry a content hash; the guarded save is a compare-and-swap; the watcher lets the open editor notice an external change and surface Reload / Keep-mine. Tag writes return the new hash so they don't self-trigger a false conflict.
+- Folder rename/move and folder delete-to-trash are not exposed yet (context menu covers folder creation and note-level rename/move/delete); they can be added when core grows folder-move/trash ops.

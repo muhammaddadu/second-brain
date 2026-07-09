@@ -17,3 +17,8 @@ export class InvalidPathError extends VaultError {
 export class NoteExistsError extends VaultError {
   override readonly name = 'NoteExistsError';
 }
+
+/** A guarded write found the note changed on disk since it was read (ADR 0002 conflict guard). */
+export class NoteConflictError extends VaultError {
+  override readonly name = 'NoteConflictError';
+}

@@ -2,7 +2,7 @@
 
 > **This doc owns:** the code layout — packages, module boundaries, and where logic lives. **For process/system shape see** [system-architecture](system-architecture.md); **for dependency choices see** [tech-stack](tech-stack.md).
 
-**Status: partial** — E0 scaffolded the workspace and `packages/core`; E1 added `apps/desktop` (Electron shell + IPC bridge); E2 added the BlockNote editor with autosave, tag editing, and core's Markdown import/export; E7 added inline Mermaid diagram rendering behind an app-layer renderer registry. The CLI/MCP packages and search are still planned. Keep this doc in lockstep as packages land.
+**Status: partial** — E0 scaffolded the workspace and `packages/core`; E1 added `apps/desktop` (Electron shell + IPC bridge); E2 added the BlockNote editor with autosave, tag editing, and core's Markdown import/export; E7 added inline Mermaid diagram rendering behind an app-layer renderer registry; E3 added the file-actions context menu, a core file watcher with live tree updates, and the conflict guard. The CLI/MCP packages and search are still planned. Keep this doc in lockstep as packages land.
 
 ## Monorepo layout
 

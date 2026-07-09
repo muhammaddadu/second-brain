@@ -2,7 +2,7 @@
 
 > **This doc owns:** running the project locally — prerequisites, install, dev loop. **For what the commands do architecturally see** [app-architecture](../architecture/app-architecture.md); **for the command list see** [AGENTS.md → Commands](../../AGENTS.md#commands).
 
-As of [E2](../product/epics/E2-blocknote-editor.md), the repo is a pnpm monorepo with `@brain/core` (all vault I/O + Markdown import/export) and `@brain/desktop` (the Electron shell — folder tree + BlockNote editor with autosave and tag editing).
+As of [E3](../product/epics/E3-file-actions.md), the repo is a pnpm monorepo with `@brain/core` (all vault I/O + Markdown import/export + a file watcher) and `@brain/desktop` (the Electron shell — folder tree with a right-click file-actions menu, BlockNote editor with autosave, tag editing, diagrams, live external-change updates and a conflict guard).
 
 ## Prerequisites
 
@@ -31,4 +31,4 @@ Core operates on any directory as a vault. Tests never touch a personal vault �
 
 ## What's next
 
-Live file actions & external-change handling ([E3](../product/epics/E3-file-actions.md)), then search & RAG ([E4](../product/epics/E4-search-rag.md)). Orient on build order via the [epics index](../product/epics/index.md).
+Search & RAG ([E4](../product/epics/E4-search-rag.md)) — the SQLite FTS + vector index and the ⌘K overlay — then the CLI ([E5](../product/epics/E5-cli.md)) and MCP server ([E6](../product/epics/E6-mcp-rules.md)). Orient on build order via the [epics index](../product/epics/index.md).

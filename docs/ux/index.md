@@ -32,14 +32,14 @@ Two panels plus a global search overlay (ASCII wireframe — permitted exception
 
 - Mirrors the vault's directory structure exactly ([data-model](../architecture/data-model.md)); `.brain/` internals hidden.
 - Click a note → opens it on the right. Expand/collapse folders; state remembered per session (renderer-only, never written to the vault).
-- **Right-click context menu** on any note or folder: New note · New folder · Rename · Move · Add/edit tags · Delete (to trash). Traces to [PRD §3.1–§3.3](../product/prd.md).
-- External changes (agent/CLI/git) appear live — no refresh button as a crutch (E3).
+- **Right-click context menu (E3 ✓)**: on a note — Rename (inline) · Move to… · Edit tags · Delete (to trash); on a folder / the root — New note · New folder. Traces to [PRD §3.1–§3.3](../product/prd.md). (Folder rename/move/delete are not exposed yet.)
+- External changes (agent/CLI/git) appear live via a file watcher — no refresh button as a crutch (E3 ✓).
 
 ## Right panel — note view/editor (E1 read-only, E2 editable)
 
 - BlockNote renders the selected note's body; editing is in-place with debounced autosave to the note file (lossless — the file stores the editor's native blocks, [data-model](../architecture/data-model.md)).
 - Title and tags shown above the body, tags editable (backed by note metadata).
-- If the open note changes on disk, a non-destructive conflict prompt (reload / keep mine) — never a silent clobber (E3).
+- If the open note changes on disk, a non-destructive conflict banner (Reload / Keep mine) — never a silent clobber (E3 ✓).
 - **Diagram blocks (E7 ✓):** a code block tagged `mermaid` renders inline as the diagram, with its text source shown directly beneath for editing; the diagram re-renders as you type. Invalid source shows the render error next to the intact, still-editable source. Unknown language tags display as normal code blocks. Behind an app-layer language→renderer registry, so more diagram languages are additions. Traces to [PRD §3.7](../product/prd.md).
 
 ## Search (⌘K, E4)

@@ -2,7 +2,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getTags, parseNote, serializeNote, setTags } from './envelope.js';
-import { InvalidPathError, NoteExistsError } from './errors.js';
+import { InvalidPathError, NoteConflictError, NoteExistsError } from './errors.js';
 import { BRAIN_DIR, TRASH_DIRNAME } from './paths.js';
 import {
   createFixtureVault,
@@ -10,12 +10,16 @@ import {
   type FixtureVault,
 } from './test-support/fixture-vault.js';
 import {
+  createFolder,
   createNote,
+  hashNote,
   moveNote,
   openVault,
   readNote,
   renameNote,
   trashNote,
+  updateNoteBlocks,
+  updateNoteBlocksGuarded,
   type Vault,
   writeNote,
 } from './vault.js';
@@ -98,6 +102,27 @@ describe('vault operations', () => {
     await writeNote(vault, 'Projects/alpha/index.note.json', setTags(note, ['renamed']));
     const reread = await readNote(vault, 'Projects/alpha/index.note.json');
     expect(getTags(reread)).toEqual(['renamed']);
+  });
+
+  it('createFolder makes an empty directory in the vault', async () => {
+    await createFolder(vault, 'Archive/2026');
+    expect(await exists(join(fixture.root, 'Archive/2026'))).toBe(true);
+    await expect(createFolder(vault, '../escape')).rejects.toBeInstanceOf(InvalidPathError);
+  });
+
+  it('guarded save succeeds when the file is unchanged and rejects when it changed', async () => {
+    const path = 'Journal/2026-07-07.note.json';
+    const baseHash = await hashNote(vault, path);
+
+    // Unchanged → guarded save succeeds and returns a new hash.
+    const newHash = await updateNoteBlocksGuarded(vault, path, [{ type: 'paragraph' }], baseHash);
+    expect(newHash).not.toBe(baseHash);
+
+    // Simulate an external write, then a guarded save against the now-stale hash → conflict.
+    await updateNoteBlocks(vault, path, [{ type: 'paragraph', content: [] }]);
+    await expect(
+      updateNoteBlocksGuarded(vault, path, [{ type: 'heading' }], newHash),
+    ).rejects.toBeInstanceOf(NoteConflictError);
   });
 
   it('writes deterministic serialised bytes', async () => {

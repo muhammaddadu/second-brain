@@ -3,11 +3,18 @@
  * renderer→preload→IPC→core→disk path — navigate the tree, open a note, then edit it in BlockNote
  * and assert the edit persisted to the note file with metadata intact.
  */
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createNote, importMarkdownAsNote, openVault, readNote, writeNote } from '@brain/core';
+import {
+  createNote,
+  importMarkdownAsNote,
+  openVault,
+  readNote,
+  serializeNote,
+  writeNote,
+} from '@brain/core';
 import {
   type ElectronApplication,
   _electron as electron,
@@ -68,11 +75,15 @@ test.afterAll(async () => {
 // Expand a folder only if it isn't already (folder state persists across tests in one window),
 // then open a note under it.
 async function openNote(folder: string, note: string) {
+  await ensureExpanded(folder);
+  await window.getByRole('button', { name: note }).click();
+}
+
+async function ensureExpanded(folder: string) {
   const folderButton = window.getByRole('button', { name: folder });
   if ((await folderButton.getAttribute('aria-expanded')) !== 'true') {
     await folderButton.click();
   }
-  await window.getByRole('button', { name: note }).click();
 }
 
 test('opens the vault, navigates the tree, and shows a note', async () => {
@@ -147,4 +158,48 @@ test('a code block in an unregistered language renders as plain code, not a diag
   await expect(window.getByText('print("hi")')).toBeVisible();
   await expect(window.getByTestId('diagram-preview')).toHaveCount(0);
   await expect(window.getByTestId('diagram-block')).toHaveCount(0);
+});
+
+test('creates and renames a note via the context menu, and reflects external changes', async () => {
+  await ensureExpanded('Journal');
+
+  // Create via the folder's context menu.
+  await window.getByRole('button', { name: 'Journal' }).click({ button: 'right' });
+  await window.getByTestId('context-menu').getByRole('button', { name: 'New note' }).click();
+  await expect(window.getByTestId('note-title')).toHaveText('Untitled');
+
+  // Rename via context menu → inline input.
+  await window.getByRole('button', { name: 'Untitled' }).click({ button: 'right' });
+  await window.getByTestId('context-menu').getByRole('button', { name: 'Rename' }).click();
+  const input = window.getByRole('textbox', { name: 'Rename note' });
+  await input.fill('Renamed note');
+  await input.press('Enter');
+  await expect(window.getByRole('button', { name: 'Renamed note' })).toBeVisible();
+
+  // External change: a file written directly on disk appears in the tree without restart.
+  await writeFile(
+    join(vaultRoot, 'Journal/external.note.json'),
+    serializeNote({ version: 1, meta: { title: 'External' }, blocks: [] }),
+    'utf8',
+  );
+  await expect(window.getByRole('button', { name: 'external' })).toBeVisible({ timeout: 8000 });
+});
+
+test('an external edit to the OPEN note surfaces a conflict, never a silent clobber', async () => {
+  await openNote('Journal', '2026-07-07'); // open it; NoteView reads its current hash
+
+  // Modify the same file out-of-band → the open editor must surface a conflict, not overwrite.
+  await writeFile(
+    join(vaultRoot, NOTE_PATH),
+    serializeNote({
+      version: 1,
+      meta: { title: 'Daily log', tags: ['journal'] },
+      blocks: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'EXTERNAL EDIT', styles: {} }] },
+      ],
+    }),
+    'utf8',
+  );
+
+  await expect(window.getByTestId('conflict-banner')).toBeVisible({ timeout: 8000 });
 });
