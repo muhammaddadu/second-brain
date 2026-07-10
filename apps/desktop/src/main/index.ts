@@ -51,7 +51,7 @@ import {
   watchVault,
   writeRules,
 } from '@brain/core';
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme } from 'electron';
 import {
   type Appearance,
   type IndexStats,
@@ -554,7 +554,20 @@ app.on('open-url', (event, url) => {
   navigateTo(url);
 });
 
+/**
+ * In development the app runs from the raw Electron binary, so it shows Electron's own icon (and, on
+ * macOS, "Electron" as the dock label). Packaged builds get the real icon + productName from
+ * electron-builder; here we load the source icon so at least the icon is ours while developing.
+ * Returns null when packaged or the file is missing. (`__dirname` is `out/main` at runtime.)
+ */
+function devIcon(): Electron.NativeImage | null {
+  if (app.isPackaged) return null;
+  const img = nativeImage.createFromPath(join(__dirname, '../../build/icon.png'));
+  return img.isEmpty() ? null : img;
+}
+
 function createWindow(): void {
+  const icon = devIcon();
   const window = new BrowserWindow({
     width: 1160,
     height: 760,
@@ -562,6 +575,7 @@ function createWindow(): void {
     minHeight: 480,
     show: false,
     title: APP_NAME,
+    ...(icon ? { icon } : {}), // Windows/Linux window + taskbar icon in dev
     ...windowEffectOptions(),
     webPreferences: {
       // electron-vite emits the preload as ESM (.mjs) in this "type": "module" package.
@@ -584,6 +598,10 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   nativeTheme.themeSource = readSettings().theme; // apply the saved theme preference before painting
+  // macOS dock icon in development (packaged builds use the bundle's icns). The dock *label* stays
+  // "Electron" in dev — it's the Electron.app bundle — but is correct ("Second Brain") when packaged.
+  const icon = devIcon();
+  if (icon && process.platform === 'darwin') app.dock?.setIcon(icon);
   pendingRoute = extractRouteArg(process.argv); // open-to-page from launch args (CLI/deep link)
   registerHandlers();
   buildAppMenu();

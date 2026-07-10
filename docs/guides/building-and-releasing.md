@@ -4,19 +4,31 @@
 
 The desktop app is packaged with **electron-builder** from electron-vite's `out/`. You can build unsigned installers with no setup; signing/notarization are opt-in via environment variables.
 
+## Build environments
+
+The app builds in three flavours, defined once in [`apps/desktop/build/environments.cjs`](../../apps/desktop/build/environments.cjs). Each has a distinct **appId** and **product name**, so a Dev or Beta build installs *side by side* with production and keeps its own settings/recent-vaults (userData is keyed by appId). Non-production builds show a small **env badge** in the header.
+
+| Env | appId | Product name | Update channel |
+|-----|-------|--------------|----------------|
+| `production` | `com.secondbrain.app` | Second Brain | `latest` |
+| `beta` | `com.secondbrain.app.beta` | Second Brain Beta | `beta` |
+| `development` | `com.secondbrain.app.dev` | Second Brain Dev | `dev` |
+
+The environment is selected by the `BUILD_ENV` variable (default `production`); it's baked into the app at build time (`__APP_ENV__`) and drives the packaging appId/name/channel. **Add an environment = add one entry** to `environments.cjs`; nothing else changes.
+
 ## Build installers locally
 
 From the repo root (or `apps/desktop`):
 
 | Command | Produces |
 |---------|----------|
-| `pnpm dist` | installers for the **current** OS (into `apps/desktop/dist/`) |
-| `pnpm --filter @brain/desktop dist:mac` | macOS `.dmg` + `.zip` (arm64 + x64) |
-| `pnpm --filter @brain/desktop dist:win` | Windows `.exe` (NSIS installer) |
-| `pnpm --filter @brain/desktop dist:linux` | Linux `.AppImage` + `.deb` |
-| `pnpm --filter @brain/desktop dist:dir` | an **unpacked** app (no installer) — fastest way to smoke-test a packaged build |
+| `pnpm dist` | production installers for the **current** OS (into `apps/desktop/dist/production/`) |
+| `pnpm --filter @brain/desktop dist:beta` | **Beta** installers (into `dist/beta/`) |
+| `pnpm --filter @brain/desktop dist:dev` | **Dev** installers (into `dist/development/`) |
+| `pnpm --filter @brain/desktop dist:mac` \| `dist:win` \| `dist:linux` | production installers for one OS |
+| `pnpm --filter @brain/desktop dist:dir` | an **unpacked** app (no installer) — fastest smoke test; honours `BUILD_ENV` (e.g. `BUILD_ENV=beta pnpm --filter @brain/desktop dist:dir`) |
 
-You can only build a platform's installer **on that platform** (macOS can also build for Linux via Docker, but the simple rule is: build each OS on that OS — that's what CI does).
+Each environment's artifacts go to `apps/desktop/dist/<env>/` and are named `…-<version>-<env>-<arch>.<ext>`, so flavours never collide. You can only build a platform's installer **on that platform** (that's what CI does).
 
 **Installer size:** the build is large (~300–400 MB) because the built-in on-device embedding model pulls in `onnxruntime` + Transformers.js. That's the cost of offline semantic search. A future "slim" build could omit the on-device model (semantic search then requires an external provider).
 
@@ -43,12 +55,12 @@ Linux AppImage/deb are not signed.
 
 ## Cutting a release (CI)
 
-`/.github/workflows/release.yml` builds all three OSes on a version tag and uploads the artifacts to a GitHub Release (draft).
+`/.github/workflows/release.yml` builds all three OSes and uploads the artifacts to a GitHub Release (draft). It picks the environment automatically: a `-beta.` tag builds **beta**, any other `v*` tag builds **production**, and a manual run (workflow_dispatch) takes an environment input.
 
 1. Bump the version in `apps/desktop/package.json`.
-2. Set `publish.owner` in `apps/desktop/electron-builder.yml` to your GitHub org/user (currently `REPLACE_ME`).
+2. Set `publish.owner` in `apps/desktop/electron-builder.config.cjs` to your GitHub org/user (currently `REPLACE_ME`).
 3. Add signing secrets to the repo (Settings → Secrets → Actions) matching the env vars above; unsigned still works without them.
-4. Tag and push: `git tag v0.1.0 && git push --tags`.
+4. Tag and push: `git tag v0.1.0 && git push --tags` (production), or `git tag v0.1.0-beta.1` for a beta build.
 5. The workflow builds macOS/Windows/Linux and attaches installers to a draft release; review and publish.
 
 ## Before first public release — checklist

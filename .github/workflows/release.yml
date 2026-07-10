@@ -4,8 +4,14 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*' # vX.Y.Z → production; vX.Y.Z-beta.N → beta (see env resolution below)
   workflow_dispatch:
+    inputs:
+      environment:
+        description: Build environment
+        type: choice
+        default: production
+        options: [production, beta, development]
 
 permissions:
   contents: write
@@ -26,10 +32,18 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      # Pick the environment: a `-beta.` tag → beta, else the dispatch input, else production.
+      - name: Resolve build environment
+        id: env
+        shell: bash
+        run: |
+          if [[ "${{ github.ref_name }}" == *-beta.* ]]; then echo "value=beta" >> "$GITHUB_OUTPUT";
+          else echo "value=${{ github.event.inputs.environment || 'production' }}" >> "$GITHUB_OUTPUT"; fi
       # Build + publish (draft) installers. Signing secrets are used when present, skipped otherwise.
       - name: Build desktop installers
         run: pnpm --filter @brain/desktop dist
         env:
+          BUILD_ENV: ${{ steps.env.outputs.value }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # macOS signing + notarization (optional — set as repo secrets to enable)
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -40,11 +54,11 @@ jobs:
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
-          name: installers-${{ matrix.os }}
+          name: installers-${{ steps.env.outputs.value }}-${{ matrix.os }}
           path: |
-            apps/desktop/dist/*.dmg
-            apps/desktop/dist/*.zip
-            apps/desktop/dist/*.exe
-            apps/desktop/dist/*.AppImage
-            apps/desktop/dist/*.deb
+            apps/desktop/dist/*/*.dmg
+            apps/desktop/dist/*/*.zip
+            apps/desktop/dist/*/*.exe
+            apps/desktop/dist/*/*.AppImage
+            apps/desktop/dist/*/*.deb
           if-no-files-found: ignore

@@ -152,7 +152,18 @@ function Workspace({
   return (
     <div className="flex h-full flex-col">
       <header className="titlebar app-drag border-edge flex items-center justify-between border-b px-4 py-2">
-        <VaultSwitcher current={info} onSwitch={onSwitch} />
+        <div className="flex items-center gap-2">
+          <VaultSwitcher current={info} onSwitch={onSwitch} />
+          {__APP_ENV__ !== 'production' && (
+            <span
+              className="bg-accent/15 text-accent rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase"
+              title={`This is a ${__APP_ENV__} build, installed separately from your production app`}
+              data-testid="env-badge"
+            >
+              {__APP_ENV__ === 'beta' ? 'Beta' : 'Dev'}
+            </span>
+          )}
+        </div>
         <div className="app-no-drag flex items-center gap-2">
           {indexStatus.state !== 'idle' && (
             <span
