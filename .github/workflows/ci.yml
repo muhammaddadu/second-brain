@@ -22,10 +22,11 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Build first: @brain/core must emit its dist/ types before the shells typecheck/test against it.
+      - run: pnpm build
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
-      - run: pnpm build
 
   e2e:
     runs-on: ubuntu-latest
@@ -37,7 +38,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @brain/desktop exec playwright install --with-deps chromium
+      - run: pnpm build # core dist for the desktop bundle
+      # System libraries Electron needs to run headless on Linux.
+      - run: pnpm --filter @brain/desktop exec playwright install-deps chromium
       # Electron E2E needs a display on Linux; xvfb-run provides a virtual one.
       - name: Desktop E2E
         run: xvfb-run --auto-servernum pnpm --filter @brain/desktop test:e2e

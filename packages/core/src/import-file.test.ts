@@ -2,6 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { exportNoteToMarkdown } from './import-export.js';
 import { importFileAsNote } from './import-file.js';
 import { blocksToText } from './search.js';
 import { initVault, openVault, readNote, type Vault } from './vault.js';
@@ -61,5 +62,50 @@ describe('importFileAsNote', () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('unreachable');
     expect(result.reason).toContain('broken.pdf');
+  });
+});
+
+describe('importFileAsNote — spreadsheets', () => {
+  let root: string;
+  let vault: Vault;
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), 'brain-sheet-'));
+    await initVault(root);
+    vault = openVault(root);
+  });
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it('imports a CSV as a Markdown table (quoted fields, commas honoured)', async () => {
+    const csv = 'Name,Role\n"Kohler, Robert",Eng\nAda,"Research, ML"\n';
+    const result = await importFileAsNote(vault, '', 'people.csv', new TextEncoder().encode(csv));
+    expect(result).toMatchObject({ ok: true });
+    if (!result.ok) throw new Error('unreachable');
+    const md = await exportNoteToMarkdown(vault, result.path);
+    expect(md).toContain('Kohler, Robert'); // comma inside a quoted field preserved
+    expect(md).toContain('Research, ML');
+    expect(md).toContain('Name');
+  });
+
+  it('imports an XLSX workbook: one section per sheet', async () => {
+    const XLSX = await import('xlsx');
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.aoa_to_sheet([
+        ['A', 'B'],
+        ['1', '2'],
+      ]),
+      'Data',
+    );
+    const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
+    const result = await importFileAsNote(vault, '', 'book.xlsx', new Uint8Array(buf));
+    expect(result).toMatchObject({ ok: true });
+    if (!result.ok) throw new Error('unreachable');
+    const md = await exportNoteToMarkdown(vault, result.path);
+    expect(md).toContain('Data'); // sheet name heading
+    expect(md).toContain('A');
+    expect(md).toContain('2');
   });
 });

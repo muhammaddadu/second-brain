@@ -24,6 +24,57 @@ interface FileConverter {
 
 const decoder = new TextDecoder();
 
+/** Cap rows written from a spreadsheet so a giant sheet doesn't produce an unusable note. */
+const MAX_TABLE_ROWS = 1000;
+
+/** Parse CSV/TSV into rows of cells, honouring quoted fields, escaped `""`, and newlines in quotes. */
+function parseDelimited(text: string, delimiter: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let quoted = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text[i];
+    if (quoted) {
+      if (c === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else quoted = false;
+      } else field += c;
+    } else if (c === '"') quoted = true;
+    else if (c === delimiter) {
+      row.push(field);
+      field = '';
+    } else if (c === '\n') {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
+    } else if (c !== '\r') field += c;
+  }
+  if (field !== '' || row.length) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows.filter((r) => r.some((cell) => cell.trim() !== ''));
+}
+
+/** Render rows as a GitHub-flavoured Markdown table (first row = header); BlockNote parses it to a table. */
+function rowsToMarkdownTable(rows: string[][]): string {
+  if (rows.length === 0) return '';
+  const width = Math.max(...rows.map((r) => r.length));
+  const esc = (s: string) => (s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ').trim();
+  const cells = (r: string[]) => Array.from({ length: width }, (_, i) => esc(r[i] ?? ''));
+  const line = (r: string[]) => `| ${cells(r).join(' | ')} |`;
+  const header = rows[0] ?? [];
+  const sep = `| ${Array.from({ length: width }, () => '---').join(' | ')} |`;
+  const body = rows.slice(1, MAX_TABLE_ROWS + 1).map(line);
+  const dropped = rows.length - 1 - MAX_TABLE_ROWS;
+  const note = dropped > 0 ? `\n\n_(${dropped} more rows not shown)_` : '';
+  return `${[line(header), sep, ...body].join('\n')}${note}`;
+}
+
 const CONVERTERS: FileConverter[] = [
   {
     extensions: ['.md', '.markdown', '.txt', '.text'],
@@ -51,6 +102,37 @@ const CONVERTERS: FileConverter[] = [
       } finally {
         await parser.destroy?.();
       }
+    },
+  },
+  {
+    extensions: ['.csv', '.tsv'],
+    toMarkdown: async (data, fileName) =>
+      rowsToMarkdownTable(
+        parseDelimited(decoder.decode(data), fileName.toLowerCase().endsWith('.tsv') ? '\t' : ','),
+      ),
+  },
+  {
+    extensions: ['.xlsx', '.xls'],
+    toMarkdown: async (data) => {
+      const XLSX = await import('xlsx');
+      const wb = XLSX.read(data, { type: 'array' });
+      // Each sheet becomes a `## Sheet` heading + a Markdown table.
+      return wb.SheetNames.map((name) => {
+        const sheet = wb.Sheets[name];
+        if (!sheet) return '';
+        const raw = XLSX.utils.sheet_to_json(sheet, {
+          header: 1,
+          blankrows: false,
+          raw: false,
+        }) as unknown[][];
+        const rows = raw.map((r) =>
+          Array.isArray(r) ? r.map((cell) => (cell == null ? '' : String(cell))) : [],
+        );
+        const table = rowsToMarkdownTable(rows);
+        return table ? `## ${name}\n\n${table}` : '';
+      })
+        .filter(Boolean)
+        .join('\n\n');
     },
   },
 ];

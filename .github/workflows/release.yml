@@ -46,6 +46,9 @@ jobs:
         env:
           BUILD_ENV: ${{ steps.env.outputs.value }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Skip macOS signing unless a cert secret is present, so unsigned CI builds don't fail
+          # trying to sign with an identity that isn't there.
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
           # macOS signing + notarization (optional — set as repo secrets to enable)
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}

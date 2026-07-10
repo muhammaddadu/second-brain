@@ -44,7 +44,8 @@
     "node-sqlite3-wasm": "^0.8.59",
     "pdf-parse": "^2.4.5",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.48.0",
@@ -64,7 +65,7 @@
     "vite": "^6.0.0",
     "vitest": "^3.0.0"
   },
-  "description": "A local-first second brain \u2014 notes you and your AI agents share.",
+  "description": "A local-first second brain — notes you and your AI agents share.",
   "author": {
     "name": "Muhammad Dadu"
   },

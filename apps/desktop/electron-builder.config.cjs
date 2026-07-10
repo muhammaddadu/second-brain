@@ -12,8 +12,9 @@ const env = resolveEnv(process.env.BUILD_ENV);
 module.exports = {
   appId: env.appId,
   productName: env.productName,
-  // Artifact names carry the env so a beta and a production dmg never collide in one dist/ folder.
-  artifactName: `\${name}-\${version}-${env.id}-\${arch}.\${ext}`,
+  // Static slug (NOT ${name} — the package is "@brain/desktop", whose slash would break the output
+  // path). Carries the env so a beta and a production installer never collide in one dist/ folder.
+  artifactName: `second-brain-${env.id}-\${version}-\${arch}.\${ext}`,
   files: [
     'out/**',
     'package.json',

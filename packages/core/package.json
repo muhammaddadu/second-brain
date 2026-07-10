@@ -35,7 +35,8 @@
     "chokidar": "^4.0.0",
     "mammoth": "^1.12.0",
     "node-sqlite3-wasm": "^0.8.59",
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^2.4.5",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
