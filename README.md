@@ -21,9 +21,15 @@ Second Brain is a cross-platform desktop app for keeping notes in folders you ow
 
 ## Install
 
-Grab an installer for your platform from the [latest release](https://github.com/muhammaddadu/second-brain/releases) (macOS `.dmg`, Windows `.exe`, Linux `.AppImage`/`.deb`). The app auto-updates from GitHub Releases.
+Download the installer for your platform from the **[latest release](https://github.com/muhammaddadu/second-brain/releases/latest)**, then:
 
-> Builds aren't code-signed yet, so the OS may warn about an "unidentified developer" on first launch.
+- **macOS** — open the `.dmg` (Apple Silicon: `…-arm64.dmg`; Intel: `…-x64.dmg`) and drag **Second Brain** to Applications. First launch: **right-click the app → Open → Open** (the builds aren't notarized yet, so a normal double-click is blocked). If macOS says the app "is damaged", run `xattr -cr "/Applications/Second Brain.app"` once.
+- **Windows** — run the `.exe` installer. SmartScreen may warn (unsigned): **More info → Run anyway**.
+- **Linux** — `.AppImage` (`chmod +x` then run) or install the `.deb` with `sudo dpkg -i …`.
+
+Once installed, the app **auto-updates** from GitHub Releases — you'll get a "Restart to update" prompt when a new version ships.
+
+> These builds aren't code-signed/notarized yet, hence the one-time OS warnings above. Code signing removes them entirely — see [building & releasing](docs/guides/building-and-releasing.md).
 
 ## Run from source
 
