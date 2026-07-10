@@ -619,6 +619,19 @@ test('import: dropping a CSV offers Database and creates one', async () => {
   expect(alpha.meta.title).toBe('Alpha');
 });
 
+test('navigation: back and forward move through visited views', async () => {
+  await openNote('Journal', '2026-07-07');
+  await expect(window.getByTestId('note-title')).toHaveValue('Daily log');
+  await window.getByTestId('graph-button').click();
+  await expect(window.getByRole('heading', { name: 'Knowledge graph' })).toBeVisible();
+  // Back → the note; Forward → the graph again.
+  await window.getByTestId('nav-back').click();
+  await expect(window.getByTestId('note-title')).toHaveValue('Daily log');
+  await window.getByTestId('nav-forward').click();
+  await expect(window.getByRole('heading', { name: 'Knowledge graph' })).toBeVisible();
+  await window.getByTestId('nav-back').click();
+});
+
 test('opens the knowledge graph and can return to a note', async () => {
   await window.getByTestId('graph-button').click();
   await expect(window.getByRole('heading', { name: 'Knowledge graph' })).toBeVisible();

@@ -5,7 +5,14 @@
  * the renderer holds only UI state. A watcher subscription refreshes the tree live (E3).
  */
 import type { TreeNode } from '@brain/core';
-import { Loader2, Network, Search, Settings as SettingsIcon } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Network,
+  Search,
+  Settings as SettingsIcon,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Appearance, IndexStatus, VaultInfo } from '../../shared/ipc';
 import { DEFAULT_ROUTE, type Route, routeFromUrl } from '../../shared/route';
@@ -14,6 +21,16 @@ import { NoteView } from './editor/NoteView';
 import { GraphView } from './search/GraphView';
 import { SearchPalette } from './search/SearchPalette';
 import { SettingsPage } from './settings/SettingsPage';
+import {
+  canGoBack,
+  canGoForward,
+  current,
+  go,
+  initHistory,
+  type NavHistory,
+  push,
+  replace,
+} from './shell/history';
 import { ImportProgress } from './shell/ImportProgress';
 import { Onboarding } from './shell/Onboarding';
 import { UpdateBanner } from './shell/UpdateBanner';
@@ -94,9 +111,15 @@ function Workspace({
 }) {
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [databases, setDatabases] = useState<ReadonlySet<string>>(new Set());
-  const [route, setRoute] = useState<Route>(() =>
-    initialRoute ? routeFromUrl(initialRoute) : DEFAULT_ROUTE,
+  // Browser-style navigation history (back/forward). `route` is the current entry.
+  const [history, setHistory] = useState<NavHistory>(() =>
+    initHistory(initialRoute ? routeFromUrl(initialRoute) : DEFAULT_ROUTE),
   );
+  const route = current(history);
+  const navigate = useCallback((r: Route) => setHistory((h) => push(h, r)), []);
+  const replaceRoute = useCallback((r: Route) => setHistory((h) => replace(h, r)), []);
+  const goBack = useCallback(() => setHistory((h) => go(h, -1)), []);
+  const goForward = useCallback(() => setHistory((h) => go(h, 1)), []);
   const [searchOpen, setSearchOpen] = useState(false);
   const [indexStatus, setIndexStatus] = useState<IndexStatus>({ state: 'idle', done: 0, total: 0 });
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -112,10 +135,14 @@ function Workspace({
       if (!autoOpened.current) {
         autoOpened.current = true;
         const first = firstNotePath(nextTree);
+        // Replace (not push) the initial blank entry so Back doesn't return to an empty view.
         if (first)
-          setRoute((r) =>
-            r.name === 'note' && r.path === null ? { name: 'note', path: first } : r,
-          );
+          setHistory((h) => {
+            const cur = current(h);
+            return cur.name === 'note' && cur.path === null
+              ? replace(h, { name: 'note', path: first })
+              : h;
+          });
       }
     } catch (error) {
       // e.g. the vault directory was removed out from under us; keep the last known tree.
@@ -130,24 +157,36 @@ function Workspace({
       debounce.current = setTimeout(() => void refreshTree(), 150);
     });
     // Deep links / CLI "open to page" navigate the workspace.
-    const unsubscribeNav = window.vault.onNavigate((url) => setRoute(routeFromUrl(url)));
+    const unsubscribeNav = window.vault.onNavigate((url) => navigate(routeFromUrl(url)));
     const unsubscribeIndex = window.vault.onIndexStatus(setIndexStatus);
-    // ⌘K / Ctrl+K toggles search from anywhere.
+    // ⌘K search; ⌘[ / ⌘] (and the mouse back/forward buttons) walk navigation history.
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setSearchOpen((open) => !open);
+      } else if ((e.metaKey || e.ctrlKey) && e.key === '[') {
+        e.preventDefault();
+        goBack();
+      } else if ((e.metaKey || e.ctrlKey) && e.key === ']') {
+        e.preventDefault();
+        goForward();
       }
     };
+    const onMouseUp = (e: MouseEvent) => {
+      if (e.button === 3) goBack();
+      else if (e.button === 4) goForward();
+    };
     window.addEventListener('keydown', onKey);
+    window.addEventListener('mouseup', onMouseUp);
     return () => {
       unsubscribeChange();
       unsubscribeNav();
       unsubscribeIndex();
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('mouseup', onMouseUp);
       if (debounce.current) clearTimeout(debounce.current);
     };
-  }, [refreshTree]);
+  }, [refreshTree, navigate, goBack, goForward]);
 
   const selectedPath = route.name === 'note' ? route.path : null;
 
@@ -165,6 +204,30 @@ function Workspace({
               {__APP_ENV__ === 'beta' ? 'Beta' : 'Dev'}
             </span>
           )}
+          <div className="app-no-drag flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={goBack}
+              disabled={!canGoBack(history)}
+              title="Back (⌘[)"
+              aria-label="Back"
+              data-testid="nav-back"
+              className="text-muted enabled:hover:text-ink enabled:hover:bg-edge/50 rounded-md p-1 disabled:opacity-30"
+            >
+              <ChevronLeft size={17} />
+            </button>
+            <button
+              type="button"
+              onClick={goForward}
+              disabled={!canGoForward(history)}
+              title="Forward (⌘])"
+              aria-label="Forward"
+              data-testid="nav-forward"
+              className="text-muted enabled:hover:text-ink enabled:hover:bg-edge/50 rounded-md p-1 disabled:opacity-30"
+            >
+              <ChevronRight size={17} />
+            </button>
+          </div>
         </div>
         <div className="app-no-drag flex items-center gap-2">
           {indexStatus.state !== 'idle' && (
@@ -187,7 +250,7 @@ function Workspace({
           )}
           <button
             type="button"
-            onClick={() => setRoute({ name: 'graph' })}
+            onClick={() => navigate({ name: 'graph' })}
             title="Knowledge graph"
             aria-current={route.name === 'graph'}
             data-testid="graph-button"
@@ -216,14 +279,14 @@ function Workspace({
               nodes={tree}
               selectedPath={selectedPath}
               databases={databases}
-              onSelect={(path) => setRoute({ name: 'note', path })}
-              onOpenDatabase={(path) => setRoute({ name: 'database', path })}
+              onSelect={(path) => navigate({ name: 'note', path })}
+              onOpenDatabase={(path) => navigate({ name: 'database', path })}
               onRefresh={refreshTree}
             />
           </div>
           <button
             type="button"
-            onClick={() => setRoute({ name: 'settings' })}
+            onClick={() => navigate({ name: 'settings' })}
             aria-current={route.name === 'settings'}
             className={`border-edge flex items-center gap-2 border-t px-3 py-2 text-left text-sm ${
               route.name === 'settings'
@@ -239,18 +302,18 @@ function Workspace({
           {route.name === 'settings' ? (
             <SettingsPage />
           ) : route.name === 'graph' ? (
-            <GraphView onOpenNote={(path) => setRoute({ name: 'note', path })} />
+            <GraphView onOpenNote={(path) => navigate({ name: 'note', path })} />
           ) : route.name === 'database' ? (
             <DatabaseView
               folder={route.path}
-              onOpenNote={(path) => setRoute({ name: 'note', path })}
+              onOpenNote={(path) => navigate({ name: 'note', path })}
             />
           ) : (
             <NoteView
               path={selectedPath}
-              onOpenNote={(path) => setRoute({ name: 'note', path })}
+              onOpenNote={(path) => navigate({ name: 'note', path })}
               onRenamed={(newPath) => {
-                setRoute({ name: 'note', path: newPath });
+                replaceRoute({ name: 'note', path: newPath }); // rename ≠ a new history step
                 void refreshTree();
               }}
             />
@@ -262,7 +325,7 @@ function Workspace({
       {searchOpen && (
         <SearchPalette
           onClose={() => setSearchOpen(false)}
-          onOpenNote={(path) => setRoute({ name: 'note', path })}
+          onOpenNote={(path) => navigate({ name: 'note', path })}
         />
       )}
     </div>
