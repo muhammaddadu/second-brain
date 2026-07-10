@@ -17,14 +17,12 @@ const env = resolveEnv(process.env.BUILD_ENV);
 // Apple credentials.
 const macSigning = process.env.APPLE_API_KEY || process.env.CSC_LINK ? {} : { identity: null };
 // Notarization — not code signing — is what clears Gatekeeper's "app is damaged" block on
-// *downloaded* builds; a signed-but-un-notarized app still fails. electron-builder reads the API
-// key credentials (APPLE_API_KEY / APPLE_API_KEY_ID / APPLE_API_ISSUER) from the environment when
-// `notarize` is set. Pin it explicitly rather than trusting version-dependent auto-detection:
-// `notarize: false` guarantees an unsigned build never tries (and fails) to notarize.
+// *downloaded* builds; a signed-but-un-notarized app still fails. `notarize` must be a BOOLEAN in
+// electron-builder 26.x (an object fails schema validation); the credentials come from the
+// environment (APPLE_API_KEY / APPLE_API_KEY_ID / APPLE_API_ISSUER / APPLE_TEAM_ID). Pin it
+// explicitly: `notarize: false` guarantees an unsigned build never tries (and fails) to notarize.
 const macNotarize =
-  process.env.APPLE_API_KEY && process.env.APPLE_TEAM_ID
-    ? { notarize: { teamId: process.env.APPLE_TEAM_ID } }
-    : { notarize: false };
+  process.env.APPLE_API_KEY && process.env.APPLE_TEAM_ID ? { notarize: true } : { notarize: false };
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
