@@ -8,7 +8,7 @@ import { appendFile, chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promi
 import { createRequire } from 'node:module';
 import { basename, delimiter, join } from 'node:path';
 import { app } from 'electron';
-import type { CliStatus } from '../shared/ipc.js';
+import type { CliStatus } from '../shared/ipc';
 
 const require = createRequire(import.meta.url);
 const isWindows = process.platform === 'win32';

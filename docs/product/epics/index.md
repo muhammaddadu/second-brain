@@ -45,6 +45,8 @@ graph LR
     E5 --> E6[E6 MCP & rules]
     E2 --> E8[E8 Databases]
     E3 --> E8
+    E2 --> E9[E9 Wikilinks]
+    E4 --> E9
 ```
 
 ## Testing is first-class

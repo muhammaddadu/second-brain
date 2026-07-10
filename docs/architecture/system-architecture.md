@@ -2,7 +2,7 @@
 
 > **This doc owns:** the system shape — processes, surfaces, data flow, and concurrency. **For code layout see** [app-architecture](app-architecture.md); **for storage formats see** [data-model](data-model.md); **for library choices see** [tech-stack](tech-stack.md).
 
-**Status: partly built** — traces to [PRD §3.3–§3.5](../product/prd.md). The desktop app and core (vault ops, watcher, conflict guard, Markdown import/export) and the derived index/search leg (keyword FTS + optional semantic embeddings, hybrid-ranked — [ADR 0006](../adr/0006-wasm-sqlite-for-derived-index.md)/[0007](../adr/0007-embeddings-provider-config-and-vector-storage.md)/[0008](../adr/0008-embedding-provider-adapters-and-discovery.md)) have shipped; the knowledge-graph view, the CLI, and the MCP server are still planned.
+**Status: built** — traces to [PRD §3.3–§3.5](../product/prd.md). All planned epics (E0–E9) have shipped: the desktop app and core (vault ops, watcher, conflict guard, Markdown import/export), the derived index/search leg (keyword FTS + optional semantic embeddings, hybrid-ranked — [ADR 0006](../adr/0006-wasm-sqlite-for-derived-index.md)/[0007](../adr/0007-embeddings-provider-config-and-vector-storage.md)/[0008](../adr/0008-embedding-provider-adapters-and-discovery.md)), the **knowledge-graph view**, the **`brain` CLI**, the **`brain-mcp` MCP server** (thin surfaces over core), databases, and wikilinks. The app is packaged for distribution ([ADR 0011](../adr/0011-packaging-and-distribution-electron-builder.md)).
 
 ## Shape
 

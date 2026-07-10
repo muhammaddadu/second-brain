@@ -96,7 +96,7 @@ export interface SearchIndex {
   /** Drop all vectors (keeps keyword index) — for "clear semantic index" / a model change. */
   clearEmbeddings(): void;
   /** Counts for the UI: indexed notes, total chunks, and how many chunks have an embedding. */
-  stats(): { notes: number; chunks: number; embedded: number };
+  stats(model?: string): { notes: number; chunks: number; embedded: number };
   /** Whether the underlying database is still open (false after {@link SearchIndex.close}). */
   isOpen(): boolean;
   close(): void;
@@ -402,16 +402,21 @@ export function openSearchIndex(dbPath: string): SearchIndex {
       if (!open) return;
       db.exec('DELETE FROM embeddings;');
     },
-    stats(): { notes: number; chunks: number; embedded: number } {
+    stats(model?: string): { notes: number; chunks: number; embedded: number } {
       if (!open) return { notes: 0, chunks: 0, embedded: 0 };
-      const num = (sql: string): number => {
-        const row = db.get(sql);
+      const num = (sql: string, values?: unknown[]): number => {
+        const row = db.get(sql, values);
         return row && typeof row.n === 'number' ? row.n : 0;
       };
+      // `embedded` counts vectors for the *active* model when given — old vectors from a previous
+      // model shouldn't inflate "N of M embedded" for the model actually in use.
+      const embedded = model
+        ? num('SELECT count(*) AS n FROM embeddings WHERE model = ?', [model])
+        : num('SELECT count(*) AS n FROM embeddings');
       return {
         notes: num('SELECT count(*) AS n FROM notes'),
         chunks: num('SELECT count(*) AS n FROM chunks'),
-        embedded: num('SELECT count(*) AS n FROM embeddings'),
+        embedded,
       };
     },
     isOpen(): boolean {

@@ -1,6 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    // electron-vite bundles the main/preload processes, so use bundler resolution (no `.js`
+    // import extensions) — matching the renderer (tsconfig.web.json).
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "lib": ["ES2023"],
     "types": ["node"],
     "noEmit": true

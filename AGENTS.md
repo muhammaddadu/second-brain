@@ -16,7 +16,7 @@ Consult docs in this order — `docs/README.md` is the index with reading paths:
 2. `docs/product/epics/index.md` — what to build next; **don't build ahead of the current epic**
 3. `docs/product/prd.md` — requirements, the source of truth for *what*
 4. `docs/architecture/system-architecture.md` and `docs/architecture/data-model.md` — how it's built and stored
-5. `docs/guides/getting-started.md` — run it locally (stub until E0 lands)
+5. `docs/guides/getting-started.md` — run it locally; `docs/guides/building-and-releasing.md` — package installers
 
 Domain terms: `docs/glossary.md`.
 

@@ -24,7 +24,7 @@ import {
   type TestResult,
   type Vault,
 } from '@brain/core';
-import type { IndexStats, IndexStatus, ProviderSecretInput, Settings } from '../shared/ipc.js';
+import type { IndexStats, IndexStatus, ProviderSecretInput, Settings } from '../shared/ipc';
 
 /** What the service needs from the surrounding app shell (things `index.ts` owns). */
 export interface EmbeddingServiceDeps {
@@ -47,8 +47,12 @@ export interface EmbeddingService {
   refresh(): Promise<void>;
   /** Sync the keyword index for a vault, then run the embedding pass. */
   syncAndEmbed(vault: Vault, index: SearchIndex): Promise<void>;
-  /** Run just the embedding pass over any pending chunks (no-op if off/busy). */
-  runPass(): Promise<void>;
+  /**
+   * Run the embedding pass over pending chunks (no-op if off/busy). Pass the index captured for a
+   * specific vault (as the watcher does) so an in-flight pass never writes into a different vault's
+   * index after a switch; omit to use the current vault's index.
+   */
+  runPass(index?: SearchIndex): Promise<void>;
   /** Hybrid (keyword + semantic) search over the given index. */
   search(index: SearchIndex, query: string, limit?: number): Promise<SearchHit[]>;
   /** Probe local runtimes for the provider picker. */
@@ -59,8 +63,8 @@ export interface EmbeddingService {
   test(): Promise<TestResult>;
   /** Rebuild the whole index from files (keyword + re-embed). */
   rebuild(vault: Vault): Promise<void>;
-  /** Drop all vectors (keeps keyword search). */
-  clearSemantic(): void;
+  /** Drop all vectors (keeps keyword search), then re-embed with the active model if one is set. */
+  clearSemantic(): Promise<void>;
   /** Counts + model + paused, for the settings screen. */
   stats(): IndexStats;
   /** Pause/resume the embedding pass; resuming kicks it off again. */
@@ -112,8 +116,8 @@ export function createEmbeddingService(deps: EmbeddingServiceDeps): EmbeddingSer
       : null;
   }
 
-  async function runPass(): Promise<void> {
-    const index = deps.getIndex();
+  async function runPass(indexArg?: SearchIndex): Promise<void> {
+    const index = indexArg ?? deps.getIndex();
     if (running || paused || !adapter || !index || awaitingBuiltinDownload()) return;
     running = true;
     try {
@@ -141,7 +145,7 @@ export function createEmbeddingService(deps: EmbeddingServiceDeps): EmbeddingSer
 
     async syncAndEmbed(vault: Vault, index: SearchIndex): Promise<void> {
       await syncIndex(vault, index); // keyword index (fast, local)
-      await runPass(); // semantic embeddings (slow, network) if a provider is set
+      await runPass(index); // semantic embeddings (slow, network) if a provider is set
     },
 
     runPass,
@@ -174,16 +178,19 @@ export function createEmbeddingService(deps: EmbeddingServiceDeps): EmbeddingSer
       const index = deps.getIndex();
       if (!index) return;
       await rebuildIndex(vault, index); // keyword, from files
-      await runPass(); // re-embed
+      await runPass(index); // re-embed
     },
 
-    clearSemantic(): void {
+    async clearSemantic(): Promise<void> {
       deps.getIndex()?.clearEmbeddings();
+      // Re-embed with the active model (e.g. after a model change); no-op if semantic search is off.
+      await runPass();
     },
 
     stats(): IndexStats {
       const index = deps.getIndex();
-      const counts = index?.stats() ?? { notes: 0, chunks: 0, embedded: 0 };
+      // Scope "embedded" to the active model so a previous model's vectors don't inflate the count.
+      const counts = index?.stats(adapter?.model) ?? { notes: 0, chunks: 0, embedded: 0 };
       return { ...counts, model: adapter?.model ?? null, paused };
     },
 

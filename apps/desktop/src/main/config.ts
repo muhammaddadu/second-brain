@@ -13,7 +13,8 @@ import {
   type ProviderKind,
 } from '@brain/core';
 import { app, safeStorage } from 'electron';
-import type { ProviderSecretInput, Settings } from '../shared/ipc.js';
+import type { ProviderSecretInput, Settings } from '../shared/ipc';
+import { mergeProviderSecret } from './secret-merge';
 
 const MAX_RECENT = 8;
 
@@ -137,14 +138,17 @@ export function readSecret(kind: ProviderKind): ProviderSecretInput {
   }
 }
 
-/** Encrypt and persist a provider's secret; a blank secret clears it. */
+/**
+ * Merge a secret update into a provider's stored secret and persist it. Only non-empty fields
+ * overwrite (see {@link mergeProviderSecret}), so multi-field providers (Bedrock) can save one
+ * field at a time without dropping the other, and a blank "leave to keep" field never wipes the
+ * entry. No-ops when nothing changed or the OS keychain is unavailable.
+ */
 export function writeSecret(kind: ProviderKind, input: ProviderSecretInput): void {
+  if (!safeStorage.isEncryptionAvailable()) return;
+  const { merged, changed } = mergeProviderSecret(readSecret(kind), input);
+  if (!changed) return;
   const config = readConfig();
-  const hasAny = Object.values(input).some((v) => typeof v === 'string' && v.trim());
-  if (!hasAny) {
-    delete config.secrets[kind];
-  } else if (safeStorage.isEncryptionAvailable()) {
-    config.secrets[kind] = safeStorage.encryptString(JSON.stringify(input)).toString('base64');
-  }
+  config.secrets[kind] = safeStorage.encryptString(JSON.stringify(merged)).toString('base64');
   writeConfig(config);
 }

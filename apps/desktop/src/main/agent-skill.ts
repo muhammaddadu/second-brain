@@ -10,7 +10,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { AGENT_GUIDE_VERSION, agentGuideBody } from '@brain/core';
 import { app } from 'electron';
-import type { AgentSkillStatus } from '../shared/ipc.js';
+import type { AgentSkillStatus } from '../shared/ipc';
 
 const SKILL_NAME = 'second-brain-vault';
 const SECTION_START = (version: number) => `<!-- second-brain:agent-skill v${version} start -->`;

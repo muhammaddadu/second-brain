@@ -67,10 +67,10 @@ import {
   type StartupState,
   type VaultChangePayload,
   type VaultInfo,
-} from '../shared/ipc.js';
-import { APP_SCHEME } from '../shared/route.js';
-import { agentSkillStatus, installAgentSkill, removeAgentSkill } from './agent-skill.js';
-import { addCliToPath, cliStatus, installCli, removeCli } from './cli-install.js';
+} from '../shared/ipc';
+import { APP_SCHEME } from '../shared/route';
+import { agentSkillStatus, installAgentSkill, removeAgentSkill } from './agent-skill';
+import { addCliToPath, cliStatus, installCli, removeCli } from './cli-install';
 import {
   readConfig,
   readSecret,
@@ -79,9 +79,9 @@ import {
   saveSettings,
   secretStorageAvailable,
   writeSecret,
-} from './config.js';
-import { createEmbeddingService } from './embedding-service.js';
-import { seedStarterVault } from './seed-notes.js';
+} from './config';
+import { createEmbeddingService } from './embedding-service';
+import { seedStarterVault } from './seed-notes';
 
 // No spaces in the folder name (shell/path-friendly); the display name stays "Second Brain".
 const DEFAULT_VAULT_NAME = 'SecondBrain';
@@ -171,7 +171,7 @@ async function activateVault(vaultPath: string): Promise<VaultInfo> {
         try {
           hash = await hashNote(vault, change.path);
           await reindexNote(vault, index, change.path);
-          void embeddings.runPass(); // embed the note's new chunks (if a provider is set)
+          void embeddings.runPass(index); // embed into *this* vault's index (captured), not the live one
         } catch {
           // File may have vanished between event and read; leave hash undefined.
         }
@@ -396,6 +396,7 @@ function registerHandlers(): void {
     async (_event, kind: ProviderKind, secret: ProviderSecretInput) => {
       writeSecret(kind, secret);
       await embeddings.refresh(); // pick up the new secret immediately
+      void embeddings.runPass(); // a valid key may unblock a provider that couldn't embed before
     },
   );
   ipcMain.handle(IPC.hasEmbeddingSecret, (_event, kind: ProviderKind) =>

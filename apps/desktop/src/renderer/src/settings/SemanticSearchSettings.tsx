@@ -633,7 +633,7 @@ function ProviderConfigPanel({
         value=""
         type="password"
         placeholder={secretSet ? '•••• stored (leave blank to keep)' : 'sk-…'}
-        onCommit={(v) => onSaveSecret({ apiKey: v })}
+        onCommit={(v) => v.trim() && onSaveSecret({ apiKey: v })}
       />
       {keychainOk && (
         <p className="text-faint text-[11px]">

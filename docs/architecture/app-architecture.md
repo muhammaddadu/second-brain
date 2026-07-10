@@ -39,8 +39,13 @@ The dependency direction is one-way: `apps/desktop`, `packages/cli`, `packages/m
 |---------|------|
 | Note read/write, envelope/metadata, tree, move/trash | `packages/core` (vault module) |
 | Markdown ↔ block conversion (import/export, [ADR 0001](../adr/0001-blocknote-json-canonical-note-format.md)) | `packages/core` — shells and agents call it, never convert themselves |
-| Index, chunking, embeddings, hybrid search | `packages/core` (index module) |
+| Index, chunking, embeddings, hybrid search, knowledge graph | `packages/core` (`search.ts`, `graph.ts`) |
+| Databases: schema, rows as notes, `meta.properties`, views ([ADR 0004](../adr/0004-databases-as-folders-of-notes-with-schema.md)) | `packages/core` (`database.ts`) |
+| Wikilinks: parse/resolve, backlinks, link graph edges ([ADR 0010](../adr/0010-wikilinks-plain-text-with-nondestructive-rendering.md)) | `packages/core` (`wikilinks.ts` pure, `links.ts` I/O) — editor renders them via a non-destructive decoration |
+| File import (drop `.md`/`.txt`/`.docx`/`.pdf`) | `packages/core` (`import-file.ts` converter table; lazy mammoth/pdf) |
 | File watching / external-change events | `packages/core`, consumed by desktop main via IPC events |
+| Agent surfaces (CLI, MCP) | `packages/cli`, `packages/mcp` — thin parse→core→format shells |
+| Desktop main (config/secrets, embedding service, agent-skill/CLI install, seed) | `apps/desktop/src/main` — composed from focused modules, thin IPC handlers |
 | UI state (selection, expanded folders) | renderer only — never persisted as vault truth |
 
-Tests are colocated (`*.test.ts` beside the module) against temp-dir fixture vaults; the desktop E2E harness lands in E1.
+Tests are colocated (`*.test.ts` beside the module) against temp-dir fixture vaults; the desktop app is driven end-to-end by a Playwright E2E harness (`apps/desktop/e2e`).

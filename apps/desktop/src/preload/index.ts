@@ -9,7 +9,7 @@ import {
   IPC,
   type VaultApi,
   type VaultChangePayload,
-} from '../shared/ipc.js';
+} from '../shared/ipc';
 
 const vault: VaultApi = {
   startup: () => ipcRenderer.invoke(IPC.startup),
