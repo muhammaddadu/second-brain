@@ -144,6 +144,7 @@ export {
   readRules,
   renameFolder,
   renameNote,
+  restoreFromTrash,
   setFolderOrder,
   setNoteTitle,
   titleToFilenameBase,

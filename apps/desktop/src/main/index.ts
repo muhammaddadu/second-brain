@@ -40,6 +40,7 @@ import {
   renameFolder,
   renameNote,
   resolveWikilink,
+  restoreFromTrash,
   type SearchIndex,
   setFolderOrder,
   setNoteTitle,
@@ -313,17 +314,16 @@ function registerHandlers(): void {
   ipcMain.handle(IPC.move, async (_event, fromPath: string, toPath: string) => {
     await moveNote(requireVault(), fromPath, toPath);
   });
-  ipcMain.handle(IPC.trash, async (_event, path: string) => {
-    await trashNote(requireVault(), path);
-  });
+  ipcMain.handle(IPC.trash, (_event, path: string) => trashNote(requireVault(), path));
   ipcMain.handle(IPC.renameFolder, (_event, path: string, newName: string) =>
     renameFolder(requireVault(), path, newName),
   );
   ipcMain.handle(IPC.moveFolder, async (_event, fromPath: string, toPath: string) => {
     await moveFolder(requireVault(), fromPath, toPath);
   });
-  ipcMain.handle(IPC.trashFolder, async (_event, path: string) => {
-    await trashFolder(requireVault(), path);
+  ipcMain.handle(IPC.trashFolder, (_event, path: string) => trashFolder(requireVault(), path));
+  ipcMain.handle(IPC.restoreFromTrash, async (_event, trashPath: string, toPath: string) => {
+    await restoreFromTrash(requireVault(), trashPath, toPath);
   });
   ipcMain.handle(IPC.setOrder, async (_event, folder: string, orderedNames: string[]) => {
     await setFolderOrder(requireVault(), folder, orderedNames);

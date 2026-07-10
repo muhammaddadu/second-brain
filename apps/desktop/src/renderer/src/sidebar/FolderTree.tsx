@@ -11,6 +11,7 @@ import { ChevronDown, ChevronRight, Database, FileText, FolderPlus } from 'lucid
 import { useRef, useState } from 'react';
 import type { FileImportPlan } from '../../../shared/ipc';
 import { ConfirmDialog } from '../shell/ConfirmDialog';
+import type { UndoAction } from '../shell/useUndo';
 import { ContextMenu, type MenuItem } from './ContextMenu';
 import {
   canDropInto,
@@ -34,6 +35,8 @@ interface FolderTreeProps {
   onSelect: (path: string | null) => void;
   onOpenDatabase: (path: string) => void;
   onRefresh: () => Promise<void>;
+  /** Record a reversible action for app-level undo/redo. */
+  recordUndo?: (action: UndoAction) => void;
 }
 
 interface MenuState {
@@ -49,6 +52,7 @@ export function FolderTree({
   onSelect,
   onOpenDatabase,
   onRefresh,
+  recordUndo,
 }: FolderTreeProps) {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
@@ -126,16 +130,23 @@ export function FolderTree({
     });
   }
   function trash(node: TreeNode) {
+    const isFolder = node.type === 'folder';
     return guard(async () => {
-      if (node.type === 'folder') {
-        await window.vault.trashFolder(node.path);
-        await onRefresh();
-        remapAfterFolderChange(node.path, null);
-      } else {
-        await window.vault.trash(node.path);
-        await onRefresh();
-        if (selectedPath === node.path) onSelect(null);
-      }
+      const trashPath = isFolder
+        ? await window.vault.trashFolder(node.path)
+        : await window.vault.trash(node.path);
+      await onRefresh();
+      if (isFolder) remapAfterFolderChange(node.path, null);
+      else if (selectedPath === node.path) onSelect(null);
+      recordUndo?.({
+        label: `Deleted “${node.name}”`,
+        undo: async () => {
+          await window.vault.restoreFromTrash(trashPath, node.path);
+        },
+        redo: async () => {
+          await (isFolder ? window.vault.trashFolder(node.path) : window.vault.trash(node.path));
+        },
+      });
     });
   }
   function commitRename(node: TreeNode, newBase: string) {
@@ -143,32 +154,48 @@ export function FolderTree({
     const trimmed = newBase.trim();
     if (!trimmed || trimmed === node.name) return;
     if (trimmed.includes('/') || trimmed.includes('\\')) return;
+    const isFolder = node.type === 'folder';
+    const renameTo = (nodePath: string, base: string) =>
+      isFolder
+        ? window.vault.renameFolder(nodePath, base)
+        : window.vault.rename(nodePath, `${base}${NOTE_EXTENSION}`);
     return guard(async () => {
-      if (node.type === 'folder') {
-        const newPath = await window.vault.renameFolder(node.path, trimmed);
-        await onRefresh();
-        remapAfterFolderChange(node.path, newPath);
-      } else {
-        const newPath = await window.vault.rename(node.path, `${trimmed}${NOTE_EXTENSION}`);
-        await onRefresh();
-        onSelect(newPath);
-      }
+      const newPath = await renameTo(node.path, trimmed);
+      await onRefresh();
+      if (isFolder) remapAfterFolderChange(node.path, newPath);
+      else onSelect(newPath);
+      recordUndo?.({
+        label: `Renamed to “${trimmed}”`,
+        undo: async () => {
+          await renameTo(newPath, node.name);
+        },
+        redo: async () => {
+          await renameTo(node.path, trimmed);
+        },
+      });
     });
   }
   function move(node: TreeNode, folder: string) {
     setMoving(null);
+    const isFolder = node.type === 'folder';
+    const relocate = (from: string, to: string) =>
+      isFolder ? window.vault.moveFolder(from, to) : window.vault.move(from, to);
     return guard(async () => {
       const name = node.path.split('/').pop() ?? node.path;
       const toPath = folder ? `${folder}/${name}` : name;
-      if (node.type === 'folder') {
-        await window.vault.moveFolder(node.path, toPath);
-        await onRefresh();
-        remapAfterFolderChange(node.path, toPath);
-      } else {
-        await window.vault.move(node.path, toPath);
-        await onRefresh();
-        onSelect(toPath);
-      }
+      await relocate(node.path, toPath);
+      await onRefresh();
+      if (isFolder) remapAfterFolderChange(node.path, toPath);
+      else onSelect(toPath);
+      recordUndo?.({
+        label: `Moved “${node.name}”`,
+        undo: async () => {
+          await relocate(toPath, node.path);
+        },
+        redo: async () => {
+          await relocate(node.path, toPath);
+        },
+      });
     });
   }
 

@@ -47,6 +47,8 @@ const vault: VaultApi = {
   renameFolder: (path, newName) => ipcRenderer.invoke(IPC.renameFolder, path, newName),
   moveFolder: (fromPath, toPath) => ipcRenderer.invoke(IPC.moveFolder, fromPath, toPath),
   trashFolder: (path) => ipcRenderer.invoke(IPC.trashFolder, path),
+  restoreFromTrash: (trashPath, toPath) =>
+    ipcRenderer.invoke(IPC.restoreFromTrash, trashPath, toPath),
   setOrder: (folder, orderedNames) => ipcRenderer.invoke(IPC.setOrder, folder, orderedNames),
   analyzeImport: (files) => ipcRenderer.invoke(IPC.analyzeImport, files),
   importFiles: (folder, files) => ipcRenderer.invoke(IPC.importFiles, folder, files),

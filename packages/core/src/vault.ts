@@ -439,6 +439,26 @@ async function atomicRename(fromAbs: string, toAbs: string): Promise<void> {
   await rename(fromAbs, toAbs);
 }
 
+/**
+ * Move a soft-deleted entry from the trash back to a vault-relative path — the inverse of
+ * {@link trashNote}/{@link trashFolder}, powering the app's Undo. `trashRel` is the path returned
+ * by the trash call (under {@link BRAIN_DIR}); `toRel` is where it should reappear. Refuses to
+ * overwrite an existing target.
+ */
+export async function restoreFromTrash(
+  vault: Vault,
+  trashRel: string,
+  toRel: string,
+): Promise<string> {
+  const fromAbs = join(vault.root, trashRel); // trusted internal path (lives under .brain/trash)
+  const toAbs = resolveInVault(vault, toRel);
+  if (await pathExists(toAbs)) {
+    throw new NoteExistsError(`cannot restore — something already exists at: ${toRel}`);
+  }
+  await atomicRename(fromAbs, toAbs);
+  return toRel;
+}
+
 /** Permanently remove everything under the vault's trash directory. */
 export async function emptyTrash(vault: Vault): Promise<void> {
   await rm(join(vault.root, BRAIN_DIR, TRASH_DIRNAME), { recursive: true, force: true });

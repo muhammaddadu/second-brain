@@ -48,6 +48,7 @@ export const IPC = {
   renameFolder: 'vault:rename-folder',
   moveFolder: 'vault:move-folder',
   trashFolder: 'vault:trash-folder',
+  restoreFromTrash: 'vault:restore-from-trash',
   setOrder: 'vault:set-order',
   importFiles: 'vault:import-files',
   analyzeImport: 'vault:analyze-import',
@@ -278,13 +279,17 @@ export interface VaultApi {
   /** Move a note to a new vault-relative path. */
   move(fromPath: string, toPath: string): Promise<void>;
   /** Delete a note to trash (recoverable). */
-  trash(path: string): Promise<void>;
+  /** Soft-delete a note; returns its trash path (for Undo). */
+  trash(path: string): Promise<string>;
   /** Rename a folder in place; returns the new folder path. */
   renameFolder(path: string, newName: string): Promise<string>;
   /** Move a folder (and contents) to a new vault-relative path. */
   moveFolder(fromPath: string, toPath: string): Promise<void>;
   /** Delete a folder (and contents) to trash (recoverable). */
-  trashFolder(path: string): Promise<void>;
+  /** Soft-delete a folder; returns its trash path (for Undo). */
+  trashFolder(path: string): Promise<string>;
+  /** Restore a trashed entry to `toPath` (undo of trash). */
+  restoreFromTrash(trashPath: string, toPath: string): Promise<void>;
   /**
    * Persist a folder's manual child order (ADR 0005). `folder` is '' for the vault root;
    * `orderedNames` are on-disk entry names (a folder's dir name, a note's `.note.json` filename).

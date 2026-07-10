@@ -19,6 +19,7 @@ import {
   openVault,
   readNote,
   renameNote,
+  restoreFromTrash,
   setNoteTitle,
   titleToFilenameBase,
   trashNote,
@@ -99,6 +100,22 @@ describe('vault operations', () => {
     expect(trashRel.startsWith(`${BRAIN_DIR}/${TRASH_DIRNAME}/`)).toBe(true);
     expect(await exists(join(fixture.root, 'Journal/2026-07-07.note.json'))).toBe(false);
     expect(await exists(join(fixture.root, trashRel))).toBe(true); // recoverable
+  });
+
+  it('restores a trashed note back to its path (inverse of trash) and refuses to clobber', async () => {
+    const path = 'Journal/2026-07-07.note.json';
+    const trashRel = await trashNote(vault, path);
+    expect(await exists(join(fixture.root, path))).toBe(false);
+
+    const restored = await restoreFromTrash(vault, trashRel, path);
+    expect(restored).toBe(path);
+    expect(await exists(join(fixture.root, path))).toBe(true); // back where it was
+    expect(await exists(join(fixture.root, trashRel))).toBe(false); // gone from trash
+
+    // Trash again, then restoring onto an occupied path must refuse rather than overwrite.
+    const trashRel2 = await trashNote(vault, path);
+    await createNote(vault, path); // something now lives at the target
+    await expect(restoreFromTrash(vault, trashRel2, path)).rejects.toBeInstanceOf(NoteExistsError);
   });
 
   it('persists tag edits via writeNote', async () => {

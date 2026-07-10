@@ -34,6 +34,7 @@ import {
 import { ImportProgress } from './shell/ImportProgress';
 import { Onboarding } from './shell/Onboarding';
 import { UpdateBanner } from './shell/UpdateBanner';
+import { useUndo } from './shell/useUndo';
 import { VaultSwitcher } from './shell/VaultSwitcher';
 import { FolderTree } from './sidebar/FolderTree';
 import { firstNotePath } from './sidebar/folder-tree-logic';
@@ -149,6 +150,8 @@ function Workspace({
       console.error(error);
     }
   }, []);
+
+  const undoMgr = useUndo(() => void refreshTree());
 
   useEffect(() => {
     void refreshTree();
@@ -282,6 +285,7 @@ function Workspace({
               onSelect={(path) => navigate({ name: 'note', path })}
               onOpenDatabase={(path) => navigate({ name: 'database', path })}
               onRefresh={refreshTree}
+              recordUndo={undoMgr.record}
             />
           </div>
           <button
@@ -322,6 +326,32 @@ function Workspace({
       </div>
       <UpdateBanner />
       <ImportProgress />
+      {undoMgr.toast && (
+        <div
+          role="status"
+          data-testid="undo-toast"
+          className="border-edge bg-raised animate-pop fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl border px-4 py-2.5 shadow-md"
+        >
+          <span className="text-ink text-sm">{undoMgr.toast.text}</span>
+          {undoMgr.toast.canUndo && (
+            <button
+              type="button"
+              onClick={() => void undoMgr.undo()}
+              className="text-accent text-sm font-medium"
+            >
+              Undo
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={undoMgr.dismiss}
+            aria-label="Dismiss"
+            className="text-faint hover:text-ink text-xs"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {searchOpen && (
         <SearchPalette
           onClose={() => setSearchOpen(false)}
