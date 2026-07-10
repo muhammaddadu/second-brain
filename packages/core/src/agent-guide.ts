@@ -13,7 +13,7 @@ import { AGENT_GUIDE_FILE } from './paths.js';
 import type { Vault } from './vault.js';
 
 /** Bump when the guide body changes so existing (unmodified) vault copies auto-refresh. */
-export const AGENT_GUIDE_VERSION = 1;
+export const AGENT_GUIDE_VERSION = 2;
 
 const MARKER = /<!-- second-brain:agent-guide v(\d+) managed:([a-f0-9]+) -->/;
 
@@ -23,12 +23,15 @@ function guideBody(): string {
 
 This folder is a **Second Brain** vault. You can read, search, create, and update notes here **directly as files** — no special API required. Follow the contract below so your changes stay safe and visible to the app.
 
-## What's in here
+## File types in a vault
 
-- **Notes** are files ending in \`.note.json\`, in any folder, at any depth. The folder tree *is* the organisation.
-- **\`RULES.md\`** (if present) holds the owner's conventions — where things go, naming, formatting. **Read it and follow it.**
-- **\`.brain/\`** is reserved app state (the vault marker, trash, and a derived search index). **Never read or write inside \`.brain/\`.**
-- **\`.order.json\`** (optional, per folder) is a JSON array of child names giving manual sort order. Safe to ignore; if you rewrite a folder, you may update it.
+| File | What it is |
+|------|------------|
+| \`*.note.json\` | A **note** — a JSON envelope (below). One per file, any folder/depth. |
+| \`database.json\` | Marks its folder as a **database**; holds the typed column schema + views (see Databases). |
+| \`RULES.md\` | The owner's conventions — **read and follow it** before writing. |
+| \`.order.json\` | Optional per-folder manual sort order (JSON array of child names). Safe to ignore. |
+| \`.brain/\` | Reserved app state (vault marker, trash, derived search index). **Never read or write inside it.** |
 
 ## Note format
 
@@ -42,9 +45,54 @@ Each note is a JSON envelope:
 }
 \`\`\`
 
-- \`blocks\` is a **BlockNote** document (an array of block objects). A simple paragraph looks like \`{ "type": "paragraph", "content": [{ "type": "text", "text": "Hello", "styles": {} }] }\`.
 - \`meta.tags\` is a flat string array; tags cross folders. \`meta.title\` falls back to the filename if omitted.
 - Unknown \`meta\` keys are preserved — you may add your own, but don't drop existing ones when updating.
+
+### Note content (the \`blocks\` array)
+
+\`blocks\` is a **BlockNote** document: an array of block objects. Common shapes:
+
+\`\`\`json
+[
+  { "type": "heading", "props": { "level": 1 }, "content": [{ "type": "text", "text": "Title", "styles": {} }] },
+  { "type": "paragraph", "content": [{ "type": "text", "text": "A sentence.", "styles": {} }] },
+  { "type": "bulletListItem", "content": [{ "type": "text", "text": "A point", "styles": {} }] },
+  { "type": "codeBlock", "props": { "language": "mermaid" }, "content": [{ "type": "text", "text": "graph TD; A-->B;", "styles": {} }] }
+]
+\`\`\`
+
+- Inline text lives in \`content\` as \`{ "type": "text", "text": "…", "styles": {} }\`; \`styles\` may include \`bold\`/\`italic\`/etc.
+- A \`codeBlock\` with \`props.language: "mermaid"\` renders as a diagram; other languages render as code.
+- If you'd rather not hand-write blocks, the **CLI/MCP accept Markdown** and convert it for you.
+
+### Linking notes (wikilinks)
+
+Write \`[[Folder/Note]]\` or \`[[Note Title]]\` as plain text anywhere in a note's content. The app renders it as a clickable link (resolved by exact path, then unique title) and shows it as a **backlink** on the target. No special syntax in the JSON — it's just text inside a paragraph's \`text\`.
+
+## Databases
+
+A folder is a **database** when it contains a \`database.json\`. Each note in that folder is a **row**; its column values live in \`meta.properties\`, keyed by **stable property id**:
+
+\`\`\`json
+// Projects/database.json
+{
+  "version": 1,
+  "properties": [
+    { "id": "p_status", "name": "Status", "type": "select", "options": ["Todo", "Done"] },
+    { "id": "p_due", "name": "Due", "type": "date" }
+  ],
+  "views": [{ "name": "Table", "type": "table" }, { "name": "Board", "type": "board", "groupBy": "p_status" }]
+}
+\`\`\`
+
+\`\`\`json
+// Projects/Launch.note.json  → a row
+{ "version": 1, "meta": { "title": "Launch", "properties": { "p_status": "Todo", "p_due": "2026-08-01" } }, "blocks": [] }
+\`\`\`
+
+- Property \`type\` is one of: \`text\`, \`number\`, \`select\`, \`multiSelect\` (array of strings), \`date\` (ISO string), \`checkbox\` (boolean), \`url\`.
+- **Add a row** by creating an ordinary note in the folder and setting \`meta.properties\` by property **id** (not name) — it appears in the table automatically. **Don't rename a property's \`id\`**; the \`name\` is just its label.
+- A value for a property not in the schema is ignored, not an error.
 
 ## Creating and updating notes
 
