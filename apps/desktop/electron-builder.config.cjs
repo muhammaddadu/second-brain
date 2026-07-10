@@ -58,6 +58,9 @@ module.exports = {
   },
   linux: {
     category: 'Utility',
+    maintainer: 'Muhammad Dadu <noreply@github.com>',
+    // The package name (@brain/desktop) isn't a valid Linux binary/AppImage name — use a clean one.
+    executableName: 'second-brain',
     target: [
       { target: 'AppImage', arch: ['x64', 'arm64'] },
       { target: 'deb', arch: ['x64', 'arm64'] },
