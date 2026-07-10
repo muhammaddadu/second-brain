@@ -72,7 +72,9 @@ jobs:
         if: runner.os == 'macOS' && env.MAC_SIGNING == 'true'
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.3'
+          # Pinned to 3.1 to match the committed Gemfile.lock (fastlane's CFPropertyList dep pins
+          # Ruby < 3.2). Bump this and regenerate the lockfile together, never separately.
+          ruby-version: '3.1'
           bundler-cache: true
       - name: Provision signing certificate (fastlane match)
         if: runner.os == 'macOS' && env.MAC_SIGNING == 'true'
