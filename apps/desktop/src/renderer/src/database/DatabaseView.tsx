@@ -7,6 +7,13 @@
 import type { DatabaseRow, DatabaseSchema, PropertyDef, PropertyType } from '@brain/core';
 import { Columns3, Plus, Table2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { windowRange } from './table-window';
+
+// Fixed row height (px) so the table can virtualize by row index. Rows are single-line and clip
+// overflow to keep this honest; if the row styling changes, keep this in sync.
+const ROW_HEIGHT = 33;
+// Below this many rows, virtualization isn't worth the spacer rows / scroll bookkeeping.
+const VIRTUALIZE_THRESHOLD = 100;
 
 const PROPERTY_TYPE_OPTIONS: Array<{ value: PropertyType; label: string }> = [
   { value: 'text', label: 'Text' },
@@ -134,7 +141,7 @@ export function DatabaseView({
         />
       )}
 
-      <div className="min-h-0 flex-1 overflow-auto px-6 py-4">
+      <div className={`min-h-0 flex-1 ${view === 'table' ? '' : 'overflow-auto px-6 py-4'}`}>
         {view === 'table' ? (
           <TableView
             schema={schema}
@@ -255,48 +262,91 @@ function TableView({
   onOpenNote: (path: string) => void;
   onSetValue: (path: string, propertyId: string, value: unknown) => void;
 }) {
+  // Own the scroll container so we can virtualize: track scrollTop + viewport height and render
+  // only the rows in view. Small tables skip windowing entirely (start=0, end=rows.length).
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportH, setViewportH] = useState(0);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setViewportH(el.clientHeight);
+    const observer = new ResizeObserver(() => setViewportH(el.clientHeight));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const virtualize = rows.length > VIRTUALIZE_THRESHOLD;
+  const win = virtualize
+    ? windowRange(rows.length, ROW_HEIGHT, scrollTop, viewportH)
+    : { start: 0, end: rows.length, padTop: 0, padBottom: 0 };
+  const visible = rows.slice(win.start, win.end);
+  const colSpan = schema.properties.length + 1;
+
   return (
-    <table className="w-full border-collapse text-sm" data-testid="database-table">
-      <thead>
-        <tr className="border-edge border-b">
-          <th className="text-faint px-2 py-1.5 text-left text-xs font-medium tracking-wide uppercase">
-            Title
-          </th>
-          {schema.properties.map((p) => (
-            <th
-              key={p.id}
-              className="text-faint px-2 py-1.5 text-left text-xs font-medium tracking-wide uppercase"
-            >
-              {p.name}
+    <div
+      ref={scrollRef}
+      onScroll={(e) => virtualize && setScrollTop(e.currentTarget.scrollTop)}
+      className="h-full overflow-auto px-6 py-4"
+      data-testid="database-scroll"
+    >
+      <table className="w-full border-collapse text-sm" data-testid="database-table">
+        <thead>
+          <tr className="border-edge border-b">
+            <th className="text-faint px-2 py-1.5 text-left text-xs font-medium tracking-wide uppercase">
+              Title
             </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.path} className="border-edge/60 hover:bg-surface/50 border-b">
-            <td className="px-2 py-1">
-              <button
-                type="button"
-                onClick={() => onOpenNote(row.path)}
-                className="text-ink hover:text-accent text-left font-medium"
-              >
-                {row.title}
-              </button>
-            </td>
             {schema.properties.map((p) => (
-              <td key={p.id} className="px-2 py-1">
-                <Cell
-                  def={p}
-                  value={row.properties[p.id]}
-                  onChange={(value) => onSetValue(row.path, p.id, value)}
-                />
-              </td>
+              <th
+                key={p.id}
+                className="text-faint px-2 py-1.5 text-left text-xs font-medium tracking-wide uppercase"
+              >
+                {p.name}
+              </th>
             ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {win.padTop > 0 && (
+            <tr aria-hidden>
+              <td colSpan={colSpan} style={{ height: win.padTop, padding: 0 }} />
+            </tr>
+          )}
+          {visible.map((row) => (
+            <tr
+              key={row.path}
+              className="border-edge/60 hover:bg-surface/50 border-b"
+              style={{ height: ROW_HEIGHT }}
+            >
+              <td className="px-2 py-1">
+                <button
+                  type="button"
+                  onClick={() => onOpenNote(row.path)}
+                  className="text-ink hover:text-accent block max-w-[16rem] truncate text-left font-medium"
+                >
+                  {row.title}
+                </button>
+              </td>
+              {schema.properties.map((p) => (
+                <td key={p.id} className="px-2 py-1">
+                  <Cell
+                    def={p}
+                    value={row.properties[p.id]}
+                    onChange={(value) => onSetValue(row.path, p.id, value)}
+                  />
+                </td>
+              ))}
+            </tr>
+          ))}
+          {win.padBottom > 0 && (
+            <tr aria-hidden>
+              <td colSpan={colSpan} style={{ height: win.padBottom, padding: 0 }} />
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
