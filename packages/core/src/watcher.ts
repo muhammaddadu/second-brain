@@ -18,6 +18,8 @@ export interface VaultChange {
 }
 
 export interface VaultWatcher {
+  /** Resolves once the underlying watcher has attached and will report subsequent changes. */
+  ready: Promise<void>;
   close(): Promise<void>;
 }
 
@@ -48,5 +50,7 @@ export function watchVault(vault: Vault, onChange: (change: VaultChange) => void
   // which would crash the host process. Swallow — the surface refreshes from disk on next read.
   watcher.on('error', () => {});
 
-  return { close: () => watcher.close() };
+  const ready = new Promise<void>((resolve) => watcher.once('ready', () => resolve()));
+
+  return { ready, close: () => watcher.close() };
 }

@@ -615,6 +615,12 @@ test('import: dropping a CSV offers Database and creates one', async () => {
       timeout: 8000,
     })
     .toContain('Status');
+  // Row notes are written after database.json, so poll rather than read once (slow CI races).
+  await expect
+    .poll(async () => readFile(join(vaultRoot, 'tasks/Alpha.note.json'), 'utf8').catch(() => ''), {
+      timeout: 8000,
+    })
+    .toContain('Alpha');
   const alpha = JSON.parse(await readFile(join(vaultRoot, 'tasks/Alpha.note.json'), 'utf8'));
   expect(alpha.meta.title).toBe('Alpha');
 });

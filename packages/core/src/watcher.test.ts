@@ -30,8 +30,8 @@ describe('watchVault (live)', () => {
     const events: VaultChange[] = [];
     const watcher = watchVault(vault, (e) => events.push(e));
     try {
-      // Give chokidar a moment to attach before mutating.
-      await new Promise((r) => setTimeout(r, 300));
+      // Wait until chokidar has attached, else the create fires before we're watching (flaky in CI).
+      await watcher.ready;
       await createNote(vault, 'Inbox/watched.note.json', { title: 'Watched' });
       await vi.waitFor(
         () => expect(events.some((e) => e.path === 'Inbox/watched.note.json')).toBe(true),
@@ -47,7 +47,7 @@ describe('watchVault (live)', () => {
     const events: VaultChange[] = [];
     const watcher = watchVault(vault, (e) => events.push(e));
     try {
-      await new Promise((r) => setTimeout(r, 300));
+      await watcher.ready;
       const { writeFile } = await import('node:fs/promises');
       await writeFile(join(fixture.root, '.brain', 'scratch.txt'), 'x', 'utf8');
       await createNote(vault, 'after.note.json', {}); // a real event to wait on
