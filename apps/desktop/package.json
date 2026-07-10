@@ -11,7 +11,12 @@
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
-    "test:e2e": "electron-vite build && playwright test"
+    "test:e2e": "electron-vite build && playwright test",
+    "dist": "electron-vite build && electron-builder",
+    "dist:mac": "electron-vite build && electron-builder --mac",
+    "dist:win": "electron-vite build && electron-builder --win",
+    "dist:linux": "electron-vite build && electron-builder --linux",
+    "dist:dir": "electron-vite build && electron-builder --dir"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1083.0",
@@ -25,6 +30,7 @@
     "@huggingface/transformers": "^4.2.0",
     "@tiptap/core": "^3.27.3",
     "@tiptap/pm": "^3.27.3",
+    "chokidar": "^4.0.3",
     "d3-force": "^3.0.0",
     "diff": "^7.0.0",
     "lucide-react": "^0.460.0",
@@ -45,10 +51,16 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.0",
     "electron": "^33.0.0",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^3.0.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0",
     "vite": "^6.0.0",
     "vitest": "^3.0.0"
-  }
+  },
+  "description": "A local-first second brain \u2014 notes you and your AI agents share.",
+  "author": {
+    "name": "Second Brain"
+  },
+  "homepage": "https://github.com/REPLACE_ME/note-agent-second-brain"
 }

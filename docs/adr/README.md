@@ -16,3 +16,4 @@ Significant architecture decisions, one per file, append-only. A decision is nev
 | [0008](0008-embedding-provider-adapters-and-discovery.md) | Embedding providers as adapters behind one interface, with local discovery and keychain secrets | accepted |
 | [0009](0009-agent-guide-and-installable-skill.md) | Ship a maintained in-vault agent guide (AGENTS.md) and an installable global agent skill | accepted |
 | [0010](0010-wikilinks-plain-text-with-nondestructive-rendering.md) | Wikilinks: plain `[[target]]` text, path-then-title resolution, non-destructive rendering | accepted |
+| [0011](0011-packaging-and-distribution-electron-builder.md) | Package & distribute with electron-builder (per-OS installers; signing credential-gated) | accepted |
