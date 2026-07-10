@@ -82,6 +82,7 @@ import {
 } from './config';
 import { createEmbeddingService } from './embedding-service';
 import { seedStarterVault } from './seed-notes';
+import { checkForUpdates, initAutoUpdate, installUpdate } from './updater';
 
 // No spaces in the folder name (shell/path-friendly); the display name stays "Second Brain".
 const DEFAULT_VAULT_NAME = 'SecondBrain';
@@ -416,6 +417,8 @@ function registerHandlers(): void {
   ipcMain.handle(IPC.agentSkillStatus, () => agentSkillStatus());
   ipcMain.handle(IPC.installAgentSkill, (_event, id: string) => installAgentSkill(id));
   ipcMain.handle(IPC.removeAgentSkill, (_event, id: string) => removeAgentSkill(id));
+  ipcMain.handle(IPC.checkForUpdates, () => checkForUpdates());
+  ipcMain.handle(IPC.installUpdate, () => installUpdate());
   ipcMain.handle(IPC.cliStatus, () => cliStatus());
   ipcMain.handle(IPC.installCli, () => installCli());
   ipcMain.handle(IPC.addCliToPath, () => addCliToPath());
@@ -506,6 +509,10 @@ function buildAppMenu(): void {
             label: app.name,
             submenu: [
               { role: 'about' as const },
+              {
+                label: 'Check for Updates…',
+                click: () => void checkForUpdates(),
+              },
               { type: 'separator' as const },
               { role: 'hide' as const },
               { role: 'hideOthers' as const },
@@ -606,6 +613,7 @@ app.whenReady().then(() => {
   registerHandlers();
   buildAppMenu();
   createWindow();
+  initAutoUpdate(); // packaged builds: check this env's channel for a newer release
   // Push live appearance updates when the OS theme or transparency preference changes.
   nativeTheme.on('updated', broadcastAppearance);
   app.on('activate', () => {

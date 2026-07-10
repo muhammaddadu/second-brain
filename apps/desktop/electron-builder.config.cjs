@@ -60,8 +60,8 @@ module.exports = {
   // Auto-update / release target. Each environment publishes to its own channel on the same repo.
   publish: {
     provider: 'github',
-    owner: 'REPLACE_ME',
-    repo: 'note-agent-second-brain',
+    owner: 'muhammaddadu',
+    repo: 'second-brain',
     channel: env.channel,
   },
 };

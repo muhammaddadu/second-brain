@@ -28,6 +28,8 @@ export default defineConfig({
           // Markdown conversion (file import) — server-util drags in jsdom, whose relative
           // requires break when bundled (see LEARNINGS: jsdom xhr-sync-worker).
           '@blocknote/server-util',
+          // Reads app-update.yml from resources at runtime and pulls in optional transitive deps.
+          'electron-updater',
         ],
       },
     },

@@ -58,14 +58,18 @@ Linux AppImage/deb are not signed.
 `/.github/workflows/release.yml` builds all three OSes and uploads the artifacts to a GitHub Release (draft). It picks the environment automatically: a `-beta.` tag builds **beta**, any other `v*` tag builds **production**, and a manual run (workflow_dispatch) takes an environment input.
 
 1. Bump the version in `apps/desktop/package.json`.
-2. Set `publish.owner` in `apps/desktop/electron-builder.config.cjs` to your GitHub org/user (currently `REPLACE_ME`).
+2. `publish.owner`/`repo` in `apps/desktop/electron-builder.config.cjs` point at `muhammaddadu/second-brain` — auto-update pulls releases from there.
 3. Add signing secrets to the repo (Settings → Secrets → Actions) matching the env vars above; unsigned still works without them.
 4. Tag and push: `git tag v0.1.0 && git push --tags` (production), or `git tag v0.1.0-beta.1` for a beta build.
 5. The workflow builds macOS/Windows/Linux and attaches installers to a draft release; review and publish.
 
+## Auto-update
+
+Packaged builds check GitHub Releases for their environment's channel (`latest`/`beta`/`dev`) via `electron-updater`, download a newer version in the background, and show a "Restart to update" toast — no surprise relaunch (it otherwise installs on next quit). Publishing happens in CI: the release workflow runs `electron-builder --publish always`, which uploads the installers **and** the channel manifest (`latest-mac.yml`, etc.) that the updater reads. Manual "Check for Updates…" lives in the app menu.
+
 ## Before first public release — checklist
 
 - [ ] Replace the placeholder `apps/desktop/build/icon.png` with a real 1024×1024 brand icon.
-- [ ] Set `publish.owner` (and `homepage`/`author` in `apps/desktop/package.json`) to real values.
-- [ ] Add signing secrets so users don't see security warnings.
-- [ ] Decide on auto-update: wire `electron-updater` against the GitHub `publish` target.
+- [x] `publish.owner`/`repo` set to `muhammaddadu/second-brain`; `homepage`/`author` filled in.
+- [x] GitHub-based auto-update wired (`electron-updater`) with a per-env channel.
+- [ ] Add signing secrets so users don't see security warnings (unsigned still installs, with a warning).

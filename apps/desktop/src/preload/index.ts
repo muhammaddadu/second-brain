@@ -7,6 +7,7 @@ import {
   type Appearance,
   type IndexStatus,
   IPC,
+  type UpdateStatus,
   type VaultApi,
   type VaultChangePayload,
 } from '../shared/ipc';
@@ -71,6 +72,13 @@ const vault: VaultApi = {
     ipcRenderer.on(IPC.indexStatus, handler);
     return () => ipcRenderer.removeListener(IPC.indexStatus, handler);
   },
+  onUpdateStatus: (listener) => {
+    const handler = (_event: unknown, status: UpdateStatus) => listener(status);
+    ipcRenderer.on(IPC.updateStatus, handler);
+    return () => ipcRenderer.removeListener(IPC.updateStatus, handler);
+  },
+  checkForUpdates: () => ipcRenderer.invoke(IPC.checkForUpdates),
+  installUpdate: () => ipcRenderer.invoke(IPC.installUpdate),
   scanProviders: () => ipcRenderer.invoke(IPC.scanProviders),
   listModels: (kind) => ipcRenderer.invoke(IPC.listModels, kind),
   testProvider: () => ipcRenderer.invoke(IPC.testProvider),

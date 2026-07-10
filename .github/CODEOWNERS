@@ -1,0 +1,7 @@
+# Default owner for everything in the repo — required reviewer on PRs when branch protection is on.
+* @muhammaddadu
+
+# Architecture decisions and the methodology docs warrant an explicit owner review.
+/docs/adr/ @muhammaddadu
+/AGENTS.md @muhammaddadu
+/LEARNINGS.md @muhammaddadu

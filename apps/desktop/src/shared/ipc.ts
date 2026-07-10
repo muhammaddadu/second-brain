@@ -89,6 +89,10 @@ export const IPC = {
   changed: 'vault:changed',
   /** Main → renderer push: indexing status (idle / indexing progress). */
   indexStatus: 'vault:index-status',
+  /** Main → renderer push: auto-update status (available / downloaded-ready). */
+  updateStatus: 'app:update-status',
+  checkForUpdates: 'app:check-updates',
+  installUpdate: 'app:install-update',
 } as const;
 
 /** Summary of the open vault, for the window header. */
@@ -138,6 +142,12 @@ export interface IndexStatus {
   state: 'idle' | 'indexing' | 'downloading';
   done: number;
   total: number;
+}
+
+/** Auto-update status pushed to the renderer. `ready` means a version is downloaded and a restart applies it. */
+export interface UpdateStatus {
+  state: 'idle' | 'available' | 'ready';
+  version?: string;
 }
 
 /** Install state of the vault contract for one agent runtime (Claude Code, Codex CLI, …). */
@@ -301,6 +311,12 @@ export interface VaultApi {
   onVaultChange(listener: (change: VaultChangePayload) => void): () => void;
   /** Subscribe to indexing status (progress of the embedding pass); returns an unsubscribe function. */
   onIndexStatus(listener: (status: IndexStatus) => void): () => void;
+  /** Subscribe to auto-update status (a newer version downloaded and ready to install). */
+  onUpdateStatus(listener: (status: UpdateStatus) => void): () => void;
+  /** Manually check for an update (e.g. from the app menu). */
+  checkForUpdates(): Promise<void>;
+  /** Restart and install a downloaded update. */
+  installUpdate(): Promise<void>;
 
   // --- Embeddings / semantic-search provider management (ADR 0008) ---
   /** Probe local runtimes (Ollama, LM Studio) and report which are running + their models. */

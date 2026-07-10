@@ -39,9 +39,10 @@ jobs:
         run: |
           if [[ "${{ github.ref_name }}" == *-beta.* ]]; then echo "value=beta" >> "$GITHUB_OUTPUT";
           else echo "value=${{ github.event.inputs.environment || 'production' }}" >> "$GITHUB_OUTPUT"; fi
-      # Build + publish (draft) installers. Signing secrets are used when present, skipped otherwise.
-      - name: Build desktop installers
-        run: pnpm --filter @brain/desktop dist
+      # Build + publish (draft) installers to GitHub Releases — this also uploads the update
+      # manifests (latest-mac.yml, …) that electron-updater reads. Signing secrets used when present.
+      - name: Build & publish desktop installers
+        run: pnpm --filter @brain/desktop release
         env:
           BUILD_ENV: ${{ steps.env.outputs.value }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

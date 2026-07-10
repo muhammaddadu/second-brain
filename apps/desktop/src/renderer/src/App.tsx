@@ -15,6 +15,7 @@ import { GraphView } from './search/GraphView';
 import { SearchPalette } from './search/SearchPalette';
 import { SettingsPage } from './settings/SettingsPage';
 import { Onboarding } from './shell/Onboarding';
+import { UpdateBanner } from './shell/UpdateBanner';
 import { VaultSwitcher } from './shell/VaultSwitcher';
 import { FolderTree } from './sidebar/FolderTree';
 import { firstNotePath } from './sidebar/folder-tree-logic';
@@ -255,6 +256,7 @@ function Workspace({
           )}
         </main>
       </div>
+      <UpdateBanner />
       {searchOpen && (
         <SearchPalette
           onClose={() => setSearchOpen(false)}
