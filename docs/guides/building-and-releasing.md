@@ -57,6 +57,8 @@ Linux AppImage/deb are not signed.
 
 `/.github/workflows/release.yml` builds all three OSes and uploads the artifacts to a GitHub Release (draft). It picks the environment automatically: a `-beta.` tag builds **beta**, any other `v*` tag builds **production**, and a manual run (workflow_dispatch) takes an environment input.
 
+A `prepare` job creates the draft **once** before the three OS builds fan out; each build then reuses that draft. This is deliberate — without it the matrix jobs race to create the draft and end up splitting assets across duplicate `v*` drafts, which breaks auto-update (every `latest*.yml` must sit on one release).
+
 1. Bump the version in `apps/desktop/package.json`.
 2. `publish.owner`/`repo` in `apps/desktop/electron-builder.config.cjs` point at `muhammaddadu/second-brain` — auto-update pulls releases from there.
 3. Add signing secrets to the repo (Settings → Secrets → Actions) matching the env vars above; unsigned still works without them.

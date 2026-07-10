@@ -17,7 +17,28 @@ permissions:
   contents: write
 
 jobs:
+  # Create the draft release ONCE before the matrix fans out. electron-builder's GitHub publisher
+  # matches an existing draft by tag and reuses it; without this, all three OS jobs race to create
+  # the draft, each finds none, and each makes its own — leaving assets split across duplicate
+  # drafts (and breaking auto-update, which needs every latest*.yml on one release).
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure exactly one draft release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          version=$(node -p "require('./apps/desktop/package.json').version")
+          tag="v$version"
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --draft --title "$version" --notes "Draft release for $tag."
+          fi
+
   build:
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
