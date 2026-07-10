@@ -7,10 +7,24 @@
 const { resolveEnv } = require('./build/environments.cjs');
 
 const env = resolveEnv(process.env.BUILD_ENV);
-// Sign only when a real cert is provided. `identity: null` makes electron-builder *skip* macOS
-// signing cleanly — without it, CI (which sets CSC_LINK to an empty string) tries to sign with an
-// empty password and dies with "… not a file". A present CSC_LINK → normal signing.
-const macSigning = process.env.CSC_LINK ? {} : { identity: null };
+// macOS signing + notarization — see docs/guides/building-and-releasing.md and ADR 0012.
+// The Developer ID Application certificate is provisioned into the build keychain by `fastlane
+// match` (locally, or read-only in CI); electron-builder then *auto-discovers* that identity — so
+// we do NOT pin a .p12 path here. The presence of an App Store Connect API key (APPLE_API_KEY, a
+// path to the .p8) is our signal that a full signed build is intended; a raw CSC_LINK (.p12) is
+// still honored as an alternative signing source. With neither, `identity: null` makes
+// electron-builder *skip* signing cleanly (unsigned but installable) — anyone can build with no
+// Apple credentials.
+const macSigning = process.env.APPLE_API_KEY || process.env.CSC_LINK ? {} : { identity: null };
+// Notarization — not code signing — is what clears Gatekeeper's "app is damaged" block on
+// *downloaded* builds; a signed-but-un-notarized app still fails. electron-builder reads the API
+// key credentials (APPLE_API_KEY / APPLE_API_KEY_ID / APPLE_API_ISSUER) from the environment when
+// `notarize` is set. Pin it explicitly rather than trusting version-dependent auto-detection:
+// `notarize: false` guarantees an unsigned build never tries (and fails) to notarize.
+const macNotarize =
+  process.env.APPLE_API_KEY && process.env.APPLE_TEAM_ID
+    ? { notarize: { teamId: process.env.APPLE_TEAM_ID } }
+    : { notarize: false };
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
@@ -47,6 +61,7 @@ module.exports = {
     entitlements: 'build/entitlements.mac.plist',
     entitlementsInherit: 'build/entitlements.mac.plist',
     ...macSigning,
+    ...macNotarize,
   },
   win: {
     target: [{ target: 'nsis', arch: ['x64', 'arm64'] }],

@@ -1,0 +1,15 @@
+# fastlane match — encrypted store for the macOS Developer ID Application signing certificate.
+# The certificate + its private key live AES-encrypted in a private git repo (MATCH_GIT_URL),
+# decryptable only with MATCH_PASSWORD; nothing sensitive is committed to THIS repo. `type
+# developer_id` is the Mac-distribution-outside-the-App-Store certificate. See ADR 0012 and
+# docs/guides/building-and-releasing.md.
+storage_mode("git")
+git_url(ENV.fetch("MATCH_GIT_URL"))
+type("developer_id")
+platform("macos")
+# match verifies this App ID exists on the portal, but it does NOT affect signing — the Developer ID
+# cert is account-wide and the app itself ships as com.secondbrain.app (that identifier belongs to
+# another Apple team, so it can't be registered here; this one exists only to satisfy match).
+app_identifier("com.muhammaddadu.secondbrain")
+# Electron + Developer ID signs with the certificate alone — no provisioning profile.
+skip_provisioning_profiles(true)

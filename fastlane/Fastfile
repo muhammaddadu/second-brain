@@ -1,0 +1,45 @@
+# macOS Developer ID Application signing certificate, managed by fastlane match (encrypted in a
+# private git repo). See ADR 0012 / docs/guides/building-and-releasing.md.
+#
+#   create_cert — ONE-TIME. Mints the cert into the match repo. Apple does NOT allow creating a
+#                 Developer ID cert with an API key (Account Holder web login required), so this
+#                 authenticates interactively via your Apple ID — expect a 2FA prompt. Run locally.
+#   certs       — read-only fetch of that cert into the build keychain, using the App Store Connect
+#                 API key (revocable, no 2FA). Runs locally and in CI before electron-builder, which
+#                 auto-discovers the imported identity. The same .p8 is reused to notarize.
+opt_out_usage
+default_platform(:mac)
+
+platform :mac do
+  desc "One-time: mint the Developer ID cert into the match repo (interactive Apple ID login + 2FA)"
+  lane :create_cert do
+    # No api_key here on purpose: API keys can't create Developer ID certs. Omitting it makes match
+    # authenticate with your Apple ID (set FASTLANE_USER, or answer the prompt) and answer 2FA.
+    match(
+      type: "developer_id",
+      platform: "macos",
+      skip_provisioning_profiles: true,
+      readonly: false,
+    )
+  end
+
+  desc "Fetch the Developer ID signing certificate into the build keychain (read-only)"
+  lane :certs do
+    setup_ci if is_ci # create + unlock an ephemeral keychain on CI runners
+
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("APPLE_API_KEY_ID"),
+      issuer_id: ENV.fetch("APPLE_API_ISSUER"),
+      key_filepath: ENV.fetch("APPLE_API_KEY"), # path to the decoded .p8
+    )
+
+    # Always read-only: the cert is minted once by `create_cert`; everywhere else we only fetch it.
+    match(
+      type: "developer_id",
+      api_key: api_key,
+      platform: "macos",
+      skip_provisioning_profiles: true,
+      readonly: true,
+    )
+  end
+end

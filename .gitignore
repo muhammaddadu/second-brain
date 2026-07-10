@@ -7,3 +7,12 @@ coverage/
 *.log
 playwright-report/
 test-results/
+
+# macOS signing (fastlane) — never commit key material or generated fastlane artifacts
+*.p8
+*.p12
+*.mobileprovision
+fastlane/report.xml
+fastlane/README.md
+vendor/bundle/
+.bundle/
