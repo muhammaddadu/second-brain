@@ -4,16 +4,20 @@
  * global `brain` CLI install with status. All installs are explicit, reversible, and show exactly
  * where they write.
  */
-import { Bot, Check, TerminalSquare } from 'lucide-react';
+import { Bot, Check, Copy, Sparkles, TerminalSquare } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import type { AgentSkillStatus, CliStatus } from '../../../shared/ipc';
+import type { AgentSkillStatus, CliStatus, VaultInfo } from '../../../shared/ipc';
+import { RULE_TEMPLATES } from './rules-templates';
 
 export function AgentAccessSettings() {
   const [targets, setTargets] = useState<AgentSkillStatus[]>([]);
   const [cli, setCli] = useState<CliStatus | null>(null);
+  const [info, setInfo] = useState<VaultInfo | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [rules, setRules] = useState('');
   const [savedRules, setSavedRules] = useState('');
+  const [pathNote, setPathNote] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const refresh = useCallback(() => {
     window.vault.agentSkillStatus().then(setTargets).catch(console.error);
@@ -23,6 +27,7 @@ export function AgentAccessSettings() {
   useEffect(refresh, [refresh]);
 
   useEffect(() => {
+    window.vault.info().then(setInfo).catch(console.error);
     window.vault
       .getRules()
       .then((text) => {
@@ -32,11 +37,36 @@ export function AgentAccessSettings() {
       .catch(console.error);
   }, []);
 
+  function persistRules(text: string) {
+    setRules(text);
+    window.vault
+      .setRules(text)
+      .then(() => setSavedRules(text))
+      .catch(console.error);
+  }
+
   function saveRules() {
     if (rules === savedRules) return;
-    window.vault
-      .setRules(rules)
-      .then(() => setSavedRules(rules))
+    persistRules(rules);
+  }
+
+  /** Drop a starter template in — replace an empty editor, otherwise append below what's there. */
+  function applyTemplate(body: string) {
+    const next = rules.trim() ? `${rules.trimEnd()}\n\n${body}` : body;
+    persistRules(next);
+  }
+
+  const vaultRoot = info?.root ?? 'your vault';
+  const examplePrompt = `Use my Second Brain vault at ${vaultRoot} — read its AGENTS.md and RULES.md, then summarise what I captured in the last 24 hours and file it into the right notes.`;
+  const anySkillInstalled = targets.some((t) => t.installed);
+
+  function copyPrompt() {
+    navigator.clipboard
+      .writeText(examplePrompt)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
       .catch(console.error);
   }
 
@@ -65,11 +95,23 @@ export function AgentAccessSettings() {
           Your rules (RULES.md)
         </label>
         <p className="text-muted text-xs leading-relaxed">
-          Conventions agents should follow before writing — where things go, naming, formatting.
-          e.g. “Daily notes go in <code className="text-ink">Journal/YYYY-MM-DD</code>; each project
-          gets a folder with an <code className="text-ink">index</code> note.” Leave blank to
-          remove.
+          Conventions agents should follow before writing — where things go, naming, formatting. Not
+          sure where to start? Drop in a template and adapt it:
         </p>
+        <div className="flex flex-wrap gap-1.5">
+          {RULE_TEMPLATES.map((tpl) => (
+            <button
+              key={tpl.id}
+              type="button"
+              onClick={() => applyTemplate(tpl.body)}
+              title={tpl.blurb}
+              data-testid={`rule-template-${tpl.id}`}
+              className="border-edge text-muted hover:text-ink hover:border-accent/40 flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs"
+            >
+              <Sparkles size={12} className="text-accent" /> {tpl.name}
+            </button>
+          ))}
+        </div>
         <textarea
           id="vault-rules"
           value={rules}
@@ -136,6 +178,32 @@ export function AgentAccessSettings() {
             </div>
           ))}
         </div>
+
+        {anySkillInstalled && (
+          <div className="border-edge/70 bg-surface/50 mt-1 flex flex-col gap-2 rounded-lg border p-3">
+            <span className="text-ink text-xs font-medium">Now try it</span>
+            <p className="text-muted text-xs leading-relaxed">
+              You don't call the skill by name — the agent finds it on its own. Just point it at
+              your vault. Open your agent in any folder and ask something like:
+            </p>
+            <div className="border-edge bg-raised flex items-start gap-2 rounded-lg border p-2.5">
+              <p className="text-ink flex-1 text-xs italic leading-relaxed">“{examplePrompt}”</p>
+              <button
+                type="button"
+                onClick={copyPrompt}
+                title="Copy prompt"
+                data-testid="copy-prompt"
+                className="text-muted hover:text-ink shrink-0"
+              >
+                {copied ? (
+                  <Check size={14} className="text-green-700 dark:text-green-400" />
+                ) : (
+                  <Copy size={14} />
+                )}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {cli && (
@@ -162,10 +230,17 @@ export function AgentAccessSettings() {
           <code className="text-faint truncate text-[11px]" title={cli.path}>
             {cli.path}
           </code>
-          {cli.installed && !cli.onPath && (
-            <p className="text-accent text-[11px]">
-              That folder isn’t on your PATH yet — add it in your shell profile, e.g.{' '}
-              <code>export PATH="$HOME/.local/bin:$PATH"</code>.
+          {/* Plain-language remediation: the command is installed but Terminal can't find it yet.
+              One click writes the PATH line into the right shell profile — no dotfile editing. */}
+          {cli.installed && !cli.onPath && !pathNote && (
+            <p className="text-muted text-[11px] leading-relaxed">
+              Almost there — your Terminal doesn't know where to find <code>brain</code> yet. Click
+              below and we'll set it up for you.
+            </p>
+          )}
+          {pathNote && (
+            <p className="text-[11px] leading-relaxed text-green-700 dark:text-green-400">
+              {pathNote}
             </p>
           )}
           <div className="flex flex-wrap gap-2">
@@ -180,11 +255,35 @@ export function AgentAccessSettings() {
                 {busy === 'cli' ? 'Working…' : cli.outdated ? 'Update command' : 'Install command'}
               </button>
             )}
+            {cli.installed && !cli.onPath && (
+              <button
+                type="button"
+                disabled={busy !== null}
+                data-testid="cli-add-path"
+                onClick={() =>
+                  void run('cli', async () => {
+                    const { shellProfile } = await window.vault.addCliToPath();
+                    const name = shellProfile.split('/').pop();
+                    setPathNote(
+                      `Done — added to ${name}. Open a new Terminal window (or run \`source ${shellProfile}\`) and \`brain\` will work.`,
+                    );
+                  })
+                }
+                className="bg-accent text-accent-ink rounded-lg px-3 py-1.5 text-sm disabled:opacity-60"
+              >
+                {busy === 'cli' ? 'Working…' : 'Make it available in Terminal'}
+              </button>
+            )}
             {cli.installed && (
               <button
                 type="button"
                 disabled={busy !== null}
-                onClick={() => void run('cli', () => window.vault.removeCli())}
+                onClick={() =>
+                  void run('cli', async () => {
+                    await window.vault.removeCli();
+                    setPathNote(null);
+                  })
+                }
                 className="border-edge text-muted hover:text-ink rounded-lg border px-3 py-1.5 text-sm disabled:opacity-60"
               >
                 Remove

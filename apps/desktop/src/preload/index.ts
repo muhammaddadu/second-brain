@@ -88,6 +88,7 @@ const vault: VaultApi = {
   removeAgentSkill: (id) => ipcRenderer.invoke(IPC.removeAgentSkill, id),
   cliStatus: () => ipcRenderer.invoke(IPC.cliStatus),
   installCli: () => ipcRenderer.invoke(IPC.installCli),
+  addCliToPath: () => ipcRenderer.invoke(IPC.addCliToPath),
   removeCli: () => ipcRenderer.invoke(IPC.removeCli),
   getRules: () => ipcRenderer.invoke(IPC.getRules),
   setRules: (text) => ipcRenderer.invoke(IPC.setRules, text),

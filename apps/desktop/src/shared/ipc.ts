@@ -81,6 +81,7 @@ export const IPC = {
   removeAgentSkill: 'agent:skill-remove',
   cliStatus: 'agent:cli-status',
   installCli: 'agent:cli-install',
+  addCliToPath: 'agent:cli-add-path',
   removeCli: 'agent:cli-remove',
   getRules: 'agent:get-rules',
   setRules: 'agent:set-rules',
@@ -156,8 +157,10 @@ export interface CliStatus {
   outdated: boolean;
   /** Where the command is (or would be) installed. */
   path: string;
-  /** Whether that directory is on the user's PATH. */
+  /** Whether that directory is on the user's PATH (live PATH, or already set in their shell profile). */
   onPath: boolean;
+  /** The shell profile we'd configure to add it to PATH (absent on Windows). */
+  shellProfile?: string;
 }
 
 /** Snapshot of the index for the settings screen. */
@@ -336,6 +339,8 @@ export interface VaultApi {
   cliStatus(): Promise<CliStatus>;
   /** Install (or update) the global `brain` command into the user's bin directory. */
   installCli(): Promise<void>;
+  /** Make `brain` available in the Terminal by adding its folder to the shell profile's PATH. */
+  addCliToPath(): Promise<{ shellProfile: string }>;
   /** Remove the global `brain` command. */
   removeCli(): Promise<void>;
   /** The owner's agent rules (RULES.md), or '' if none. */

@@ -582,6 +582,18 @@ test('wikilinks: [[link]] renders clickable, navigates, and shows a backlink', a
   await expect(window.getByTestId('note-title')).toHaveValue('Daily');
 });
 
+test('agent access: a rule template fills RULES.md', async () => {
+  await window.getByRole('button', { name: 'Settings' }).click();
+  await window.getByTestId('rule-template-people').click();
+  // The editor fills and the template persists to the vault's RULES.md.
+  await expect(window.getByTestId('rules-editor')).toHaveValue(/People\//);
+  await expect
+    .poll(async () => readFile(join(vaultRoot, 'RULES.md'), 'utf8').catch(() => ''), {
+      timeout: 8000,
+    })
+    .toContain('People/');
+});
+
 test('opens the knowledge graph and can return to a note', async () => {
   await window.getByTestId('graph-button').click();
   await expect(window.getByRole('heading', { name: 'Knowledge graph' })).toBeVisible();
