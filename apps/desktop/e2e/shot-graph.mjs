@@ -1,0 +1,31 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { _electron as electron } from '@playwright/test';
+const outDir = process.argv[2];
+const mainEntry = fileURLToPath(new URL('../out/main/index.js', import.meta.url));
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const vaultRoot = await mkdtemp(join(tmpdir(), 'g-vault-'));
+const userData = await mkdtemp(join(tmpdir(), 'g-ud-'));
+const app = await electron.launch({ args: [mainEntry, `--user-data-dir=${userData}`], env: { ...process.env, BRAIN_HOME: vaultRoot } });
+const win = await app.firstWindow();
+await win.waitForLoadState('domcontentloaded');
+await wait(1000);
+await win.getByRole('button', { name: /create a new vault/i }).click();
+await wait(2500);
+await win.getByTestId('graph-button').click();
+await wait(1500);
+await win.screenshot({ path: join(outDir, 'graph-fit.png') });
+// Zoom in a few notches over the center of the graph area.
+const svg = win.locator('svg[aria-label="Knowledge graph"]');
+const box = await svg.boundingBox();
+const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+await win.mouse.move(cx, cy);
+for (let i = 0; i < 6; i++) { await win.mouse.wheel(0, -120); await wait(120); }
+await wait(400);
+await win.screenshot({ path: join(outDir, 'graph-zoomed.png') });
+await app.close();
+await rm(vaultRoot, { recursive: true, force: true });
+await rm(userData, { recursive: true, force: true });
+console.log('done');
