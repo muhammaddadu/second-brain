@@ -7,6 +7,10 @@
 const { resolveEnv } = require('./build/environments.cjs');
 
 const env = resolveEnv(process.env.BUILD_ENV);
+// Sign only when a real cert is provided. `identity: null` makes electron-builder *skip* macOS
+// signing cleanly — without it, CI (which sets CSC_LINK to an empty string) tries to sign with an
+// empty password and dies with "… not a file". A present CSC_LINK → normal signing.
+const macSigning = process.env.CSC_LINK ? {} : { identity: null };
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
@@ -42,6 +46,7 @@ module.exports = {
     gatekeeperAssess: false,
     entitlements: 'build/entitlements.mac.plist',
     entitlementsInherit: 'build/entitlements.mac.plist',
+    ...macSigning,
   },
   win: {
     target: [{ target: 'nsis', arch: ['x64', 'arm64'] }],
