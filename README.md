@@ -6,6 +6,14 @@
   <img src="docs/assets/demo.gif" alt="Second Brain — create a vault, write, search, databases, and the knowledge graph" width="820">
 </p>
 
+<p align="center">
+  <a href="https://muhammaddadu.github.io/second-brain/"><strong>Website</strong></a>
+  ·
+  <a href="https://github.com/muhammaddadu/second-brain/releases/latest"><strong>Download</strong></a>
+  ·
+  <a href="https://github.com/muhammaddadu/second-brain">Star on GitHub</a>
+</p>
+
 ---
 
 Second Brain is a cross-platform desktop app for keeping notes in folders you own, edited in a rich [BlockNote](https://www.blocknotejs.org/) editor. Its defining idea: the whole vault is **readable and writable by AI agents** — through a CLI and an MCP server — following rules you define, so you can ask an assistant to "summarise my last 24 hours and file it where it belongs." Full-text + semantic search makes everything findable, for you and for agents.

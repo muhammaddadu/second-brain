@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Second Brain: a digital version of yourself, in files you own</title>
+    <meta
+      name="description"
+      content="Ask any AI agent to summarise the last 24 hours and update your vault. People, projects, conversations, and your style: kept local, used as context next time."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Second Brain" />
+    <meta
+      property="og:description"
+      content="Slowly build a digital version of yourself. Agents update the vault and read it back."
+    />
+    <meta property="og:url" content="__SITE_URL__/" />
+    <meta property="og:image" content="__SITE_URL__/og-card.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Second Brain" />
+    <meta
+      name="twitter:description"
+      content="Slowly build a digital version of yourself. Agents update the vault and read it back."
+    />
+    <meta name="twitter:image" content="__SITE_URL__/og-card.png" />
+    <link rel="icon" type="image/png" href="%BASE_URL%icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Outfit:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      (() => {
+        try {
+          const stored = localStorage.getItem('sb-theme');
+          const theme =
+            stored === 'light' || stored === 'dark'
+              ? stored
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light';
+          document.documentElement.dataset.theme = theme;
+        } catch {
+          /* ignore */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

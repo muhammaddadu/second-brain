@@ -16,6 +16,7 @@ Routing table for **note-agent-second-brain**. Each doc owns one concern; find t
 | Library/dependency choices and why | [tech-stack](architecture/tech-stack.md) | dependencies |
 | Why a past technical choice was made | [ADR log](adr/README.md) | decision rationale |
 | Run it locally | [getting-started](guides/getting-started.md) | local dev |
+| Marketing site (Vite one-pager) | [apps/web/README](../apps/web/README.md) · [live site](https://muhammaddadu.github.io/second-brain/) | product website (GitHub Pages) |
 | Build installers & cut a release | [building-and-releasing](guides/building-and-releasing.md) | packaging |
 | How agents use the vault — MCP tools, CLI, the rules system | [agent-integration](guides/agent-integration.md) | agent surface |
 | What a domain term means | [glossary](glossary.md) | vocabulary |

@@ -69,6 +69,11 @@ A `prepare` job creates the draft **once** before the three OS builds fan out; e
 
 Packaged builds check GitHub Releases for their environment's channel (`latest`/`beta`/`dev`) via `electron-updater`, download a newer version in the background, and show a "Restart to update" toast — no surprise relaunch (it otherwise installs on next quit). Publishing happens in CI: the release workflow runs `electron-builder --publish always`, which uploads the installers **and** the channel manifest (`latest-mac.yml`, etc.) that the updater reads. Manual "Check for Updates…" lives in the app menu.
 
+
+## Marketing site (GitHub Pages)
+
+The product website (`apps/web`) deploys to [https://muhammaddadu.github.io/second-brain/](https://muhammaddadu.github.io/second-brain/) via [`.github/workflows/pages.yml`](../../.github/workflows/pages.yml). Setup and local production builds are documented in [`apps/web/README.md`](../../apps/web/README.md). Product markdown docs stay in `docs/` — Pages is **not** sourced from that folder.
+
 ## Before first public release — checklist
 
 - [ ] Replace the placeholder `apps/desktop/build/icon.png` with a real 1024×1024 brand icon.

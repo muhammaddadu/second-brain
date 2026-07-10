@@ -28,11 +28,12 @@ Run from the repo root. Package manager is **pnpm** (`pnpm install` first). Scri
 |---------|--------------|
 | `pnpm install` | Install all workspace dependencies |
 | `pnpm dev` | Launch the desktop app (electron-vite) with HMR |
+| `pnpm dev:web` | Marketing one-pager (`apps/web`) with Vite HMR |
 | `pnpm lint` | Biome lint + format check (`biome check .`) — `pnpm format` to auto-fix |
 | `pnpm typecheck` | `tsc --noEmit` in every package |
 | `pnpm test` | Vitest unit tests in every package |
 | `pnpm test:e2e` | Desktop Playwright E2E — builds the app, drives real Electron (needs a display) |
-| `pnpm build` | Build every package (core → `dist/` via `tsc`; desktop → `out/` via electron-vite) |
+| `pnpm build` | Build every package (core → `dist/` via `tsc`; desktop → `out/` via electron-vite; web → `dist/`) |
 
 Point the app at a scratch vault with `BRAIN_VAULT=/path/to/vault pnpm dev` (otherwise it shows the first-run welcome screen: create a fresh vault, open a folder, or reopen a recent one).
 
@@ -49,6 +50,7 @@ tsconfig.base.json, biome.json       # shared TS config; Biome lint+format
 docs/                # project documentation — routing index at docs/README.md
 packages/core/       # (E0 ✓) vault library: note envelope/metadata, tree, mutations, trash — ALL vault I/O lives here
 apps/desktop/        # (E1 ✓) Electron + React + Vite shell: main (hosts core), preload (IPC bridge), renderer (React UI)
+apps/web/            # marketing one-pager (Vite + React + Tailwind) — product site, not vault I/O
 packages/cli/        # (E5 ✓) `brain` CLI — headless agent/human surface, thin shell over core
 packages/mcp/        # (E6 ✓) `brain-mcp` stdio MCP server — tool registry over core
 ```

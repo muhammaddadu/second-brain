@@ -1,0 +1,55 @@
+name: Deploy marketing site
+
+# Publishes apps/web to GitHub Pages (https://muhammaddadu.github.io/second-brain/).
+# Repo Settings → Pages → Source must be "GitHub Actions" (one-time).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/**'
+      - '.github/workflows/pages.yml'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build marketing site
+        working-directory: apps/web
+        env:
+          # Project Pages live under /<repo>/ — keep in sync with the GitHub repo name.
+          VITE_BASE: /second-brain/
+          VITE_SITE_URL: https://muhammaddadu.github.io/second-brain
+        run: pnpm build
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
