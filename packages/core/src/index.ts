@@ -114,6 +114,17 @@ export {
   type SearchIndex,
   syncIndex,
 } from './search.js';
+export {
+  analyzeSpreadsheet,
+  type ImportAnalysis,
+  type ImportProgress,
+  importSpreadsheetAsDatabase,
+  isSpreadsheet,
+  MAX_DATABASE_ROWS,
+  type Sheet,
+  type SheetPlan,
+  type SpreadsheetImportResult,
+} from './spreadsheet.js';
 export { listTree, type TreeNode, type TreeNodeType } from './tree.js';
 export {
   type Clock,

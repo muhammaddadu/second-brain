@@ -14,6 +14,7 @@ import { NoteView } from './editor/NoteView';
 import { GraphView } from './search/GraphView';
 import { SearchPalette } from './search/SearchPalette';
 import { SettingsPage } from './settings/SettingsPage';
+import { ImportProgress } from './shell/ImportProgress';
 import { Onboarding } from './shell/Onboarding';
 import { UpdateBanner } from './shell/UpdateBanner';
 import { VaultSwitcher } from './shell/VaultSwitcher';
@@ -257,6 +258,7 @@ function Workspace({
         </main>
       </div>
       <UpdateBanner />
+      <ImportProgress />
       {searchOpen && (
         <SearchPalette
           onClose={() => setSearchOpen(false)}

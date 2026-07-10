@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   addProperty,
+  analyzeSpreadsheet,
   buildGraph,
   collectVaultLinks,
   createDatabase,
@@ -16,8 +17,10 @@ import {
   getBacklinks,
   hashNote,
   importFileAsNote,
+  importSpreadsheetAsDatabase,
   indexPath,
   initVault,
+  isSpreadsheet,
   isVault,
   listDatabases,
   listRows,
@@ -87,6 +90,7 @@ import { checkForUpdates, initAutoUpdate, installUpdate } from './updater';
 // No spaces in the folder name (shell/path-friendly); the display name stays "Second Brain".
 const DEFAULT_VAULT_NAME = 'SecondBrain';
 const APP_NAME = 'Second Brain';
+const MAX_IMPORT_BYTES = 50 * 1024 * 1024; // reject absurdly large drops with a clear message
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
@@ -344,11 +348,79 @@ function registerHandlers(): void {
     return relPath;
   });
   ipcMain.handle(
+    IPC.analyzeImport,
+    async (_event, files: Array<{ name: string; data: Uint8Array }>) =>
+      Promise.all(
+        files.map(async (f) => {
+          if (!isSpreadsheet(f.name)) {
+            return {
+              name: f.name,
+              spreadsheet: false,
+              recommendation: 'note' as const,
+              reason: '',
+            };
+          }
+          const a = await analyzeSpreadsheet(f.name, f.data);
+          return {
+            name: f.name,
+            spreadsheet: true,
+            recommendation: a.recommendation,
+            reason: a.reason,
+          };
+        }),
+      ),
+  );
+  ipcMain.handle(
     IPC.importFiles,
-    async (_event, folder: string, files: Array<{ name: string; data: Uint8Array }>) => {
+    async (
+      _event,
+      folder: string,
+      files: Array<{ name: string; data: Uint8Array; as?: 'database' | 'note' }>,
+    ) => {
+      const vault = requireVault();
+      const pushImport = (status: {
+        state: 'idle' | 'importing';
+        done: number;
+        total: number;
+        label: string;
+      }) => {
+        for (const win of BrowserWindow.getAllWindows())
+          win.webContents.send(IPC.importStatus, status);
+      };
+      // Pause the (expensive) embedding pass during a bulk import; resume once, at the end.
+      embeddings.setPaused(true);
       const results = [];
-      for (const file of files) {
-        results.push(await importFileAsNote(requireVault(), folder, file.name, file.data));
+      try {
+        for (let i = 0; i < files.length; i += 1) {
+          const file = files[i];
+          if (!file) continue;
+          if (file.data.length > MAX_IMPORT_BYTES) {
+            results.push({
+              ok: false as const,
+              file: file.name,
+              reason: 'File is too large (over 50 MB).',
+            });
+            continue;
+          }
+          const label = `${files.length > 1 ? `(${i + 1}/${files.length}) ` : ''}${file.name}`;
+          pushImport({ state: 'importing', done: 0, total: 0, label });
+          if (file.as === 'database' && isSpreadsheet(file.name)) {
+            const r = await importSpreadsheetAsDatabase(vault, folder, file.name, file.data, (p) =>
+              pushImport({
+                state: 'importing',
+                done: p.done,
+                total: p.total,
+                label: `${label} — ${p.label}`,
+              }),
+            );
+            results.push({ ok: true as const, path: r.path, title: file.name });
+          } else {
+            results.push(await importFileAsNote(vault, folder, file.name, file.data));
+          }
+        }
+      } finally {
+        pushImport({ state: 'idle', done: 0, total: 0, label: '' });
+        embeddings.setPaused(false); // resume → one embedding pass over everything just imported
       }
       return results;
     },

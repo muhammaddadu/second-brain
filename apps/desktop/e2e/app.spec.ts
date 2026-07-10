@@ -594,6 +594,31 @@ test('agent access: a rule template fills RULES.md', async () => {
     .toContain('People/');
 });
 
+test('import: dropping a CSV offers Database and creates one', async () => {
+  const tree = window.getByTestId('folder-tree');
+  const dataTransfer = await window.evaluateHandle(() => {
+    const dt = new DataTransfer();
+    dt.items.add(
+      new File(['Name,Status\nAlpha,Todo\nBeta,Done\nGamma,Todo\n'], 'tasks.csv', {
+        type: 'text/csv',
+      }),
+    );
+    return dt;
+  });
+  await tree.dispatchEvent('drop', { dataTransfer });
+  // The choice dialog appears (spreadsheet detected); pick Database.
+  await expect(window.getByTestId('import-choice')).toBeVisible({ timeout: 8000 });
+  await window.getByTestId('import-as-database').click();
+  // A database folder "tasks" with a schema lands on disk.
+  await expect
+    .poll(async () => readFile(join(vaultRoot, 'tasks/database.json'), 'utf8').catch(() => ''), {
+      timeout: 8000,
+    })
+    .toContain('Status');
+  const alpha = JSON.parse(await readFile(join(vaultRoot, 'tasks/Alpha.note.json'), 'utf8'));
+  expect(alpha.meta.title).toBe('Alpha');
+});
+
 test('opens the knowledge graph and can return to a note', async () => {
   await window.getByTestId('graph-button').click();
   await expect(window.getByRole('heading', { name: 'Knowledge graph' })).toBeVisible();

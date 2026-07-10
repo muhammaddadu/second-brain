@@ -9,6 +9,7 @@
 import { NoteExistsError } from './errors.js';
 import { markdownToBlocks } from './markdown.js';
 import { NOTE_EXTENSION } from './paths.js';
+import { readSheets } from './spreadsheet.js';
 import { createNote, titleToFilenameBase, type Vault } from './vault.js';
 
 /** One import outcome: where the note landed (or why the file couldn't be converted). */
@@ -24,41 +25,8 @@ interface FileConverter {
 
 const decoder = new TextDecoder();
 
-/** Cap rows written from a spreadsheet so a giant sheet doesn't produce an unusable note. */
+/** Cap rows written into a note table so a giant sheet doesn't produce an unusable note. */
 const MAX_TABLE_ROWS = 1000;
-
-/** Parse CSV/TSV into rows of cells, honouring quoted fields, escaped `""`, and newlines in quotes. */
-function parseDelimited(text: string, delimiter: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = '';
-  let quoted = false;
-  for (let i = 0; i < text.length; i += 1) {
-    const c = text[i];
-    if (quoted) {
-      if (c === '"') {
-        if (text[i + 1] === '"') {
-          field += '"';
-          i += 1;
-        } else quoted = false;
-      } else field += c;
-    } else if (c === '"') quoted = true;
-    else if (c === delimiter) {
-      row.push(field);
-      field = '';
-    } else if (c === '\n') {
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = '';
-    } else if (c !== '\r') field += c;
-  }
-  if (field !== '' || row.length) {
-    row.push(field);
-    rows.push(row);
-  }
-  return rows.filter((r) => r.some((cell) => cell.trim() !== ''));
-}
 
 /** Render rows as a GitHub-flavoured Markdown table (first row = header); BlockNote parses it to a table. */
 function rowsToMarkdownTable(rows: string[][]): string {
@@ -105,32 +73,17 @@ const CONVERTERS: FileConverter[] = [
     },
   },
   {
-    extensions: ['.csv', '.tsv'],
-    toMarkdown: async (data, fileName) =>
-      rowsToMarkdownTable(
-        parseDelimited(decoder.decode(data), fileName.toLowerCase().endsWith('.tsv') ? '\t' : ','),
-      ),
-  },
-  {
-    extensions: ['.xlsx', '.xls'],
-    toMarkdown: async (data) => {
-      const XLSX = await import('xlsx');
-      const wb = XLSX.read(data, { type: 'array' });
-      // Each sheet becomes a `## Sheet` heading + a Markdown table.
-      return wb.SheetNames.map((name) => {
-        const sheet = wb.Sheets[name];
-        if (!sheet) return '';
-        const raw = XLSX.utils.sheet_to_json(sheet, {
-          header: 1,
-          blankrows: false,
-          raw: false,
-        }) as unknown[][];
-        const rows = raw.map((r) =>
-          Array.isArray(r) ? r.map((cell) => (cell == null ? '' : String(cell))) : [],
-        );
-        const table = rowsToMarkdownTable(rows);
-        return table ? `## ${name}\n\n${table}` : '';
-      })
+    // CSV/TSV/XLSX → a note with a Markdown table per sheet. Shares readSheets with the database
+    // importer (one parser, and the XLSX !ref-clamp perf fix applies here too).
+    extensions: ['.csv', '.tsv', '.xlsx', '.xls'],
+    toMarkdown: async (data, fileName) => {
+      const sheets = await readSheets(fileName, data);
+      return sheets
+        .map((s) => {
+          const table = rowsToMarkdownTable(s.rows);
+          if (!table) return '';
+          return sheets.length > 1 ? `## ${s.name}\n\n${table}` : table;
+        })
         .filter(Boolean)
         .join('\n\n');
     },

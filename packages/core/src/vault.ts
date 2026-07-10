@@ -45,6 +45,8 @@ export interface CreateNoteInput {
   title?: string;
   tags?: readonly string[];
   blocks?: unknown[];
+  /** Database row values (ADR 0004), keyed by stable property id. Set in one write for bulk import. */
+  properties?: Record<string, unknown>;
 }
 
 /** The wall-clock ISO timestamp source used when no clock is injected. */
@@ -136,6 +138,9 @@ export async function createNote(
     updated: timestamp,
   };
   if (input.title !== undefined) meta.title = input.title;
+  if (input.properties && Object.keys(input.properties).length > 0) {
+    meta.properties = input.properties;
+  }
   const note: NoteEnvelope = {
     version: CURRENT_ENVELOPE_VERSION,
     meta,

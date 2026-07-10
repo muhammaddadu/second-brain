@@ -9,6 +9,7 @@ import type { TreeNode } from '@brain/core';
 import { NOTE_EXTENSION } from '@brain/core/paths';
 import { ChevronDown, ChevronRight, Database, FileText, FolderPlus } from 'lucide-react';
 import { useRef, useState } from 'react';
+import type { FileImportPlan } from '../../../shared/ipc';
 import { ConfirmDialog } from '../shell/ConfirmDialog';
 import { ContextMenu, type MenuItem } from './ContextMenu';
 import {
@@ -22,6 +23,7 @@ import {
   remapPath,
   reorderedNames,
 } from './folder-tree-logic';
+import { ImportChoiceDialog } from './ImportChoiceDialog';
 import { MoveDialog } from './MoveDialog';
 
 interface FolderTreeProps {
@@ -53,6 +55,10 @@ export function FolderTree({
   const [moving, setMoving] = useState<TreeNode | null>(null);
   const [confirmTrash, setConfirmTrash] = useState<TreeNode | null>(null);
   const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [importChoice, setImportChoice] = useState<{
+    plans: FileImportPlan[];
+    resolve: (m: 'database' | 'note' | null) => void;
+  } | null>(null);
   // Keyboard focus (roving): the row arrow keys move between; Enter opens, Delete asks to trash.
   const [focusedPath, setFocusedPath] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -215,7 +221,10 @@ export function FolderTree({
     return Array.from(e.dataTransfer?.types ?? []).includes('Files');
   }
 
-  /** Import dropped files into `folder`, converting each to a note; failures are shown, not silent. */
+  /**
+   * Import dropped files. Spreadsheets (CSV/XLSX) prompt for Database-vs-Note; everything else
+   * imports as a note. The heavy work runs in main with an inline progress toast — the UI stays live.
+   */
   function importDropped(folder: string, list: FileList | null) {
     if (!list || list.length === 0) return;
     const files = Array.from(list);
@@ -223,7 +232,24 @@ export function FolderTree({
       const payload = await Promise.all(
         files.map(async (f) => ({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) })),
       );
-      const results = await window.vault.importFiles(folder, payload);
+      const plans = await window.vault.analyzeImport(
+        payload.map(({ name, data }) => ({ name, data })),
+      );
+      const spreadsheets = plans.filter((p) => p.spreadsheet);
+      let mode: 'database' | 'note' = 'note';
+      if (spreadsheets.length > 0) {
+        const chosen = await new Promise<'database' | 'note' | null>((resolve) => {
+          setImportChoice({ plans: spreadsheets, resolve });
+        });
+        setImportChoice(null);
+        if (chosen === null) return; // cancelled
+        mode = chosen;
+      }
+      const withAs = payload.map((f) => {
+        const plan = plans.find((p) => p.name === f.name);
+        return plan?.spreadsheet ? { ...f, as: mode } : f;
+      });
+      const results = await window.vault.importFiles(folder, withAs);
       setImportErrors(results.flatMap((r) => (r.ok ? [] : [r.reason])));
       if (folder) setExpandedFor(folder, true);
       await onRefresh();
@@ -391,6 +417,13 @@ export function FolderTree({
         </ul>
       )}
 
+      {importChoice && (
+        <ImportChoiceDialog
+          plans={importChoice.plans}
+          onChoose={(mode) => importChoice.resolve(mode)}
+          onCancel={() => importChoice.resolve(null)}
+        />
+      )}
       {importErrors.length > 0 && (
         <div
           className="border-edge bg-surface text-accent m-2 rounded-lg border px-3 py-2 text-xs"

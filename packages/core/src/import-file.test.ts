@@ -88,13 +88,13 @@ describe('importFileAsNote — spreadsheets', () => {
     expect(md).toContain('Name');
   });
 
-  it('imports an XLSX workbook: one section per sheet', async () => {
+  it('imports an XLSX workbook as a note with a table', async () => {
     const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(
       wb,
       XLSX.utils.aoa_to_sheet([
-        ['A', 'B'],
+        ['Col A', 'Col B'],
         ['1', '2'],
       ]),
       'Data',
@@ -104,8 +104,7 @@ describe('importFileAsNote — spreadsheets', () => {
     expect(result).toMatchObject({ ok: true });
     if (!result.ok) throw new Error('unreachable');
     const md = await exportNoteToMarkdown(vault, result.path);
-    expect(md).toContain('Data'); // sheet name heading
-    expect(md).toContain('A');
-    expect(md).toContain('2');
+    expect(md).toContain('Col A'); // header cell
+    expect(md).toContain('2'); // data cell
   });
 });

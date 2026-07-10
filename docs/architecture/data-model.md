@@ -75,6 +75,10 @@ Owner-defined agent conventions ([PRD §3.6](../product/prd.md)) live in `RULES.
 
 Distinct from that, `AGENTS.md` (also plain Markdown at the root) is the **app-maintained agent guide** — the filesystem *contract* (note envelope, folders/tags, reserved `.brain/`, `.order.json`, safe writes) that orients any agent working the folder directly. The app writes and version-refreshes it on vault open but never clobbers owner edits (a `<!-- second-brain:agent-guide vN managed:HASH -->` marker distinguishes an untouched app copy from one the owner changed). The same body is installable as a global Claude Code skill from Settings → Agent access ([ADR 0009](../adr/0009-agent-guide-and-installable-skill.md)). So: `AGENTS.md` = *how the vault works* (app owns), `RULES.md` = *the owner's conventions* (owner owns).
 
+### Spreadsheet import
+
+CSV/XLSX files can be imported straight into a database: columns come from the header row (types inferred — number, date, checkbox, select, url, text), each data row becomes a row-note, and multiple worksheets become a folder with one database per sheet. Large sheets are better imported as a single note table; the app recommends which. (XLSX is read with a `!ref`-range clamp — exported files often over-declare their dimensions, which otherwise makes parsing pathologically slow.)
+
 ## Wikilinks (E9 ✓)
 
 Notes reference each other with `[[target]]` / `[[target|alias]]` written as **plain text inside the note document** — no special block or metadata ([ADR 0010](../adr/0010-wikilinks-plain-text-with-nondestructive-rendering.md)). Because a link is ordinary text, agents write it with zero schema knowledge, it survives Markdown export unchanged, and opening/editing a note never rewrites it (the app renders links via a non-destructive editor decoration, so the bytes on disk don't change).

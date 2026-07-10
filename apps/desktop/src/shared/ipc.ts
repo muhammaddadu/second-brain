@@ -50,6 +50,8 @@ export const IPC = {
   trashFolder: 'vault:trash-folder',
   setOrder: 'vault:set-order',
   importFiles: 'vault:import-files',
+  analyzeImport: 'vault:analyze-import',
+  importStatus: 'vault:import-status',
   search: 'vault:search',
   graph: 'vault:graph',
   resolveLink: 'vault:resolve-link',
@@ -148,6 +150,23 @@ export interface IndexStatus {
 export interface UpdateStatus {
   state: 'idle' | 'available' | 'ready';
   version?: string;
+}
+
+/** How a dropped file could be imported — drives the Database-vs-Note choice for spreadsheets. */
+export interface FileImportPlan {
+  name: string;
+  /** True for CSV/TSV/XLSX — offer database-vs-note. */
+  spreadsheet: boolean;
+  recommendation: 'database' | 'note';
+  reason: string;
+}
+
+/** Progress of an in-flight import, pushed to the renderer for an inline indicator. */
+export interface ImportProgressStatus {
+  state: 'idle' | 'importing';
+  done: number;
+  total: number;
+  label: string;
 }
 
 /** Install state of the vault contract for one agent runtime (Claude Code, Codex CLI, …). */
@@ -272,10 +291,15 @@ export interface VaultApi {
    */
   setOrder(folder: string, orderedNames: string[]): Promise<void>;
   /** Import dropped files into `folder` ('' = root), converting each to a note; per-file results. */
+  /** Plan each dropped file (spreadsheet? recommended target) so the UI can offer a choice. */
+  analyzeImport(files: Array<{ name: string; data: Uint8Array }>): Promise<FileImportPlan[]>;
+  /** Import dropped files into `folder` ('' = root). `as` picks database vs note for spreadsheets. */
   importFiles(
     folder: string,
-    files: Array<{ name: string; data: Uint8Array }>,
+    files: Array<{ name: string; data: Uint8Array; as?: 'database' | 'note' }>,
   ): Promise<ImportResult[]>;
+  /** Subscribe to import progress (inline "Importing…" indicator). Returns unsubscribe. */
+  onImportStatus(listener: (status: ImportProgressStatus) => void): () => void;
   /** Search the vault (keyword, plus semantic when a provider is configured); ranked, with snippets. */
   search(query: string, limit?: number): Promise<SearchHit[]>;
   /** The knowledge graph derived from the index — notes as nodes, tag + semantic + link edges. */
