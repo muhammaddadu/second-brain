@@ -28,7 +28,7 @@ describe('watchVault (live)', () => {
   it('emits an event when a note is created outside the watcher', async () => {
     const vault = openVault(fixture.root);
     const events: VaultChange[] = [];
-    const watcher = watchVault(vault, (e) => events.push(e));
+    const watcher = watchVault(vault, (e) => events.push(e), { usePolling: true });
     try {
       // Wait until chokidar has attached, else the create fires before we're watching (flaky in CI).
       await watcher.ready;
@@ -45,7 +45,7 @@ describe('watchVault (live)', () => {
   it('ignores writes inside the reserved .brain directory', async () => {
     const vault = openVault(fixture.root);
     const events: VaultChange[] = [];
-    const watcher = watchVault(vault, (e) => events.push(e));
+    const watcher = watchVault(vault, (e) => events.push(e), { usePolling: true });
     try {
       await watcher.ready;
       const { writeFile } = await import('node:fs/promises');

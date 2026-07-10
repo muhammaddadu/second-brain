@@ -34,11 +34,26 @@ export function isReservedPath(vaultRoot: string, absPath: string): boolean {
   return rel === BRAIN_DIR || rel.startsWith(`${BRAIN_DIR}${sep}`);
 }
 
+export interface WatchOptions {
+  /**
+   * Poll the filesystem instead of relying on native change events. Native events are cheaper and
+   * the default, but some filesystems don't emit them reliably — network/virtual mounts, and some
+   * CI containers. Turn this on there. `pollInterval` (ms) tunes the polling cadence.
+   */
+  usePolling?: boolean;
+  pollInterval?: number;
+}
+
 /** Start watching a vault. Call {@link VaultWatcher.close} to stop. */
-export function watchVault(vault: Vault, onChange: (change: VaultChange) => void): VaultWatcher {
+export function watchVault(
+  vault: Vault,
+  onChange: (change: VaultChange) => void,
+  options: WatchOptions = {},
+): VaultWatcher {
   const watcher = chokidar.watch(vault.root, {
     ignoreInitial: true,
     ignored: (path: string) => isReservedPath(vault.root, path),
+    ...(options.usePolling ? { usePolling: true, interval: options.pollInterval ?? 50 } : {}),
   });
 
   const forward = (type: VaultEventType) => (absPath: string) => {
