@@ -19,9 +19,11 @@ import {
   noteTitle,
   openSearchIndex,
   openVault,
+  parseEdgeKinds,
   readNote,
   readRules,
   rebuildIndex,
+  recallRelated,
   type SearchHit,
   SNIPPET_CLOSE,
   SNIPPET_OPEN,
@@ -49,6 +51,8 @@ Commands:
   tree | list                 Print the folder/note tree
   read <path>                 Show a note (title + text)
   search <query> [--limit N]  Search (semantic when BRAIN_EMBED is set, else keyword)
+  recall <path> [--hops N] [--kinds link,tag,semantic,both] [--limit N]
+                              Related notes via the knowledge graph (multi-hop)
   create <path> [--title T] [--tags a,b] [--content "markdown"]
   update <path> [--title T] [--tags a,b] [--content "markdown"]
   move <from> <to>            Move a note
@@ -57,7 +61,7 @@ Commands:
   rules                       Show the vault's RULES.md
   index rebuild               Rebuild the derived search index
 
-Add --json to read/search/tree/tag/rules for machine-readable output.`;
+Add --json to read/search/tree/tag/rules/recall for machine-readable output.`;
 
 /** FTS snippet markers → stripped for clean terminal/JSON output. */
 function cleanSnippet(s: string): string {
@@ -111,6 +115,49 @@ async function cmdSearch(vault: Vault, args: ParsedArgs, io: Io): Promise<number
       io.out('No matches.');
     } else {
       for (const h of hits) io.out(`${h.title}  (${h.path})\n  ${cleanSnippet(h.snippet)}`);
+    }
+    return 0;
+  } finally {
+    index.close();
+  }
+}
+
+async function cmdRecall(vault: Vault, args: ParsedArgs, io: Io): Promise<number> {
+  const path = args.positionals[1];
+  if (!path) return fail(io, 'recall: a seed note path is required');
+  const hopsRaw = stringFlag(args, 'hops');
+  const hops = hopsRaw !== undefined ? Number(hopsRaw) : undefined;
+  if (hopsRaw !== undefined && (!Number.isFinite(hops) || (hops ?? 0) < 1)) {
+    return fail(io, 'recall: --hops must be a positive integer');
+  }
+  const kindsRaw = stringFlag(args, 'kinds');
+  const kinds = kindsRaw !== undefined ? parseEdgeKinds(kindsRaw) : undefined;
+  const limitRaw = stringFlag(args, 'limit');
+  const limit = limitRaw !== undefined ? Number(limitRaw) : undefined;
+  if (limitRaw !== undefined && (!Number.isFinite(limit) || (limit ?? 0) < 1)) {
+    return fail(io, 'recall: --limit must be a positive integer');
+  }
+
+  const index = openSearchIndex(indexPath(vault));
+  try {
+    await syncIndex(vault, index);
+    const provider = await embeddingAdapterFromEnv(io.env);
+    const result = await recallRelated(vault, index, path, {
+      ...(hops !== undefined ? { hops } : {}),
+      ...(kinds !== undefined ? { kinds } : {}),
+      ...(limit !== undefined ? { limit } : {}),
+      ...(provider ? { model: provider.model } : {}),
+    });
+    if (boolFlag(args, 'json')) {
+      io.out(JSON.stringify(result, null, 2));
+    } else if (result.hits.length === 0) {
+      io.out(`No related notes within ${result.hops} hop(s) of ${result.seed.path}.`);
+    } else {
+      io.out(`Related to ${result.seed.title} (${result.seed.path}), hops≤${result.hops}:`);
+      for (const h of result.hits) {
+        const via = h.via.map((e) => e.kind).join(' → ');
+        io.out(`  [${h.distance}] ${h.title}  (${h.path})${via ? `  via ${via}` : ''}`);
+      }
     }
     return 0;
   } finally {
@@ -239,6 +286,8 @@ export async function run(argv: string[], io: Io): Promise<number> {
         return await cmdRead(vault, args, io);
       case 'search':
         return await cmdSearch(vault, args, io);
+      case 'recall':
+        return await cmdRecall(vault, args, io);
       case 'create':
         return await cmdCreate(vault, args, io);
       case 'update':

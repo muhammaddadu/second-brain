@@ -69,6 +69,20 @@ describe('brain CLI (in-process)', () => {
     expect(note.meta.title).toBe('Ocean'); // metadata preserved across a content update
   });
 
+  it('recall walks shared-tag neighbours as JSON', async () => {
+    await brain('create', 'a.note.json', '--title', 'A', '--tags', 'ocean', '--content', 'alpha');
+    await brain('create', 'b.note.json', '--title', 'B', '--tags', 'ocean', '--content', 'beta');
+    await brain('create', 'c.note.json', '--title', 'C', '--tags', 'land', '--content', 'gamma');
+    // Index must see tags (create already wrote files; recall syncs).
+    const recalled = await brain('recall', 'a.note.json', '--hops', '1', '--json');
+    expect(recalled.code).toBe(0);
+    const parsed = JSON.parse(recalled.out.join('\n')) as {
+      hits: Array<{ path: string; distance: number }>;
+    };
+    expect(parsed.hits.map((h) => h.path)).toEqual(['b.note.json']);
+    expect(parsed.hits[0]?.distance).toBe(1);
+  });
+
   it('json output is parseable for read and tree', async () => {
     await brain('create', 'a.note.json', '--title', 'A', '--content', 'hello');
     const read = await brain('read', 'a.note.json', '--json');

@@ -22,6 +22,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Backlinks } from './Backlinks';
 import { ConflictDiff } from './ConflictDiff';
 import { editorSchema } from './editorSchema';
+import { RelatedNotes } from './RelatedNotes';
 import { TagEditor } from './TagEditor';
 import { WikilinkOverlay } from './WikilinkOverlay';
 
@@ -272,6 +273,7 @@ export function NoteEditor({
         />
       </div>
       <Backlinks path={path} onOpenNote={onOpenNote} />
+      <RelatedNotes path={path} onOpenNote={onOpenNote} />
     </article>
   );
 }

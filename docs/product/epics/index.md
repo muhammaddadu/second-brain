@@ -29,9 +29,10 @@ Epic IDs are stable (never renumbered); **table order is the build order**.
 | [E6](E6-mcp-rules.md) | MCP server & vault rules | Done ✓ | E5 |
 | [E8](E8-databases.md) | Databases | Done ✓ | E2, E3 |
 | [E9](E9-wikilinks.md) | Wikilinks | Done ✓ | E2, E4 |
-| [E10](E10-deeper-memory-semantics.md) | Deeper memory semantics | **Proposed** (decide later) | E4, E6, E9 if pursued |
+| [E11](E11-multi-hop-recall.md) | Multi-hop recall | Done ✓ | E4, E6, E9 |
+| [E10](E10-deeper-memory-semantics.md) | Deeper memory semantics | **Proposed** (decide later; multi-hop graduated to E11) | E4, E6, E9 if pursued |
 
-> **E10 is not in the active build order.** It parks reference-inspired ideas (memory status, multi-hop recall UX, richer auto-linking, capture pipelines) so we can accept/reject them without mixing them into the shipped product story. Cloud-hosted memory stays out — see the epic.
+> **E10 is not in the active build order.** It parks remaining reference-inspired ideas (memory status, richer auto-linking, capture pipelines). Multi-hop recall shipped as [E11](E11-multi-hop-recall.md). Cloud-hosted memory stays out — see E10.
 
 ## Build order & dependencies
 
@@ -50,6 +51,9 @@ graph LR
     E3 --> E8
     E2 --> E9[E9 Wikilinks]
     E4 --> E9
+    E4 --> E11[E11 Multi-hop recall]
+    E6 --> E11
+    E9 --> E11
 ```
 
 ## Testing is first-class

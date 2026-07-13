@@ -8,7 +8,7 @@ Routing table for **note-agent-second-brain**. Each doc owns one concern; find t
 |--------------|-------|-----------|
 | Why we're building this, value, success metrics | [value-proposition](product/value-proposition.md) | the *why* |
 | What must be true — requirements, scope, acceptance criteria | [PRD](product/prd.md) | the *what* |
-| What to build next, in what order | [epics](product/epics/index.md) | build order (E0–E9 shipped; [E10](product/epics/E10-deeper-memory-semantics.md) proposed) |
+| What to build next, in what order | [epics](product/epics/index.md) | build order (E0–E9 + E11 shipped; [E10](product/epics/E10-deeper-memory-semantics.md) proposed) |
 | How it looks — layout, panels, interactions | [UX hub](ux/index.md) | UX |
 | How notes are stored — file format, envelope/metadata, tags, index schema | [data-model](architecture/data-model.md) | storage |
 | Process topology — app, CLI, MCP server, shared core, concurrency | [system-architecture](architecture/system-architecture.md) | system shape |

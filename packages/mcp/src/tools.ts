@@ -18,8 +18,10 @@ import {
   moveNote,
   noteTitle,
   openSearchIndex,
+  parseEdgeKinds,
   readNote,
   readRules,
+  recallRelated,
   SNIPPET_CLOSE,
   SNIPPET_OPEN,
   setNoteTitle,
@@ -89,6 +91,46 @@ export const VAULT_TOOLS: VaultTool[] = [
           null,
           2,
         );
+      } finally {
+        index.close();
+      }
+    },
+  },
+  {
+    name: 'recall',
+    description:
+      'Multi-hop recall: from a seed note, walk the knowledge graph (wikilinks, shared tags, and semantic similarity when embeddings are configured) and return related notes with shortest trails. Use after search when you need connected context beyond the closest match.',
+    schema: {
+      path,
+      hops: z
+        .number()
+        .int()
+        .min(1)
+        .max(5)
+        .optional()
+        .describe('Max graph distance from the seed (default 2)'),
+      kinds: z
+        .string()
+        .optional()
+        .describe('Comma-separated edge kinds to traverse: link,tag,semantic,both (default: all)'),
+      limit: z.number().int().min(1).max(100).optional().describe('Max hits (default 50)'),
+    },
+    handler: async (vault, args) => {
+      const index = openSearchIndex(indexPath(vault));
+      try {
+        await syncIndex(vault, index);
+        const provider = await embeddingAdapterFromEnv(process.env);
+        const kinds =
+          typeof args.kinds === 'string' && args.kinds.trim()
+            ? parseEdgeKinds(args.kinds)
+            : undefined;
+        const result = await recallRelated(vault, index, String(args.path), {
+          ...(typeof args.hops === 'number' ? { hops: args.hops } : {}),
+          ...(kinds ? { kinds } : {}),
+          ...(typeof args.limit === 'number' ? { limit: args.limit } : {}),
+          ...(provider ? { model: provider.model } : {}),
+        });
+        return JSON.stringify(result, null, 2);
       } finally {
         index.close();
       }

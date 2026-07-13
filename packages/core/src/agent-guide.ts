@@ -13,7 +13,7 @@ import { AGENT_GUIDE_FILE } from './paths.js';
 import type { Vault } from './vault.js';
 
 /** Bump when the guide body changes so existing (unmodified) vault copies auto-refresh. */
-export const AGENT_GUIDE_VERSION = 2;
+export const AGENT_GUIDE_VERSION = 3;
 
 const MARKER = /<!-- second-brain:agent-guide v(\d+) managed:([a-f0-9]+) -->/;
 
@@ -68,6 +68,15 @@ Each note is a JSON envelope:
 ### Linking notes (wikilinks)
 
 Write \`[[Folder/Note]]\` or \`[[Note Title]]\` as plain text anywhere in a note's content. The app renders it as a clickable link (resolved by exact path, then unique title) and shows it as a **backlink** on the target. No special syntax in the JSON — it's just text inside a paragraph's \`text\`.
+
+### Multi-hop recall (related notes)
+
+Notes are also connected by **shared tags** and (when embeddings are configured) **semantic similarity**. From a seed note, walk those connections with the CLI/MCP:
+
+- \`brain recall <path> [--hops 2] [--kinds link,tag] [--json]\`
+- MCP tool \`recall\` with the same options
+
+Use this after search when you need context beyond the closest match (e.g. person → preference → project). Prefer \`kinds=link,tag\` when similarity edges would be noisy. The desktop app shows the same walk under **Related** on a note.
 
 ## Databases
 

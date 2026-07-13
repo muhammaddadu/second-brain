@@ -14,6 +14,7 @@ import {
   createFolderWithUniqueName,
   createNote,
   createNoteWithUniqueName,
+  type EdgeKind,
   getBacklinks,
   hashNote,
   importFileAsNote,
@@ -36,6 +37,7 @@ import {
   readDatabase,
   readNote,
   readRules,
+  recallRelated,
   reindexNote,
   renameFolder,
   renameNote,
@@ -459,6 +461,26 @@ function registerHandlers(): void {
       links,
     });
   });
+  ipcMain.handle(
+    IPC.recall,
+    async (
+      _event,
+      path: string,
+      options?: { hops?: number; kinds?: EdgeKind[]; limit?: number; threshold?: number },
+    ) => {
+      if (!searchIndex) {
+        return { seed: { path, title: path }, hops: options?.hops ?? 2, kinds: [], hits: [] };
+      }
+      const model = embeddings.provider()?.model;
+      return recallRelated(requireVault(), searchIndex, path, {
+        ...(typeof options?.hops === 'number' ? { hops: options.hops } : {}),
+        ...(options?.kinds ? { kinds: options.kinds } : {}),
+        ...(typeof options?.limit === 'number' ? { limit: options.limit } : {}),
+        ...(typeof options?.threshold === 'number' ? { threshold: options.threshold } : {}),
+        ...(model ? { model } : {}),
+      });
+    },
+  );
 
   // --- Embeddings / semantic-search provider management (ADR 0008) ---
   ipcMain.handle(IPC.scanProviders, () => embeddings.scan());

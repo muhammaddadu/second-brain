@@ -19,6 +19,7 @@ A thin shell over core ([E5](../product/epics/E5-cli.md)) for agents/scripts and
 | \`brain tree\` / \`list\` | print the folder/note tree |
 | \`brain read <path>\` | show a note (title + text; \`--json\` = the envelope) |
 | \`brain search <query> [--limit N]\` | search — semantic when \`BRAIN_EMBED\` is set, else keyword |
+| \`brain recall <path> [--hops N] [--kinds …] [--limit N]\` | multi-hop related notes from a seed (graph walk; \`--json\` for trails) |
 | \`brain create <path> [--title T] [--tags a,b] [--content "markdown"]\` | create a note |
 | \`brain update <path> [--title] [--tags] [--content]\` | update title / tags / body |
 | \`brain move <from> <to>\` · \`brain tag <path> [--set/--add/--remove]\` · \`brain trash <path>\` | move / retag / delete-to-trash |
@@ -41,6 +42,7 @@ claude mcp add second-brain -- node packages/mcp/dist/index.js --vault /path/to/
 | `get_rules` | the owner's `RULES.md` — every write-tool description tells agents to call this first |
 | `list_tree` | folder/note hierarchy as JSON |
 | `search` | ranked hits with snippets — keyword, plus semantic when `BRAIN_EMBED*` env is set (same env contract as the CLI) |
+| `recall` | multi-hop related notes from a seed path (wikilinks / tags / semantic edges); returns trails + edge kinds as JSON ([E11](../product/epics/E11-multi-hop-recall.md)) |
 | `read_note` | title + tags + Markdown body |
 | `create_note` / `update_note` | write with **Markdown content** (core converts; a title change renames the file, same as the app) |
 | `move_note` / `trash_note` | relocate / delete-to-trash (recoverable) |
@@ -48,6 +50,8 @@ claude mcp add second-brain -- node packages/mcp/dist/index.js --vault /path/to/
 **The rules handshake:** new vaults seed a starter `RULES.md` (edited in Settings → Agent access); agents call `get_rules` → `search` for placement → write. The canonical "summarise my last 24 hours and file it where it belongs" flow is executable and test-proven: `packages/mcp/src/server.test.ts` scripts an MCP client through rules → search → update-existing → create-in-the-mandated-folder and asserts on the resulting files.
 
 **Wikilinks:** reference another note with `[[Folder/Note]]` or `[[Note Title]]` written as plain text anywhere in a note's Markdown/content — the app renders it clickable, resolves it (exact path, then unique title), and shows it as a backlink on the target. No special tool: an agent just writes the `[[…]]` text ([ADR 0010](../adr/0010-wikilinks-plain-text-with-nondestructive-rendering.md)).
+
+**Multi-hop recall:** after `search` finds a seed, call `recall` (or `brain recall`) to walk connected notes up to N hops. Trails prefer shortest paths; edge kinds are `link` (wikilink), `tag`, `semantic`, or `both`. Pass `kinds: "link,tag"` when you want intentional structure without similarity noise. Same core as the desktop “Related” panel ([E11](../product/epics/E11-multi-hop-recall.md)).
 
 **Content formats:** write tools accept Markdown (converted by core — no schema knowledge needed); reads return Markdown; the on-disk canonical format stays BlockNote JSON ([ADR 0001](../adr/0001-blocknote-json-canonical-note-format.md)).
 

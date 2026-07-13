@@ -57,10 +57,28 @@ it('lists every registered tool', async () => {
     'list_tree',
     'move_note',
     'read_note',
+    'recall',
     'search',
     'trash_note',
     'update_note',
   ]);
+});
+
+it('recall returns shared-tag neighbours from a seed note', async () => {
+  const vault = openVault(root);
+  await importMarkdownAsNote(vault, 'People/Maya.note.json', 'Likes walkable hotels.', {
+    title: 'Maya',
+    tags: ['people'],
+  });
+  await importMarkdownAsNote(vault, 'Journal/prefs.note.json', 'Maya prefers quiet lobbies.', {
+    title: 'Prefs',
+    tags: ['people'],
+  });
+
+  const raw = await call('recall', { path: 'People/Maya.note.json', hops: 1 });
+  const parsed = JSON.parse(raw) as { hits: Array<{ path: string; distance: number }> };
+  expect(parsed.hits.some((h) => h.path === 'Journal/prefs.note.json')).toBe(true);
+  expect(parsed.hits.find((h) => h.path === 'Journal/prefs.note.json')?.distance).toBe(1);
 });
 
 it('runs the canonical flow: rules → search → update existing → create per rules', async () => {

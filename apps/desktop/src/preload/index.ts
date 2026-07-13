@@ -59,6 +59,7 @@ const vault: VaultApi = {
   },
   search: (query, limit) => ipcRenderer.invoke(IPC.search, query, limit),
   graph: (threshold) => ipcRenderer.invoke(IPC.graph, threshold),
+  recall: (path, options) => ipcRenderer.invoke(IPC.recall, path, options),
   resolveLink: (target) => ipcRenderer.invoke(IPC.resolveLink, target),
   backlinks: (path) => ipcRenderer.invoke(IPC.backlinks, path),
   noteRefs: () => ipcRenderer.invoke(IPC.noteRefs),

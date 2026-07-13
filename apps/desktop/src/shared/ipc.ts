@@ -16,6 +16,8 @@ import type {
   PropertyType,
   ProviderKind,
   ProviderSecrets,
+  RecallRelatedOptions,
+  RecallResult,
   SearchHit,
   TestResult,
   TreeNode,
@@ -55,6 +57,7 @@ export const IPC = {
   importStatus: 'vault:import-status',
   search: 'vault:search',
   graph: 'vault:graph',
+  recall: 'vault:recall',
   resolveLink: 'vault:resolve-link',
   backlinks: 'vault:backlinks',
   noteRefs: 'vault:note-refs',
@@ -309,6 +312,11 @@ export interface VaultApi {
   search(query: string, limit?: number): Promise<SearchHit[]>;
   /** The knowledge graph derived from the index — notes as nodes, tag + semantic + link edges. */
   graph(threshold?: number): Promise<GraphData>;
+  /**
+   * Multi-hop recall from a seed note (E11) — related notes with shortest trails.
+   * Same core path as `brain recall` / MCP `recall`.
+   */
+  recall(path: string, options?: RecallRelatedOptions): Promise<RecallResult>;
   /** Resolve a wikilink target to a vault note path (path, then unique title), or null. */
   resolveLink(target: string): Promise<string | null>;
   /** Notes that link to `path` (its backlinks), with titles. */

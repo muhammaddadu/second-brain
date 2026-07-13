@@ -87,6 +87,14 @@ Notes reference each other with `[[target]]` / `[[target|alias]]` written as **p
 - **Backlinks and graph edges are derived, never stored** — computed by reading the notes (`collectVaultLinks`), so they rebuild from the files like every other derived view. A resolved link becomes a `link` edge in the knowledge graph (stronger than tag/semantic similarity).
 - Owned by core `wikilinks.ts` (pure `parseWikilinks` / `resolveWikilink`) + `links.ts` (vault-wide scan). `[[Note#Heading]]` parses today but only the note resolves; sub-note anchors are future work.
 
+## Multi-hop recall (E11 ✓)
+
+Related notes beyond a single search hit are derived by walking the knowledge graph — **not stored**. Core `multiHopRecall` takes `GraphData` (from `buildGraph`: tag / semantic / wikilink edges) and a seed path; `recallRelated` builds that graph the same way as the desktop graph view (index + `collectVaultLinks`), then walks.
+
+- **Result shape:** each hit has `distance`, `trail` (note paths from seed), and `via` (edge kinds/weights along the trail). Shortest path wins; hops default to 2 (cap 5).
+- **Surfaces:** `brain recall`, MCP `recall`, desktop IPC + Related panel — all call core. Optional `kinds` filter (`link`, `tag`, `semantic`, `both`).
+- No new tables or files; deleting the index and rebuilding reproduces equivalent recall (given the same notes and embedding model).
+
 ## Databases (E8 ✓)
 
 A **database** is a folder that also contains a `database.json` descriptor; each note in that folder is a **row**. Storage rationale is [ADR 0004](../adr/0004-databases-as-folders-of-notes-with-schema.md); this is the format E8 builds to.
