@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Download } from './components/Download';
+import { Features } from './components/Features';
 import { Footer } from './components/Footer';
 import { Gallery } from './components/Gallery';
 import { Hero } from './components/Hero';
@@ -72,6 +73,7 @@ function AppShell() {
         <Hero primaryDownloadHref={cta.href} primaryDownloadLabel={cta.label} />
         <Vision />
         <ValueProps />
+        <Features />
         <Gallery />
         <Product />
         <Download release={release} detected={detected} loading={loading} />

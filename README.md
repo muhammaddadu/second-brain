@@ -57,7 +57,7 @@ The `brain` CLI and `brain-mcp` server live in `packages/cli` and `packages/mcp`
 
 ## Stack
 
-TypeScript throughout — Electron + React + Vite (desktop), a shared `packages/core` for all vault operations, WASM SQLite (FTS5 + vector embeddings) for the derived index, and CLI/MCP surfaces. Built epic-by-epic (E0–E9); see [docs/product/epics](docs/product/epics/index.md).
+TypeScript throughout — Electron + React + Vite (desktop), a shared `packages/core` for all vault operations, WASM SQLite (FTS5 + vector embeddings) for the derived index, and CLI/MCP surfaces. Built epic-by-epic (E0–E9 shipped; [E10](docs/product/epics/E10-deeper-memory-semantics.md) proposed, not scheduled); see [docs/product/epics](docs/product/epics/index.md).
 
 ## License
 

@@ -4,6 +4,18 @@ One-page marketing site for **Second Brain**: Vite + React + Tailwind v4, matchi
 
 **Live:** [https://muhammaddadu.github.io/second-brain/](https://muhammaddadu.github.io/second-brain/)
 
+## Story (keep honest)
+
+The site sells the **shipped** product only:
+
+- Local vault on disk; desktop app for humans; MCP + `brain` CLI for agents
+- `RULES.md`, hybrid search, knowledge graph, databases, wikilinks
+- Vision: agents summarise/file the day; the next agent reuses that context
+
+Do **not** market cloud-hosted memory, folderless auto-organisation, or other concepts parked in [E10](../../docs/product/epics/E10-deeper-memory-semantics.md) until those themes are accepted and shipped.
+
+Visual language (card flows, multi-agent fan-in, labeled graph nodes) may borrow grammar from external comps; claims must stay ours.
+
 ## Commands
 
 ```sh

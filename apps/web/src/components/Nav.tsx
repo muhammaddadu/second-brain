@@ -23,10 +23,10 @@ export function Nav() {
             Vision
           </a>
           <a
-            href="#see"
+            href="#features"
             className="hidden rounded-md px-3 py-1.5 text-sm text-muted no-underline transition-colors hover:text-ink sm:inline"
           >
-            Vault
+            Features
           </a>
           <a
             href="#download"

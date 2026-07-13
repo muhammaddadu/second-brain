@@ -29,6 +29,9 @@ Epic IDs are stable (never renumbered); **table order is the build order**.
 | [E6](E6-mcp-rules.md) | MCP server & vault rules | Done ✓ | E5 |
 | [E8](E8-databases.md) | Databases | Done ✓ | E2, E3 |
 | [E9](E9-wikilinks.md) | Wikilinks | Done ✓ | E2, E4 |
+| [E10](E10-deeper-memory-semantics.md) | Deeper memory semantics | **Proposed** (decide later) | E4, E6, E9 if pursued |
+
+> **E10 is not in the active build order.** It parks reference-inspired ideas (memory status, multi-hop recall UX, richer auto-linking, capture pipelines) so we can accept/reject them without mixing them into the shipped product story. Cloud-hosted memory stays out — see the epic.
 
 ## Build order & dependencies
 
@@ -56,3 +59,5 @@ E2E testing is not a final phase and not its own epic — it's a standing requir
 ## Out of scope
 
 Everything in [PRD §5](../prd.md#5-out-of-scope-v1): sync, mobile, collaboration, agent permission tiers, plugins, publishing. Don't build ahead of the epics.
+
+Proposed post-v1 ideas (not scheduled): [E10 — Deeper memory semantics](E10-deeper-memory-semantics.md).
