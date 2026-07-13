@@ -101,6 +101,21 @@ export {
   VAULT_MARKER_FILE,
 } from './paths.js';
 export {
+  ALL_EDGE_KINDS,
+  DEFAULT_RECALL_HOPS,
+  DEFAULT_RECALL_LIMIT,
+  type EdgeKind,
+  MAX_RECALL_HOPS,
+  type MultiHopRecallOptions,
+  multiHopRecall,
+  parseEdgeKinds,
+  type RecallHit,
+  type RecallHopEdge,
+  type RecallRelatedOptions,
+  type RecallResult,
+  recallRelated,
+} from './recall.js';
+export {
   blocksToText,
   type EmbedProgress,
   embedPending,
