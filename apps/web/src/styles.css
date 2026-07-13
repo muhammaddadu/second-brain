@@ -510,6 +510,30 @@ body {
   box-shadow: 0 28px 64px -32px rgba(44, 40, 34, 0.5);
 }
 
+.feature-card {
+  border: 1px solid var(--edge);
+  border-radius: 1.15rem;
+  background: color-mix(in srgb, var(--raised) 94%, transparent);
+  box-shadow: 0 12px 32px -24px rgba(44, 40, 34, 0.5);
+  transition:
+    border-color 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.feature-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--edge));
+  transform: translateY(-2px);
+  box-shadow: 0 20px 44px -24px rgba(44, 40, 34, 0.55);
+}
+
+.gallery-hero img {
+  max-height: 28rem;
+  width: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+
 :root[data-theme="dark"] .shot-frame {
   box-shadow: 0 28px 64px -28px rgba(0, 0, 0, 0.65);
 }
@@ -558,7 +582,8 @@ body {
     transition: none;
   }
 
-  .diagram-card:hover {
+  .diagram-card:hover,
+  .feature-card:hover {
     transform: none;
   }
 }

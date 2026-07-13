@@ -1,36 +1,45 @@
+import { asset } from '../lib/assets';
 import { useReveal } from '../lib/useReveal';
 
 /**
- * Honest feature list: what we ship, not parked E10 concepts.
+ * Shipped capabilities — six cards (even grid) with product shots / illustrations.
  */
 const FEATURES = [
   {
     title: 'Desktop vault',
     body: 'Folder tree, BlockNote editor, Mermaid, wikilinks. Notes are files on disk.',
+    image: 'shots/shot-02.webp',
+    imageAlt: 'Second Brain note editor with folder tree',
   },
   {
     title: 'Agent surfaces',
-    body: 'brain CLI and brain-mcp. Same core as the app. Claude, Cursor, Codex, Gemini, and other MCP clients.',
+    body: 'brain CLI and brain-mcp. Same core as the app — Claude, Cursor, Codex, Gemini, and other MCP clients.',
+    image: 'illust/agents.webp',
+    imageAlt: 'Illustration of agents writing into a local vault',
   },
   {
     title: 'House rules',
     body: 'RULES.md lives in the vault. Agents read it before they file updates.',
+    image: 'illust/day-into-vault.webp',
+    imageAlt: 'Illustration of the day being filed into vault notes',
   },
   {
     title: 'Hybrid search',
     body: 'Keyword search always local. Optional semantic search with a built-in on-device model, or your own provider.',
+    image: 'shots/shot-03.webp',
+    imageAlt: 'Second Brain search results in the desktop app',
   },
   {
-    title: 'Multi-hop recall',
-    body: 'From a seed note, walk wikilinks, tags, and similarity. CLI, MCP, and the Related panel share one graph walk.',
-  },
-  {
-    title: 'Knowledge graph',
-    body: 'Browse the shape of the vault. Notes linked by tags, [[wikilinks]], and similarity.',
+    title: 'Graph & multi-hop recall',
+    body: 'Browse tags, [[wikilinks]], and similarity. From a seed note, walk hops via CLI, MCP, or the Related panel.',
+    image: 'shots/shot-05.webp',
+    imageAlt: 'Knowledge graph view in Second Brain',
   },
   {
     title: 'Databases',
     body: 'A folder becomes a table or board. Each row is still a normal note agents can create.',
+    image: 'shots/shot-04.webp',
+    imageAlt: 'Database table view of notes in Second Brain',
   },
 ] as const;
 
@@ -49,16 +58,33 @@ export function Features() {
           </p>
         </div>
 
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((feature, i) => (
             <article
               key={feature.title}
-              className={`reveal diagram-card p-5 ${visible ? 'is-visible' : ''}`}
-              style={{ transitionDelay: visible ? `${80 + i * 50}ms` : '0ms' }}
+              className={`reveal feature-card group overflow-hidden ${visible ? 'is-visible' : ''}`}
+              style={{ transitionDelay: visible ? `${70 + i * 55}ms` : '0ms' }}
             >
-              <div className="mb-3 h-px w-8 bg-accent" aria-hidden="true" />
-              <h3 className="font-serif text-lg font-semibold text-ink">{feature.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted">{feature.body}</p>
+              <div className="feature-card-media relative aspect-[16/10] overflow-hidden bg-surface">
+                <img
+                  src={asset(feature.image)}
+                  alt={feature.imageAlt}
+                  width={640}
+                  height={400}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+                />
+                <div
+                  className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[color-mix(in_srgb,var(--raised)_55%,transparent)] to-transparent opacity-80"
+                  aria-hidden="true"
+                />
+              </div>
+              <div className="p-5">
+                <div className="mb-2.5 h-px w-8 bg-accent" aria-hidden="true" />
+                <h3 className="font-serif text-lg font-semibold text-ink">{feature.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted">{feature.body}</p>
+              </div>
             </article>
           ))}
         </div>
