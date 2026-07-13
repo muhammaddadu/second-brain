@@ -1,7 +1,9 @@
 /**
  * Multi-hop recall (E11) — seed → 1-hop → 2-hop over the knowledge graph.
- * Visual only; claims match shipped CLI/MCP/Related panel behaviour.
+ * Animated cards + flow beads; claims match shipped CLI/MCP/Related panel.
  */
+import type { CSSProperties } from 'react';
+import { useReveal } from '../../lib/useReveal';
 import { DiagramCard, FlowConnector } from './DiagramChrome';
 
 const STEPS = [
@@ -24,12 +26,23 @@ const STEPS = [
 ] as const;
 
 export function HopRecallDiagram() {
+  const { ref, visible } = useReveal<HTMLDivElement>('0px 0px -8% 0px');
+
   return (
-    <div className="diagram-panel">
+    <div ref={ref} className={`diagram-panel diagram-stage ${visible ? 'is-live' : ''}`}>
       <div className="flex flex-col gap-1 lg:flex-row lg:items-stretch lg:gap-0">
         {STEPS.map((step, i) => (
           <div key={step.label} className="flex flex-1 flex-col lg:flex-row lg:items-stretch">
-            <DiagramCard accent={'accent' in step && step.accent === true} className="flex-1">
+            <DiagramCard
+              accent={'accent' in step && step.accent === true}
+              className="diagram-enter loop-step-active flex-1"
+              style={
+                {
+                  '--enter-delay': `${i * 90}ms`,
+                  '--glow-delay': `${0.7 + i * 2}s`,
+                } as CSSProperties
+              }
+            >
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
                 {step.label}
               </p>

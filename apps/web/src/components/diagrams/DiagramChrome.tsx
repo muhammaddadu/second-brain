@@ -1,69 +1,150 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 /** Soft paper card used inside marketing diagrams. */
 export function DiagramCard({
   children,
   className = '',
   accent = false,
+  hub = false,
+  style,
 }: {
   children: ReactNode;
   className?: string;
   accent?: boolean;
+  /** Soft breathing ring — use on the vault hub. */
+  hub?: boolean;
+  style?: CSSProperties;
 }) {
   return (
-    <div className={`diagram-card px-4 py-3.5 ${accent ? 'diagram-card-accent' : ''} ${className}`}>
+    <div
+      className={`diagram-card px-4 py-3.5 ${accent ? 'diagram-card-accent' : ''} ${hub ? 'diagram-card-hub' : ''} ${className}`}
+      style={style}
+    >
       {children}
     </div>
   );
 }
 
+/** Animated dashed connector with a traveling accent bead. */
 export function FlowConnector({ vertical = false }: { vertical?: boolean }) {
   if (vertical) {
     return (
-      <div className="flex flex-col items-center gap-1 py-2" aria-hidden="true">
-        <div className="flow-dot" />
-        <div className="h-6 w-px border-l border-dashed border-accent/45" />
+      <div className="flow-rail flow-rail-v relative h-10 w-full" aria-hidden="true">
+        <svg
+          className="h-full w-full"
+          viewBox="0 0 20 40"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <line className="flow-rail-line" x1="10" y1="2" x2="10" y2="38" />
+        </svg>
+        <span className="flow-bead" />
       </div>
     );
   }
   return (
-    <div className="hidden items-center gap-1 px-1.5 lg:flex" aria-hidden="true">
-      <div className="h-px w-6 border-t border-dashed border-accent/45 sm:w-8" />
-      <div className="flow-dot" />
-      <div className="h-px w-6 border-t border-dashed border-accent/45 sm:w-8" />
+    <div
+      className="flow-rail flow-rail-h relative mx-1 hidden w-10 shrink-0 self-center lg:block"
+      aria-hidden="true"
+    >
+      <svg
+        className="h-full w-full"
+        viewBox="0 0 40 20"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <line className="flow-rail-line" x1="2" y1="10" x2="38" y2="10" />
+      </svg>
+      <span className="flow-bead" />
     </div>
   );
 }
 
-/** Faint constellation behind a diagram panel. */
+/** Faint constellation behind a diagram panel — nodes twinkle gently. */
 export function Constellation() {
   return (
     <svg
-      className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.35]"
-      viewBox="0 0 400 360"
+      className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.45]"
+      viewBox="0 0 400 420"
       aria-hidden="true"
     >
       <g stroke="var(--edge)" strokeWidth="1" fill="none">
-        <path d="M40 60 L120 90 L90 160 L180 140" />
-        <path d="M280 40 L340 100 L300 180 L360 220" />
-        <path d="M60 260 L140 240 L200 300 L120 320" />
+        <path d="M36 52 L118 88 L92 168 L186 148" />
+        <path d="M286 36 L348 96 L308 178 L368 228" />
+        <path d="M48 278 L142 252 L208 318 L118 348" />
         <path
-          d="M220 80 L260 160 L220 220"
+          d="M214 72 L268 158 L222 228"
           stroke="var(--accent)"
-          strokeDasharray="3 4"
-          opacity="0.5"
+          strokeDasharray="3 5"
+          opacity="0.55"
+          className="flow-rail-line"
         />
       </g>
       <g fill="var(--faint)">
-        <circle cx="40" cy="60" r="2.5" />
-        <circle cx="120" cy="90" r="2" />
-        <circle cx="90" cy="160" r="2.5" />
-        <circle cx="180" cy="140" r="2" />
-        <circle cx="280" cy="40" r="2" />
-        <circle cx="340" cy="100" r="2.5" />
-        <circle cx="300" cy="180" r="2" />
-        <circle cx="200" cy="300" r="2.5" />
-        <circle cx="260" cy="160" r="3" fill="var(--accent)" opacity="0.7" />
+        <circle
+          className="constellation-node"
+          cx="36"
+          cy="52"
+          r="2.4"
+          style={{ animationDelay: '0s' }}
+        />
+        <circle
+          className="constellation-node"
+          cx="118"
+          cy="88"
+          r="2"
+          style={{ animationDelay: '0.6s' }}
+        />
+        <circle
+          className="constellation-node"
+          cx="92"
+          cy="168"
+          r="2.4"
+          style={{ animationDelay: '1.1s' }}
+        />
+        <circle
+          className="constellation-node"
+          cx="186"
+          cy="148"
+          r="2"
+          style={{ animationDelay: '1.7s' }}
+        />
+        <circle
+          className="constellation-node"
+          cx="286"
+          cy="36"
+          r="2"
+          style={{ animationDelay: '0.3s' }}
+        />
+        <circle
+          className="constellation-node"
+          cx="348"
+          cy="96"
+          r="2.4"
+          style={{ animationDelay: '0.9s' }}
+        />
+        <circle
+          className="constellation-node"
+          cx="308"
+          cy="178"
+          r="2"
+          style={{ animationDelay: '1.4s' }}
+        />
+        <circle
+          className="constellation-node"
+          cx="208"
+          cy="318"
+          r="2.4"
+          style={{ animationDelay: '2s' }}
+        />
+        <circle
+          className="constellation-node"
+          cx="268"
+          cy="158"
+          r="3.2"
+          fill="var(--accent)"
+          style={{ animationDelay: '0.5s' }}
+        />
       </g>
     </svg>
   );
