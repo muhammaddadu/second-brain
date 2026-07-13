@@ -58,7 +58,7 @@ export function AgentsDiagram() {
             "Got it. Using Maya's walkable-hotel note and yesterday's project update."
           </p>
           <p className="mt-3 text-xs text-muted">
-            Same vault. Different agent. Context already filed.
+            Same vault. Different agent. Context already filed — and recall can walk the links.
           </p>
         </DiagramCard>
       </div>

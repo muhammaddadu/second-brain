@@ -1,5 +1,5 @@
 import { useReveal } from '../lib/useReveal';
-import { VaultGraphDiagram } from './diagrams/VaultGraphDiagram';
+import { HopRecallDiagram } from './diagrams/HopRecallDiagram';
 
 const THREADS = [
   {
@@ -55,7 +55,10 @@ export function ValueProps() {
             className={`reveal ${visible ? 'is-visible' : ''}`}
             style={{ transitionDelay: visible ? '120ms' : '0ms' }}
           >
-            <VaultGraphDiagram />
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+              Multi-hop recall
+            </p>
+            <HopRecallDiagram />
           </div>
         </div>
       </div>

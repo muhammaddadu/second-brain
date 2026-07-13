@@ -21,8 +21,12 @@ const FEATURES = [
     body: 'Keyword search always local. Optional semantic search with a built-in on-device model, or your own provider.',
   },
   {
+    title: 'Multi-hop recall',
+    body: 'From a seed note, walk wikilinks, tags, and similarity. CLI, MCP, and the Related panel share one graph walk.',
+  },
+  {
     title: 'Knowledge graph',
-    body: 'Notes linked by tags, [[wikilinks]], and similarity. Browse the shape of the vault.',
+    body: 'Browse the shape of the vault. Notes linked by tags, [[wikilinks]], and similarity.',
   },
   {
     title: 'Databases',

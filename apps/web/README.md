@@ -9,10 +9,10 @@ One-page marketing site for **Second Brain**: Vite + React + Tailwind v4, matchi
 The site sells the **shipped** product only:
 
 - Local vault on disk; desktop app for humans; MCP + `brain` CLI for agents
-- `RULES.md`, hybrid search, knowledge graph, databases, wikilinks
-- Vision: agents summarise/file the day; the next agent reuses that context
+- `RULES.md`, hybrid search, knowledge graph, **multi-hop recall**, databases, wikilinks
+- Vision: agents summarise/file the day; the next agent reuses that context (including graph walks)
 
-Do **not** market cloud-hosted memory, folderless auto-organisation, or other concepts parked in [E10](../../docs/product/epics/E10-deeper-memory-semantics.md) until those themes are accepted and shipped.
+Do **not** market cloud-hosted memory, folderless auto-organisation, or other concepts still parked in [E10](../../docs/product/epics/E10-deeper-memory-semantics.md) until those themes are accepted and shipped.
 
 Visual language (card flows, multi-agent fan-in, labeled graph nodes) may borrow grammar from external comps; claims must stay ours.
 
